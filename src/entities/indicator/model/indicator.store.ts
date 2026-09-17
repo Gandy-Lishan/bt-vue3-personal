@@ -1,9 +1,16 @@
 import { defineStore } from 'pinia'
-import { fetchIndicatorDetail, fetchIndicatorList, fetchIndicatorTrends } from '../api/indicator.api'
+import {
+  fetchIndicatorDetail,
+  fetchIndicatorInfoRows,
+  fetchIndicatorList,
+  fetchIndicatorTrends,
+  fetchLegacyFavoriteIndicators,
+} from '../api/indicator.api'
 import { fetchFavorites, updateFavorite } from '../api/favorites.api'
-import { indicatorGroups, indicatorSourceLabels } from './indicator.catalog'
+import { indicatorGroups, indicatorSourceLabels, indicatorSubgroupIndex } from './indicator.catalog'
 import { favoriteIds, favoriteStubRow, parseFavoritesPayload } from './indicator.favorites'
 import type { FavoriteIndicator } from './indicator.favorites'
+import { normalizeIndicatorRows } from './indicator.adapter'
 import { inferIndicatorSourceFromDetail, isKnownIndicatorSource } from './indicator.source'
 import { compareSortValues, indicatorSortValue } from './indicator.values'
 import { INDICATOR_PAGE_SIZE } from './indicator.table'
@@ -38,9 +45,13 @@ interface IndicatorState {
   detailsById: Record<string, IndicatorDetail>
   sourceHintById: Record<string, string>
   favoriteIndicators: FavoriteIndicator[]
+  favoriteAccountItems: Indicator[]
+  favoriteLegacyItems: Indicator[]
   favoriteSymbolRaw: string
   favoritesLoaded: boolean
   favoritesLoading: boolean
+  favoriteListLoaded: boolean
+  favoriteListLoading: boolean
   toasts: IndicatorToast[]
 }
 
@@ -59,12 +70,41 @@ let nextToastId = 1
  */
 const favoriteWriteQueues = new WeakMap<object, Promise<void>>()
 const favoriteLoadQueues = new WeakMap<object, Promise<void>>()
+const favoriteListLoadQueues = new WeakMap<object, Promise<void>>()
 
 function enqueueFavoriteWrite(store: object, write: () => Promise<void>): Promise<void> {
   const previous = favoriteWriteQueues.get(store) ?? Promise.resolve()
   const next = previous.then(write, write)
   favoriteWriteQueues.set(store, next)
   return next
+}
+
+const favoriteDetailSource = 'favorite_detail'
+
+function accountFavoriteRow(indicator: Indicator): Indicator {
+  return { ...indicator, favorite: true, favoriteSource: 'account', favoriteLocked: false }
+}
+
+function legacyFavoriteRow(indicator: Indicator): Indicator {
+  return { ...indicator, favorite: true, favoriteSource: 'legacy', favoriteLocked: true }
+}
+
+function mergeFavoriteItems(accountItems: Indicator[], legacyItems: Indicator[]) {
+  const seen = new Set<string>()
+  const merged: Indicator[] = []
+
+  for (const item of [...accountItems, ...legacyItems]) {
+    const key = item.id.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(item)
+  }
+
+  return merged
+}
+
+function indicatorById(items: Indicator[]) {
+  return new Map(items.map((item) => [item.id.toLowerCase(), item]))
 }
 
 export const useIndicatorStore = defineStore('indicator', {
@@ -90,9 +130,13 @@ export const useIndicatorStore = defineStore('indicator', {
     detailsById: {},
     sourceHintById: {},
     favoriteIndicators: [],
+    favoriteAccountItems: [],
+    favoriteLegacyItems: [],
     favoriteSymbolRaw: '[]',
     favoritesLoaded: false,
     favoritesLoading: false,
+    favoriteListLoaded: false,
+    favoriteListLoading: false,
     toasts: [],
   }),
   getters: {
@@ -106,6 +150,7 @@ export const useIndicatorStore = defineStore('indicator', {
     },
     activeSource(): string {
       if (this.activeSection === 'popular') return 'most_popular'
+      if (this.activeSection === 'favorites') return favoriteDetailSource
       return this.activeSubgroup.source
     },
     /**
@@ -114,8 +159,17 @@ export const useIndicatorStore = defineStore('indicator', {
      * otherwise leave the underlying row still flagged and the star would reappear.
      */
     favoriteItems(state): Indicator[] {
+      if (state.favoriteListLoaded || state.favoriteAccountItems.length || state.favoriteLegacyItems.length) {
+        return mergeFavoriteItems(state.favoriteAccountItems, state.favoriteLegacyItems)
+      }
+
       const index = this.indicatorsById
-      return state.favoriteIndicators.map((favorite) => index.get(favorite.url.toLowerCase()) ?? favoriteStubRow(favorite))
+      return state.favoriteIndicators.map((favorite) =>
+        accountFavoriteRow(index.get(favorite.url.toLowerCase()) ?? favoriteStubRow(favorite)),
+      )
+    },
+    legacyFavoriteCount(state): number {
+      return state.favoriteLegacyItems.length
     },
     sourceItems(state): Indicator[] {
       if (state.activeSection === 'favorites') return this.favoriteItems
@@ -177,7 +231,26 @@ export const useIndicatorStore = defineStore('indicator', {
       return this.filteredItems.filter((item) => item.sentiment === 'pessimistic').length
     },
     isCurrentSourceLoading(state): boolean {
+      if (state.activeSection === 'favorites') return state.favoriteListLoading
       return Boolean(state.loadingBySource[this.activeSource])
+    },
+    /**
+     * Identity of the list being browsed, so it can round-trip through the route and
+     * survive a reload. Standalone sections use their own name, everything else the
+     * subgroup id.
+     */
+    listKey(): string {
+      if (this.activeSection === 'popular') return 'popular'
+      if (this.activeSection === 'favorites') return 'favorites'
+      return this.activeSubgroupId
+    },
+    listLabel(): string {
+      if (this.activeSection === 'popular') return 'Most Popular'
+      if (this.activeSection === 'favorites') return 'My Favorites'
+      return this.activeSubgroup.fullName ?? this.activeSubgroup.label
+    },
+    isStandaloneList(): boolean {
+      return this.activeSection !== 'indicators'
     },
     /** Every indicator loaded so far, keyed by lowercased id. First list loaded wins. */
     indicatorsById(state): Map<string, Indicator> {
@@ -188,15 +261,21 @@ export const useIndicatorStore = defineStore('indicator', {
           if (!index.has(key)) index.set(key, item)
         }
       }
+      for (const item of [...state.favoriteAccountItems, ...state.favoriteLegacyItems]) {
+        const key = item.id.toLowerCase()
+        if (!index.has(key)) index.set(key, item)
+      }
       return index
     },
   },
   actions: {
     async ensureCurrentList() {
-      await this.ensureList(this.activeSource)
       if (this.activeSection === 'favorites') {
-        await this.ensureList('stock_complete_list')
+        await this.ensureFavoriteList()
+        return
       }
+
+      await this.ensureList(this.activeSource)
     },
     async ensureList(source: string) {
       if (this.loadedBySource[source] || this.loadingBySource[source]) return
@@ -235,6 +314,11 @@ export const useIndicatorStore = defineStore('indicator', {
       }
     },
     setSection(section: IndicatorSection) {
+      if (section === 'favorites' && this.activeSection !== 'favorites') {
+        this.favoriteListLoaded = false
+        this.favoriteAccountItems = []
+        this.favoriteLegacyItems = []
+      }
       this.activeSection = section
       this.page = 1
     },
@@ -247,6 +331,25 @@ export const useIndicatorStore = defineStore('indicator', {
       this.activeGroupId = group.id
       this.activeSubgroupId = group.subgroups[0].id
       this.page = 1
+    },
+    /**
+     * Restore a list from a route key: a standalone section name, or a subgroup id.
+     * Returns false for anything unrecognised so callers can fall back.
+     */
+    setListKey(key: string) {
+      if (key === 'popular' || key === 'favorites') {
+        this.setSection(key)
+        return true
+      }
+
+      const entry = indicatorSubgroupIndex.get(key)
+      if (!entry) return false
+
+      this.activeSection = 'indicators'
+      this.activeGroupId = entry.group.id
+      this.activeSubgroupId = entry.subgroup.id
+      this.page = 1
+      return true
     },
     setActiveSource(source: string) {
       const sourceMeta = indicatorSourceLabels.get(source)
@@ -298,9 +401,9 @@ export const useIndicatorStore = defineStore('indicator', {
     clampPage() {
       this.page = Math.max(1, Math.min(this.page, this.pageCount))
     },
-    /** Load the server list once, then overlay it onto the loaded rows' star flags. */
-    async ensureFavorites() {
-      if (this.favoritesLoaded) return
+    /** Load the server list, then overlay it onto the loaded rows' star flags. */
+    async ensureFavorites(force = false) {
+      if (this.favoritesLoaded && !force) return
 
       const existing = favoriteLoadQueues.get(this)
       if (existing) return existing
@@ -312,6 +415,7 @@ export const useIndicatorStore = defineStore('indicator', {
           this.favoriteIndicators = payload.indicators
           this.favoriteSymbolRaw = payload.symbolsRaw
           this.favoritesLoaded = true
+          this.favoriteListLoaded = false
           this.applyFavoriteFlags()
         } catch {
           // Leave the row-level flags alone so stars survive a failed request.
@@ -322,6 +426,31 @@ export const useIndicatorStore = defineStore('indicator', {
       })()
 
       favoriteLoadQueues.set(this, load)
+      return load
+    },
+    async ensureFavoriteList() {
+      if (this.favoriteListLoaded || this.favoriteListLoading) return favoriteListLoadQueues.get(this)
+
+      this.favoriteListLoading = true
+      const load = (async () => {
+        try {
+          await this.ensureFavorites(true)
+
+          const detailRows = await fetchIndicatorInfoRows(this.favoriteIndicators.map((favorite) => favorite.url))
+          const detailItems = indicatorById(normalizeIndicatorRows(detailRows, favoriteDetailSource))
+          this.favoriteAccountItems = this.favoriteIndicators.map((favorite) =>
+            accountFavoriteRow(detailItems.get(favorite.url.toLowerCase()) ?? favoriteStubRow(favorite)),
+          )
+
+          this.favoriteLegacyItems = (await fetchLegacyFavoriteIndicators()).map(legacyFavoriteRow)
+          this.favoriteListLoaded = true
+        } finally {
+          this.favoriteListLoading = false
+          favoriteListLoadQueues.delete(this)
+        }
+      })()
+
+      favoriteListLoadQueues.set(this, load)
       return load
     },
     applyFavoriteFlags() {
@@ -350,10 +479,20 @@ export const useIndicatorStore = defineStore('indicator', {
 
       const isFavorite = favoriteIds(this.favoriteIndicators).has(key)
       const name = this.indicatorsById.get(key)?.name ?? key
+      const shouldSyncLoadedFavoriteList =
+        this.favoriteListLoaded || this.favoriteAccountItems.length > 0 || this.favoriteLegacyItems.length > 0
 
       this.favoriteIndicators = isFavorite
         ? this.favoriteIndicators.filter((favorite) => favorite.url.toLowerCase() !== key)
         : [...this.favoriteIndicators, { url: id, name }]
+      if (shouldSyncLoadedFavoriteList) {
+        this.favoriteAccountItems = isFavorite
+          ? this.favoriteAccountItems.filter((item) => item.id.toLowerCase() !== key)
+          : [
+              ...this.favoriteAccountItems.filter((item) => item.id.toLowerCase() !== key),
+              accountFavoriteRow(this.indicatorsById.get(key) ?? favoriteStubRow({ url: id, name })),
+            ]
+      }
       this.applyFavoriteFlags()
 
       const requested = this.favoriteIndicators
@@ -366,10 +505,19 @@ export const useIndicatorStore = defineStore('indicator', {
           const present = favoriteIds(this.favoriteIndicators).has(key)
           if (isFavorite && !present) {
             this.favoriteIndicators = [...this.favoriteIndicators, { url: id, name }]
+            if (shouldSyncLoadedFavoriteList) {
+              this.favoriteAccountItems = [
+                ...this.favoriteAccountItems.filter((item) => item.id.toLowerCase() !== key),
+                accountFavoriteRow(this.indicatorsById.get(key) ?? favoriteStubRow({ url: id, name })),
+              ]
+            }
           } else if (!isFavorite && present) {
             this.favoriteIndicators = this.favoriteIndicators.filter(
               (favorite) => favorite.url.toLowerCase() !== key,
             )
+            if (shouldSyncLoadedFavoriteList) {
+              this.favoriteAccountItems = this.favoriteAccountItems.filter((item) => item.id.toLowerCase() !== key)
+            }
           }
           this.applyFavoriteFlags()
           this.pushToast(
@@ -386,16 +534,24 @@ export const useIndicatorStore = defineStore('indicator', {
     dismissToast(id: number) {
       this.toasts = this.toasts.filter((toast) => toast.id !== id)
     },
-    setIndicatorTrend(id: string, trend: number[]) {
-      const nextTrend = [...trend]
+    setIndicatorTrend(id: string, trendLines: number[][]) {
+      const nextLines = trendLines.map((line) => [...line])
+      const key = id.toLowerCase()
+      const withTrend = (item: Indicator) =>
+        item.id.toLowerCase() === key ? { ...item, trendLines: nextLines } : item
+
       for (const source of Object.keys(this.itemsBySource)) {
-        this.itemsBySource[source] = this.itemsBySource[source].map((item) =>
-          item.id === id ? { ...item, trend: nextTrend } : item,
-        )
+        this.itemsBySource[source] = this.itemsBySource[source].map(withTrend)
       }
 
+      // My Favorites renders from its own lists once they have loaded, not from
+      // `itemsBySource`, so trends have to be written there too or its sparkline stays
+      // empty while every other list draws one.
+      this.favoriteAccountItems = this.favoriteAccountItems.map(withTrend)
+      this.favoriteLegacyItems = this.favoriteLegacyItems.map(withTrend)
+
       if (this.detailsById[id]) {
-        this.detailsById[id] = { ...this.detailsById[id], trend: nextTrend }
+        this.detailsById[id] = { ...this.detailsById[id], trendLines: nextLines }
       }
     },
   },

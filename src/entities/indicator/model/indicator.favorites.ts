@@ -100,8 +100,9 @@ export function favoriteStubRow(favorite: FavoriteIndicator): Indicator {
     updatedAt: '',
     sentiment: 'neutral',
     sentimentScore: 4,
-    trend: [],
+    trendLines: [],
     favorite: true,
+    favoriteSource: 'account',
     type: 'Indicator',
     raw: { chart_name: favorite.name || favorite.url, url: favorite.url },
   }

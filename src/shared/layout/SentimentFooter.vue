@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useTheme } from '@/shared/theme/theme'
+
 const currentYear = new Date().getFullYear()
-const logoUrl = 'https://cdn.prod.website-files.com/650486dd4239644e595569c1/650486dd4239644e59556a01_ST%20Logo.png'
+const { isDarkTheme } = useTheme()
+
+// Kept in step with the header: dark artwork in the light theme, white in the dark one.
+const lightLogoUrl = 'https://cdn.prod.website-files.com/650486dd4239644e595569c1/650486dd4239644e59556a01_ST%20Logo.png'
+const logoUrl = computed(() => (isDarkTheme.value ? '/avatar-sentimen-dark.png' : lightLogoUrl))
 
 const productLinks = ['Dashboard', 'Indicators', 'BacktestEdge', 'Smart Scanner']
 const resourceLinks = ['Tutorials', 'Help Center', 'Methodology', 'Status', 'BacktestEdge Tutorial']
@@ -8,7 +15,7 @@ const legalLinks = ['General Disclaimer', 'Privacy Policy', 'Terms']
 </script>
 
 <template>
-  <footer class="mt-8 bg-[var(--chrome-bg)] px-[var(--page-gutter)] py-8 text-[14px] font-normal text-white shadow-[0_-10px_30px_rgba(5,16,31,0.12)]">
+  <footer class="mt-8 bg-[var(--chrome-bg)] px-[var(--page-gutter)] py-8 text-[14px] font-normal text-[var(--chrome-text)] shadow-[0_-10px_30px_rgba(5,16,31,0.12)]">
     <div class="grid gap-8 border-b border-[var(--chrome-border-muted)] pb-6 lg:grid-cols-[1.55fr_0.75fr_0.8fr_0.7fr_1.15fr]">
       <div>
         <RouterLink class="mb-5 flex items-center" to="/">
@@ -23,7 +30,7 @@ const legalLinks = ['General Disclaimer', 'Privacy Policy', 'Terms']
         <h3 class="mb-3 text-[14px] font-normal text-[var(--chrome-heading)]">Product</h3>
         <ul class="space-y-2">
           <li v-for="link in productLinks" :key="link">
-            <RouterLink class="text-[14px] font-normal text-[var(--chrome-text-muted)] hover:text-white" to="/indicators">{{ link }}</RouterLink>
+            <RouterLink class="text-[14px] font-normal text-[var(--chrome-text-muted)] hover:text-[var(--chrome-text)]" to="/indicators">{{ link }}</RouterLink>
           </li>
         </ul>
       </div>
@@ -32,7 +39,7 @@ const legalLinks = ['General Disclaimer', 'Privacy Policy', 'Terms']
         <h3 class="mb-3 text-[14px] font-normal text-[var(--chrome-heading)]">Resources</h3>
         <ul class="space-y-2">
           <li v-for="link in resourceLinks" :key="link">
-            <RouterLink class="text-[14px] font-normal text-[var(--chrome-text-muted)] hover:text-white" to="/doc/guide/0">{{ link }}</RouterLink>
+            <RouterLink class="text-[14px] font-normal text-[var(--chrome-text-muted)] hover:text-[var(--chrome-text)]" to="/doc/guide/0">{{ link }}</RouterLink>
           </li>
         </ul>
       </div>
@@ -41,13 +48,13 @@ const legalLinks = ['General Disclaimer', 'Privacy Policy', 'Terms']
         <h3 class="mb-3 text-[14px] font-normal text-[var(--chrome-heading)]">Legal</h3>
         <ul class="space-y-2">
           <li v-for="link in legalLinks" :key="link">
-            <RouterLink class="text-[14px] font-normal text-[var(--chrome-text-muted)] hover:text-white" to="/doc/disclaimer">{{ link }}</RouterLink>
+            <RouterLink class="text-[14px] font-normal text-[var(--chrome-text-muted)] hover:text-[var(--chrome-text)]" to="/doc/disclaimer">{{ link }}</RouterLink>
           </li>
         </ul>
       </div>
 
       <div class="border-[var(--chrome-border-muted)] lg:border-l lg:pl-8">
-        <h3 class="mb-4 text-[14px] font-normal text-white">Stay connected</h3>
+        <h3 class="mb-4 text-[14px] font-normal text-[var(--chrome-text)]">Stay connected</h3>
         <ul class="mb-5 flex items-center gap-3">
           <li>
             <a class="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--chrome-field-border)] bg-[var(--chrome-menu-bg-alt)] text-[14px] font-normal hover:border-[var(--chrome-accent)] hover:text-[var(--chrome-accent)]" href="https://facebook.com/sentimentrader" target="_blank" rel="noopener noreferrer">f</a>

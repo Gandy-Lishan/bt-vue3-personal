@@ -111,6 +111,36 @@ export async function fetchIndicatorList(source: string, signal?: AbortSignal): 
   }
 }
 
+export async function fetchIndicatorInfoRows(ids: string[], signal?: AbortSignal): Promise<IndicatorRawRow[]> {
+  const uniqueIds = Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)))
+  if (!uniqueIds.length) return []
+
+  const rows: Array<IndicatorRawRow | null> = await Promise.all(
+    uniqueIds.map(async (id) => {
+      try {
+        const payload = await fetchJson<unknown>(`/dev/st_data/search_url_info?url=${encodeURIComponent(id)}`, signal)
+        const parsed = safeJsonParse(payload)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+
+        const row = parsed as IndicatorRawRow
+        return {
+          ...row,
+          url: String(row.url ?? row.chart_url ?? id),
+          chart_name: String(row.chart_name ?? row.name ?? id),
+        }
+      } catch {
+        return null
+      }
+    }),
+  )
+
+  return rows.filter((row): row is IndicatorRawRow => row !== null)
+}
+
+export function fetchLegacyFavoriteIndicators(signal?: AbortSignal): Promise<Indicator[]> {
+  return fetchIndicatorList('btv1_user_favorite_indicator', signal)
+}
+
 export async function fetchIndicatorChartData(id: string, signal?: AbortSignal): Promise<IndicatorChartData> {
   if (!id) return []
 

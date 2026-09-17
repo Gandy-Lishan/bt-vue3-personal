@@ -8,6 +8,8 @@ export type IndicatorSentiment = 'pessimistic' | 'neutral' | 'optimistic'
 
 export type IndicatorDetailTab = 'detail' | 'research' | 'related' | 'constituents'
 
+export type IndicatorFavoriteSource = 'account' | 'legacy'
+
 /**
  * One row of the constituent conditions table. Keys are column names as returned by
  * the API and drive the table's columns, so nothing here is a fixed shape.
@@ -46,8 +48,10 @@ export interface Indicator {
   updatedAt: string
   sentiment: IndicatorSentiment
   sentimentScore: number
-  trend: number[]
+  trendLines: number[][]
   favorite: boolean
+  favoriteSource?: IndicatorFavoriteSource
+  favoriteLocked?: boolean
   type: string
   marketSymbol?: string
   raw?: Record<string, unknown>
@@ -78,7 +82,7 @@ export interface IndicatorDetail {
   thresholdRows: IndicatorThresholdRow[]
   returnSegments: IndicatorReturnSegment[]
   showReturns: boolean
-  trend: number[]
+  trendLines: number[][]
   benchmarkTrend: number[]
   type: string
   marketSymbol?: string

@@ -31,7 +31,9 @@ interface NavItem {
 
 const route = useRoute()
 const { isDarkTheme, themeToggleLabel, toggleThemeMode } = useTheme()
-const logoUrl = 'https://cdn.prod.website-files.com/650486dd4239644e595569c1/650486dd4239644e59556a01_ST%20Logo.png'
+// The light logo is dark artwork; the dark theme needs the white variant instead.
+const lightLogoUrl = 'https://cdn.prod.website-files.com/650486dd4239644e595569c1/650486dd4239644e59556a01_ST%20Logo.png'
+const logoUrl = computed(() => (isDarkTheme.value ? '/avatar-sentimen-dark.png' : lightLogoUrl))
 
 const tutorialItems: NavItem[] = [
   { label: 'Walkthrough Videos', keyPath: '1-3', path: 'https://users.sentimentrader.com/users/walkthrough_videos/', external: true },
@@ -186,16 +188,16 @@ function firstPath(item: NavItem) {
 </script>
 
 <template>
-  <header class="no-print relative z-20 border-b border-[var(--chrome-border)] bg-[var(--chrome-bg)] text-[14px] font-normal text-white shadow-[0_10px_30px_rgba(5,16,31,0.18)]">
+  <header class="no-print relative z-20 border-b border-[var(--chrome-border)] bg-[var(--chrome-bg)] text-[14px] font-normal text-[var(--chrome-text)] shadow-[0_10px_30px_rgba(5,16,31,0.18)]">
     <div class="flex h-[66px] items-center gap-6 px-[var(--page-gutter)]">
       <RouterLink class="flex min-w-[200px] items-center" to="/">
         <img :src="logoUrl" alt="SentimenTrader logo" width="175" height="35" class="h-[35px] w-[175px] object-contain" />
       </RouterLink>
 
       <div class="mx-auto flex h-10 w-full max-w-[720px] items-center overflow-hidden rounded-lg border border-[var(--chrome-field-border)] bg-[var(--chrome-field-bg)] shadow-inner">
-        <Search :size="20" class="ml-4 text-white/85" />
+        <Search :size="20" class="ml-4 text-[var(--chrome-text-muted)]" />
         <input
-          class="h-full flex-1 bg-transparent px-4 text-[14px] font-normal text-white outline-none placeholder:text-[var(--chrome-text-muted)]"
+          class="h-full flex-1 bg-transparent px-4 text-[14px] font-normal text-[var(--chrome-text)] outline-none placeholder:text-[var(--chrome-text-muted)]"
           placeholder="Search research, indicators, symbols or charts..."
         />
         <button
@@ -207,12 +209,12 @@ function firstPath(item: NavItem) {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
-        <a class="relative rounded-md p-2 text-white/90 transition hover:bg-white/10 hover:text-white" href="/notifications" aria-label="Notifications">
+        <a class="relative rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]" href="/notifications" aria-label="Notifications">
           <Bell :size="18" />
           <span class="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff4b63] px-1 text-[10px] font-normal text-white">8</span>
         </a>
         <button
-          class="rounded-md p-2 text-white/90 transition hover:bg-white/10 hover:text-white"
+          class="rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]"
           type="button"
           :aria-label="themeToggleLabel"
           :title="themeToggleLabel"
@@ -221,17 +223,17 @@ function firstPath(item: NavItem) {
           <Sun v-if="isDarkTheme" :size="18" />
           <Moon v-else :size="18" />
         </button>
-        <a class="rounded-md p-2 text-[var(--chrome-accent)] transition hover:bg-white/10" href="https://users.sentimentrader.com/users/" title="Back to Classic Site">
+        <a class="rounded-md p-2 text-[var(--chrome-accent)] transition hover:bg-[var(--chrome-hover)]" href="https://users.sentimentrader.com/users/" title="Back to Classic Site">
           <Home :size="20" />
         </a>
 
         <div class="group relative">
-          <button class="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-[14px] font-normal text-white/95 transition hover:bg-white/10">
+          <button class="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-[14px] font-normal text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)]">
             Tutorial & Webinar Videos
             <ChevronDown :size="14" />
           </button>
           <div class="invisible absolute right-0 top-full z-30 mt-1 min-w-[250px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
-            <a v-for="item in tutorialItems" :key="item.keyPath" :href="item.path" target="_blank" class="flex items-center gap-2 px-3 py-2 text-[14px] font-normal text-white/90 hover:bg-[var(--chrome-menu-hover)]">
+            <a v-for="item in tutorialItems" :key="item.keyPath" :href="item.path" target="_blank" class="flex items-center gap-2 px-3 py-2 text-[14px] font-normal text-[var(--chrome-text)] hover:bg-[var(--chrome-menu-hover)]">
               <Play :size="15" />
               {{ item.label }}
             </a>
@@ -239,7 +241,7 @@ function firstPath(item: NavItem) {
         </div>
 
         <div class="group relative">
-          <button class="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-[14px] font-normal text-white/95 transition hover:bg-white/10">
+          <button class="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-[14px] font-normal text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)]">
             Help
             <ChevronDown :size="14" />
           </button>
@@ -251,7 +253,7 @@ function firstPath(item: NavItem) {
               :href="item.external ? item.path : undefined"
               :to="!item.external ? item.path : undefined"
               :target="item.external ? '_blank' : undefined"
-              class="flex items-center gap-2 px-3 py-2 text-[14px] font-normal text-white/90 hover:bg-[var(--chrome-menu-hover)]"
+              class="flex items-center gap-2 px-3 py-2 text-[14px] font-normal text-[var(--chrome-text)] hover:bg-[var(--chrome-menu-hover)]"
             >
               <CircleHelp v-if="item.keyPath === '2-2'" :size="15" />
               <BookOpen v-else :size="15" />
@@ -261,8 +263,9 @@ function firstPath(item: NavItem) {
         </div>
 
         <div class="group relative">
-          <button class="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-[14px] font-normal text-white/95 transition hover:bg-white/10">
-            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--chrome-accent)]">
+          <button class="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-[14px] font-normal text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)]">
+            <!-- White on the accent disc in both themes, so it stays off the chrome text token. -->
+            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--chrome-accent)] text-white">
               <User :size="18" />
             </span>
             My Account
@@ -276,7 +279,7 @@ function firstPath(item: NavItem) {
               :href="item.external ? item.path : undefined"
               :to="!item.external ? item.path : undefined"
               :target="item.external ? '_blank' : undefined"
-              class="flex items-center gap-2 px-3 py-2 text-[14px] font-normal text-white/90 hover:bg-[var(--chrome-menu-hover)]"
+              class="flex items-center gap-2 px-3 py-2 text-[14px] font-normal text-[var(--chrome-text)] hover:bg-[var(--chrome-menu-hover)]"
             >
               <Settings v-if="item.keyPath === '3-1'" :size="15" />
               <User v-else-if="item.keyPath === '3-2'" :size="15" />
@@ -291,14 +294,14 @@ function firstPath(item: NavItem) {
       </div>
     </div>
 
-    <nav class="relative flex h-11 items-stretch overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-white">
+    <nav class="relative flex h-11 items-stretch overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
       <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0">
         <component
           :is="item.external ? 'a' : 'RouterLink'"
           :href="item.external ? item.path : undefined"
           :to="!item.external ? firstPath(item) : undefined"
           :target="item.external ? '_blank' : undefined"
-          class="flex items-center whitespace-nowrap px-2.5 text-[14px] font-normal text-white/95 transition hover:bg-white/10"
+          class="flex items-center whitespace-nowrap px-2.5 text-[14px] font-normal text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)]"
           :class="{ 'bg-[var(--chrome-active-bg)] text-[var(--chrome-accent)] shadow-[inset_0_-4px_0_var(--chrome-accent)]': isActive(item) }"
         >
           {{ item.label }}
@@ -315,7 +318,7 @@ function firstPath(item: NavItem) {
             :href="subItem.external ? subItem.path : undefined"
             :to="!subItem.external ? subItem.path : undefined"
             :target="subItem.external ? '_blank' : undefined"
-            class="block px-4 py-2 text-[14px] font-normal text-white/90 hover:bg-[var(--chrome-menu-hover)]"
+            class="block px-4 py-2 text-[14px] font-normal text-[var(--chrome-text)] hover:bg-[var(--chrome-menu-hover)]"
           >
             {{ subItem.label }}
           </component>

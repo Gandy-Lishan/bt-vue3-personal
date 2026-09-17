@@ -30,6 +30,8 @@ const normalizedSubTypeSources = new Set([
   'commod_seasonality',
   'etf_seasonality',
   'most_popular',
+  'favorite_detail',
+  'btv1_user_favorite_indicator',
   'commodity_complete_list',
   'commod_sentiment_seasonality',
   'commod_optix_trend',
@@ -260,7 +262,7 @@ export function normalizeIndicatorRows(rows: IndicatorRawRow[], source: string):
       const currentValue = toNumber(row.last_value)
       const change = toNumber(row.last_change)
       const sentimentScore = normalizeSentimentScore(row.sentiment, currentValue, change)
-      const trend = normalizeTrendSeries(row.trend ?? row.recent_data ?? row.chart_data ?? row.values ?? row.series ?? row.data)
+      const trendLines = normalizeTrendSeries(row.trend ?? row.recent_data ?? row.chart_data ?? row.values ?? row.series ?? row.data)
 
       return {
         id,
@@ -275,7 +277,7 @@ export function normalizeIndicatorRows(rows: IndicatorRawRow[], source: string):
         updatedAt: String(row.last_update ?? '2026-09-08'),
         sentiment: sentimentFromScore(sentimentScore),
         sentimentScore,
-        trend,
+        trendLines,
         favorite: Boolean(row.favorite),
         type: String(row.type ?? 'Indicator'),
         marketSymbol: row.market_symbol ? String(row.market_symbol) : undefined,

@@ -23,7 +23,7 @@ export function researchPostRow(post: IndicatorResearchPost): Indicator {
     updatedAt: post.date ?? '',
     sentiment: 'neutral',
     sentimentScore: 4,
-    trend: [],
+    trendLines: [],
     favorite: false,
     type: 'Research',
     raw: { title, date: post.date, url: post.url, summary: post.summary },

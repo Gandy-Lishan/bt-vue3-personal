@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   BarChart3,
   CalendarDays,
   Clock3,
   Database,
   Download,
+  Flame,
   Grid3X3,
   Info,
   LayoutGrid,
   RotateCcw,
   Search,
   SlidersHorizontal,
+  Star,
   Table2,
   Globe2,
   X,
@@ -22,7 +24,7 @@ import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
 import { getIndicatorTableMeta } from '@/entities/indicator/model/indicator.table'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import type { IndicatorTableColumn, IndicatorTableColumnKind } from '@/entities/indicator/model/indicator.table'
-import type { Indicator, IndicatorGroup, IndicatorSortDirection } from '@/entities/indicator/model/indicator.types'
+import type { Indicator, IndicatorGroup, IndicatorSection, IndicatorSortDirection } from '@/entities/indicator/model/indicator.types'
 import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
@@ -30,6 +32,7 @@ import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
 
 const store = useIndicatorStore()
 const router = useRouter()
+const route = useRoute()
 const isDescriptionOpen = ref(false)
 
 const iconMap = {
@@ -50,16 +53,20 @@ const currentTitle = computed(() => {
 })
 
 const currentFullTableName = computed(() => {
+  if (store.activeSection === 'popular') return 'Most Popular Indicators'
+  if (store.activeSection === 'favorites') return 'My Favorite Indicators'
   return store.activeSubgroup.fullName ?? store.activeSubgroup.label
 })
 
 const currentDescription = computed(() => {
   if (store.activeSection === 'popular') return 'The indicators members use most often across market groups.'
-  if (store.activeSection === 'favorites') return 'Your saved indicators from BacktestEdge.'
+  if (store.activeSection === 'favorites') return 'Your saved indicators from BacktestEdge and your classic favorites folder.'
   return store.activeGroup.description
 })
 
 const visibleGroups = computed(() => store.groups.filter((group) => group.id !== 'all'))
+// Only the grouped indicator section has subgroups; the standalone lists do not.
+const showSubgroups = computed(() => store.activeSection === 'indicators')
 const summaryGroupCount = computed(() => visibleGroups.value.filter((group) => group.id !== 'overview').length)
 const tableMeta = computed(() => getIndicatorTableMeta(store.activeSource))
 const tableDescriptionParagraphs = computed(() =>
@@ -88,6 +95,15 @@ const sentimentLegend = [
   { score: 7, label: 'Extremely Optimistic' },
 ]
 
+const featuredSections: Array<{ id: Exclude<IndicatorSection, 'indicators'>; label: string; icon: typeof Flame }> = [
+  { id: 'favorites', label: 'My Favorites', icon: Star },
+  { id: 'popular', label: 'Most Popular', icon: Flame },
+]
+
+function selectSection(section: IndicatorSection) {
+  store.setSection(section)
+}
+
 function selectGroup(group: IndicatorGroup) {
   store.setSection('indicators')
   store.setGroup(group.id)
@@ -95,8 +111,18 @@ function selectGroup(group: IndicatorGroup) {
 
 function openIndicator(indicator: Indicator) {
   store.rememberIndicatorSource(indicator.id, indicator.sourceList)
-  router.push({ name: 'indicator-detail', params: { id: indicator.id } })
+  // Carry the list in the URL so the detail page can restore it, and so returning here
+  // lands back on the same list even after a reload.
+  router.push({ name: 'indicator-detail', params: { id: indicator.id }, query: { list: store.listKey } })
 }
+
+watch(
+  () => route.query.list,
+  (key) => {
+    if (typeof key === 'string' && key) store.setListKey(key)
+  },
+  { immediate: true },
+)
 
 /**
  * Exports the whole list as currently filtered and sorted, not just the visible page.
@@ -204,18 +230,36 @@ watch(
 
       <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
         <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
-          <h2 class="mb-3 px-1 text-sm font-semibold text-[var(--app-text)]">Indicator Groups</h2>
+          <button
+            v-for="section in featuredSections"
+            :key="section.id"
+            class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
+            :class="store.activeSection === section.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
+            type="button"
+            @click="selectSection(section.id)"
+          >
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+              :class="section.id === 'favorites' ? 'text-[var(--app-favorite)]' : 'text-[var(--app-primary)]'"
+            >
+              <component :is="section.icon" :size="21" :fill="section.id === 'favorites' ? 'var(--app-favorite)' : 'var(--app-primary)'" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold leading-5">{{ section.label }}</span>
+            </span>
+          </button>
+          <div class="my-3 border-t border-[var(--app-border-muted)]" />
           <button
             v-for="group in visibleGroups"
             :key="group.id"
             class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
-            :class="store.activeGroupId === group.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
+            :class="store.activeSection === 'indicators' && store.activeGroupId === group.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
             type="button"
             @click="selectGroup(group)"
           >
             <span
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-              :class="store.activeGroupId === group.id ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"
+              :class="store.activeSection === 'indicators' && store.activeGroupId === group.id ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"
             >
               <component :is="iconMap[group.icon as keyof typeof iconMap]" :size="21" />
             </span>
@@ -267,7 +311,8 @@ watch(
             </div>
           </header>
 
-          <nav class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
+          <!-- My Favorites and Most Popular are standalone lists, so they carry no subgroup tabs. -->
+          <nav v-if="showSubgroups" class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
             <button
               v-for="subgroup in store.activeSubgroups"
               :key="subgroup.id"
@@ -280,7 +325,7 @@ watch(
             </button>
           </nav>
 
-          <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto]">
+          <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto_auto]">
             <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
               <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
               <input v-model="store.searchQuery" class="w-full bg-transparent text-[13px] outline-none" placeholder="Search indicators..." />
@@ -309,6 +354,19 @@ watch(
               </template>
             </select>
             <button
+              class="flex h-9 items-center justify-center gap-1.5 rounded-md border px-3 text-[13px] transition"
+              :class="store.favoritesOnly
+                ? 'border-[var(--app-border)] bg-[var(--app-surface)] font-semibold text-[var(--app-text)]'
+                : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text-secondary)] hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]'"
+              type="button"
+              :aria-pressed="store.favoritesOnly"
+              title="Show only favorited indicators"
+              @click="store.favoritesOnly = !store.favoritesOnly"
+            >
+              <Star :size="16" :fill="store.favoritesOnly ? 'var(--app-favorite)' : 'transparent'" />
+              Favorites Only
+            </button>
+            <button
               class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[13px] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]"
               type="button"
               @click="store.resetFilters"
@@ -326,6 +384,22 @@ watch(
               <Download :size="16" />
               CSV
             </button>
+          </div>
+
+          <div
+            v-if="store.activeSection === 'favorites' && store.legacyFavoriteCount"
+            class="mx-4 mb-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-2 text-sm leading-6 text-[var(--app-text-secondary)]"
+          >
+            Some favorites come from your classic favorites folder and cannot be removed here.
+            Manage those favorites on the
+            <a
+              class="font-semibold text-[var(--app-primary)] hover:underline"
+              href="https://users.sentimentrader.com/users/favorites/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              classic favorites page
+            </a>.
           </div>
 
           <div class="px-4 pb-4">

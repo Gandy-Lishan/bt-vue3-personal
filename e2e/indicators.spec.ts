@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { getSeededRawIndicators } from '../src/entities/indicator/model/indicator.fixtures'
+import { formatIndicatorNumber } from '../src/entities/indicator/model/indicator.values'
 
 function trendPayloadForRows(rows: ReturnType<typeof getSeededRawIndicators>) {
   return rows.map((row, rowIndex) => ({
@@ -231,7 +232,7 @@ test('keeps indicator list stable when favoriting before favorites finish loadin
   const urlBeforeFavorite = page.url()
 
   await expect(page.getByRole('button', { name: 'Bravo Indicator' })).toBeVisible()
-  await page.getByRole('row', { name: /Bravo Indicator/ }).getByRole('button', { name: 'Add favorite' }).click()
+  await page.getByRole('row', { name: /Bravo Indicator/ }).getByRole('button', { name: 'Add to favorite indicators' }).click()
 
   expect(favoritePutBodies).toEqual([])
   pendingFavorites.resolve()
@@ -306,7 +307,16 @@ test('shows indicator detail layout and keeps detail features', async ({ page })
   await expect(page.getByText(/Update Schedule:\s*Daily/)).toBeVisible()
   await expect(page.getByText(/Source:\s*SentimenTrader/)).toBeVisible()
   await expect(page.getByText(/Last Updated:\s*September 8, 2026/)).toBeVisible()
+  await expect(page.getByText('LAST CLOSE')).toBeVisible()
+  await expect(page.getByText(formatIndicatorNumber(chartRowsForId(detailId).at(-1)?.spx), { exact: true })).toBeVisible()
+  await expect(page.getByText('EXTREME LEVELS')).toBeVisible()
+  await expect(page.getByText('Excessive Optimism')).toBeVisible()
+  await expect(page.getByText('Excessive Pessimism')).toBeVisible()
   await expect(page.locator('.highcharts-container')).toBeVisible()
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.getByText('LAST CLOSE')).toBeVisible()
+  await expect(page.getByText('EXTREME LEVELS')).toBeVisible()
   expect(chartRequestPaths[0]).toBe('/dev/st_data/get_data')
   await expect(page.getByRole('heading', { name: 'Construction' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Legacy Chart Link' })).toHaveAttribute(

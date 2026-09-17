@@ -32,7 +32,7 @@ describe('indicator adapter', () => {
       sentimentScore: 3,
       favorite: true,
       sourceList: 'stock_complete_list',
-      trend: [],
+      trendLines: [],
     })
   })
 

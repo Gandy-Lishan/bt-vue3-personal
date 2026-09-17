@@ -93,6 +93,51 @@ describe('indicator store', () => {
     expect(store.pageSize).toBe(12)
   })
 
+  it('narrows the list to favorites while favoritesOnly is on', async () => {
+    mockIndicatorList([
+      { url: 'alpha', chart_name: 'Alpha', favorite: true },
+      { url: 'bravo', chart_name: 'Bravo' },
+      { url: 'charlie', chart_name: 'Charlie', favorite: true },
+    ])
+    const store = useIndicatorStore()
+
+    await store.ensureCurrentList()
+    expect(store.filteredItems).toHaveLength(3)
+
+    store.favoritesOnly = true
+    expect(store.filteredItems.map((item) => item.name)).toEqual(['Alpha', 'Charlie'])
+    expect(store.totalIndicators).toBe(2)
+
+    store.favoritesOnly = false
+    expect(store.filteredItems).toHaveLength(3)
+  })
+
+  it('combines favoritesOnly with the other filters instead of replacing them', async () => {
+    mockIndicatorList([
+      { url: 'alpha', chart_name: 'Alpha', timeframe: 'Short', favorite: true },
+      { url: 'bravo', chart_name: 'Bravo', timeframe: 'Long', favorite: true },
+      { url: 'charlie', chart_name: 'Charlie', timeframe: 'Short' },
+    ])
+    const store = useIndicatorStore()
+
+    await store.ensureCurrentList()
+    store.favoritesOnly = true
+    store.timeFrameFilter = 'Short'
+
+    expect(store.filteredItems.map((item) => item.name)).toEqual(['Alpha'])
+  })
+
+  it('clears favoritesOnly through the reset action', async () => {
+    mockIndicatorList([{ url: 'alpha', chart_name: 'Alpha' }])
+    const store = useIndicatorStore()
+
+    await store.ensureCurrentList()
+    store.favoritesOnly = true
+    store.resetFilters()
+
+    expect(store.favoritesOnly).toBe(false)
+  })
+
   it('indexes loaded indicators by lowercased id across every source', async () => {
     mockIndicatorList([
       { url: 'Alpha', chart_name: 'Alpha' },
@@ -105,6 +150,52 @@ describe('indicator store', () => {
     expect(store.indicatorsById.get('alpha')?.name).toBe('Alpha')
     expect(store.indicatorsById.get('bravo')?.name).toBe('Bravo')
     expect(store.indicatorsById.get('missing')).toBeUndefined()
+  })
+
+  it('round-trips each list through its route key', () => {
+    const store = useIndicatorStore()
+
+    for (const key of ['popular', 'favorites', 'nasdaq100', 'cot', 'stock']) {
+      expect(store.setListKey(key)).toBe(true)
+      // The key that comes back must be the one that went in, or returning to the list
+      // from a detail page would land somewhere else.
+      expect(store.listKey).toBe(key)
+    }
+  })
+
+  it('restores a standalone section without dropping it into a subgroup list', () => {
+    const store = useIndicatorStore()
+
+    store.setListKey('popular')
+
+    expect(store.activeSection).toBe('popular')
+    expect(store.isStandaloneList).toBe(true)
+    expect(store.listLabel).toBe('Most Popular')
+
+    store.setListKey('favorites')
+
+    expect(store.activeSection).toBe('favorites')
+    expect(store.listLabel).toBe('My Favorites')
+  })
+
+  it('restores a subgroup, resolving the group it belongs to', () => {
+    const store = useIndicatorStore()
+
+    store.setListKey('nasdaq100')
+
+    expect(store.activeSection).toBe('indicators')
+    expect(store.activeGroupId).toBe('stock')
+    expect(store.activeSubgroupId).toBe('nasdaq100')
+    expect(store.isStandaloneList).toBe(false)
+    expect(store.listLabel).toBe('NASDAQ 100 Stock Sentiment')
+  })
+
+  it('reports an unknown list key rather than silently changing lists', () => {
+    const store = useIndicatorStore()
+    store.setListKey('nasdaq100')
+
+    expect(store.setListKey('not-a-real-list')).toBe(false)
+    expect(store.activeSubgroupId).toBe('nasdaq100')
   })
 
   it('switches the active group and subgroup from a resolved source', () => {
@@ -163,6 +254,27 @@ describe('indicator store', () => {
     expect(store.pagedItems.map((item) => item.name)).toEqual(['High', 'Middle', 'Low'])
   })
 
+  it('writes trends onto the loaded favorite lists as well as the source lists', async () => {
+    // Regression: favorites render from their own lists once loaded, so trends written
+    // only to itemsBySource left My Favorites without a sparkline.
+    mockIndicatorListAndTrends([], { data: {} })
+    const store = useIndicatorStore()
+
+    store.activeSection = 'favorites'
+    store.favoriteListLoaded = true
+    store.favoriteAccountItems = [{ id: 'alpha', name: 'Alpha', trendLines: [] } as never]
+    store.favoriteLegacyItems = [{ id: 'Bravo', name: 'Bravo', trendLines: [] } as never]
+
+    store.setIndicatorTrend('alpha', [[1, 2, 3]])
+    // Legacy rows keep the server's casing, so the match cannot be case sensitive.
+    store.setIndicatorTrend('bravo', [[4, 5, 6]])
+
+    expect(store.favoriteItems.map((item) => item.trendLines)).toEqual([
+      [[1, 2, 3]],
+      [[4, 5, 6]],
+    ])
+  })
+
   it('loads and caches real trends for current page indicators', async () => {
     const fetchMock = mockIndicatorListAndTrends(
       [
@@ -183,12 +295,12 @@ describe('indicator store', () => {
     const store = useIndicatorStore()
 
     await store.ensureCurrentList()
-    expect(store.pagedItems.map((item) => item.trend)).toEqual([[], []])
+    expect(store.pagedItems.map((item) => item.trendLines)).toEqual([[], []])
 
     await store.ensureTrendsForIndicators(store.pagedItems)
 
-    expect(store.itemsBySource.stock_complete_list[0].trend).toEqual([1, 2, 3])
-    expect(store.itemsBySource.stock_complete_list[1].trend).toEqual([])
+    expect(store.itemsBySource.stock_complete_list[0].trendLines).toEqual([[1, 2, 3]])
+    expect(store.itemsBySource.stock_complete_list[1].trendLines).toEqual([])
 
     const trendRequests = fetchMock.mock.calls.filter(([input]) => String(input).includes('stock_recent_data'))
     expect(trendRequests).toHaveLength(1)

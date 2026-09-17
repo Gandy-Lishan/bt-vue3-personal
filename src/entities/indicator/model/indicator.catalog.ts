@@ -99,6 +99,11 @@ export const indicatorGroups: IndicatorGroup[] = [
   },
 ]
 
+/** Subgroup id → its group, for restoring a list from the route. */
+export const indicatorSubgroupIndex = new Map(
+  indicatorGroups.flatMap((group) => group.subgroups.map((subgroup) => [subgroup.id, { group, subgroup }] as const)),
+)
+
 export const indicatorSourceLabels = new Map(
   indicatorGroups.flatMap((group) =>
     group.subgroups.map((subgroup) => [subgroup.source, { group, subgroup }] as const),

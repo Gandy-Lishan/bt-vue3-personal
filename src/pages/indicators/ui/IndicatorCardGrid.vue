@@ -57,14 +57,17 @@ function timeFrameLabel(indicator: Indicator) {
     >
       <div class="flex items-start gap-2.5">
         <button
-          class="mt-0.5 shrink-0 text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]"
+          v-if="!indicator.favoriteLocked"
+          class="mt-0.5 shrink-0 transition"
+          :class="indicator.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-secondary)] hover:text-[var(--app-favorite)]'"
           type="button"
           :title="favoriteActionLabel(indicator.favorite)"
           :aria-label="favoriteActionLabel(indicator.favorite)"
           @click.stop="$emit('favorite', indicator.id)"
         >
-          <Star :size="18" :fill="indicator.favorite ? 'var(--app-primary)' : 'transparent'" />
+          <Star :size="18" :fill="indicator.favorite ? 'var(--app-favorite)' : 'transparent'" />
         </button>
+        <span v-else class="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
         <div class="min-w-0 flex-1">
           <button class="line-clamp-2 text-left text-sm font-semibold leading-5 text-[var(--app-text)] transition hover:text-[var(--app-primary)] hover:underline" type="button" @click="$emit('open', indicator)">
             {{ indicator.name }}
@@ -88,7 +91,7 @@ function timeFrameLabel(indicator: Indicator) {
           </p>
         </div>
         <div class="flex justify-end">
-          <IndicatorSparkline :points="indicator.trend" :tone="indicatorTrendTone(indicator)" :width="145" :height="46" />
+          <IndicatorSparkline :series="indicator.trendLines" :tone="indicatorTrendTone(indicator)" :width="145" :height="46" />
         </div>
       </div>
 

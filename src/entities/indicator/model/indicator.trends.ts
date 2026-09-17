@@ -3,12 +3,37 @@ import type { Indicator } from './indicator.types'
 export const INDICATOR_TREND_POINT_COUNT = 30
 
 export type IndicatorTrendTone = 'green' | 'red'
-export type IndicatorTrendMap = Record<string, number[]>
+
+/** Each url maps to one or more lines. Most indicators have a single line. */
+export type IndicatorTrendMap = Record<string, number[][]>
 
 type TrendRecord = Record<string, unknown>
 
 const seriesKeys = ['recent_data', 'data', 'values', 'series', 'chart_data', 'points', 'trend']
 const valueKeys = ['value', 'last_value', 'close', 'y', 'last', 'price', 'reading', 'v']
+
+/**
+ * Per-point fields that are never plotted. `change`/`percent_change` sit alongside
+ * `close` in the common row shape and would otherwise become extra lines once a row has
+ * no recognised primary key.
+ */
+const ignoredPointKeys = new Set([
+  'date',
+  'time',
+  'timestamp',
+  'datetime',
+  'day',
+  'label',
+  'change',
+  'percent_change',
+  'pct_change',
+  'net_change',
+  'url',
+  'chart_url',
+  'id',
+  'symbol',
+  'name',
+])
 
 function safeJsonParse(value: unknown) {
   if (typeof value !== 'string') return value
@@ -52,19 +77,70 @@ function pointValue(point: unknown): number | null {
   return null
 }
 
-export function normalizeTrendSeries(series: unknown) {
+function tail(values: number[]) {
+  return values.slice(-INDICATOR_TREND_POINT_COUNT)
+}
+
+function parsedPoints(series: unknown): unknown[] {
   const parsed = safeJsonParse(series)
-  const nestedSeries = isRecord(parsed) ? seriesKeys.find((key) => Array.isArray(safeJsonParse(parsed[key]))) : undefined
+  if (isRecord(parsed)) {
+    const nestedSeries = seriesKeys.find((key) => Array.isArray(safeJsonParse(parsed[key])))
+    return nestedSeries ? parsedPoints(parsed[nestedSeries]) : []
+  }
 
-  if (isRecord(parsed) && nestedSeries) return normalizeTrendSeries(parsed[nestedSeries])
-  if (!Array.isArray(parsed)) return []
+  return Array.isArray(parsed) ? parsed : []
+}
 
-  const points = parsed
-    .map(pointValue)
-    .filter((value): value is number => value !== null)
-    .slice(-INDICATOR_TREND_POINT_COUNT)
+/**
+ * Lines for rows with no recognised primary key — the two-line shape, e.g.
+ * `{ Date, smart_money, dumb_money }`. Every numeric field becomes a line, in the order
+ * the payload declares them, which is what decides blue (first) versus dark red (second).
+ */
+function stackedSeries(points: unknown[]): number[][] {
+  const keys: string[] = []
 
-  return points.length >= 2 ? points : []
+  for (const point of points) {
+    const parsed = safeJsonParse(point)
+    if (!isRecord(parsed)) continue
+
+    for (const [key, value] of Object.entries(parsed)) {
+      if (ignoredPointKeys.has(key.toLowerCase())) continue
+      if (trendNumber(value) === null) continue
+      if (!keys.includes(key)) keys.push(key)
+    }
+  }
+
+  return (
+    keys
+      .map((key) =>
+        points.map((point) => {
+          const parsed = safeJsonParse(point)
+          return isRecord(parsed) ? trendNumber(parsed[key]) : null
+        }),
+      )
+      // Every line has to cover the same points, or the lines would plot out of step.
+      .filter((line): line is number[] => line.every((value) => value !== null))
+      .map(tail)
+      .filter((line) => line.length >= 2)
+  )
+}
+
+/**
+ * One line per series. A row with a recognised primary key (close, value, …) yields a
+ * single line and keeps the usual directional colouring; anything else is treated as a
+ * stacked multi-line series.
+ */
+export function normalizeTrendSeries(series: unknown): number[][] {
+  const points = parsedPoints(series)
+  if (!points.length) return []
+
+  const primary = points.map(pointValue)
+  if (primary.every((value) => value !== null)) {
+    const line = tail(primary as number[])
+    return line.length >= 2 ? [line] : []
+  }
+
+  return stackedSeries(points)
 }
 
 function rowUrl(record: TrendRecord) {
@@ -83,9 +159,9 @@ function addTrend(result: IndicatorTrendMap, key: string, series: unknown) {
   const url = key.trim()
   if (!url) return
 
-  const points = normalizeTrendSeries(series)
-  if (points.length >= 2) {
-    result[url] = points
+  const lines = normalizeTrendSeries(series)
+  if (lines.length) {
+    result[url] = lines
   }
 }
 
@@ -135,9 +211,11 @@ export function normalizeIndicatorTrendPayload(payload: unknown, requestedUrls: 
   return result
 }
 
-export function indicatorTrendTone(indicator: Pick<Indicator, 'change' | 'trend'>): IndicatorTrendTone {
-  if (indicator.trend.length >= 2) {
-    return indicator.trend[indicator.trend.length - 1] < indicator.trend[0] ? 'red' : 'green'
+/** Direction tone for the single-line case; a stacked chart colours by position instead. */
+export function indicatorTrendTone(indicator: Pick<Indicator, 'change' | 'trendLines'>): IndicatorTrendTone {
+  const [primary] = indicator.trendLines ?? []
+  if (primary && primary.length >= 2) {
+    return primary[primary.length - 1] < primary[0] ? 'red' : 'green'
   }
 
   return indicator.change < 0 ? 'red' : 'green'

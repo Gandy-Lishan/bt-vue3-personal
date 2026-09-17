@@ -24,7 +24,7 @@ function baseRelatedRow(chart: IndicatorRelatedChart): Indicator {
     updatedAt: '',
     sentiment: 'neutral',
     sentimentScore: neutralSentimentScore,
-    trend: [],
+    trendLines: [],
     favorite: false,
     type: chart.type ?? 'Indicator',
     raw: { chart_name: chart.title, url: chart.url, type: chart.type },
@@ -56,7 +56,7 @@ export function indicatorFromRelatedChart(chart: IndicatorRelatedChart, detail: 
     updatedAt: detail.updatedAt ?? '',
     sentiment: detail.sentiment ?? sentimentFromScore(detail.sentimentScore),
     sentimentScore: normalizeSentimentScore(detail.sentimentScore),
-    trend: detail.trend ?? [],
+    trendLines: detail.trendLines ?? [],
     type: detail.type || chart.type || 'Indicator',
     raw: {
       chart_name: detail.title || chart.title,

@@ -13,11 +13,12 @@ import {
 } from '@/entities/indicator/model/indicator.related'
 import { isUnavailableIndicatorId, unableToFindIndicatorMessage } from '@/entities/indicator/model/indicator.source'
 import { constituentColumns, constituentSortValue } from '@/entities/indicator/model/indicator.constituents'
+import { favoriteActionLabel } from '@/entities/indicator/model/indicator.favorites'
 import { formatIndicatorDate } from '@/entities/indicator/model/indicator.dates'
 import { hasCftcDataNotice } from '@/entities/indicator/model/indicator.notices'
 import { researchPostRows } from '@/entities/indicator/model/indicator.research'
 import { sentimentLabelFromScore, sentimentTextClass } from '@/entities/indicator/model/indicator.sentiment'
-import { formatIndicatorNumber, indicatorSortValue } from '@/entities/indicator/model/indicator.values'
+import { formatIndicatorNumber, indicatorSortValue, parseIndicatorNumber } from '@/entities/indicator/model/indicator.values'
 import { relatedChartColumns, researchPostColumns } from '@/entities/indicator/model/indicator.table'
 import type {
   Indicator,
@@ -53,7 +54,9 @@ const detailMessage = ref('')
 const csvMessage = ref('')
 const isDownloadingCsv = ref(false)
 const detailContentElement = ref<HTMLElement | null>(null)
-const sidebarMaxHeight = ref('')
+/** Matches the `xl:` breakpoint where the sidebar and detail sit side by side. */
+const sidebarBreakpoint = '(min-width: 1280px)'
+const sidebarHeight = ref('')
 
 const relatedRows = ref<Indicator[]>([])
 const isRelatedLoading = ref(false)
@@ -158,7 +161,9 @@ const breadcrumbGroupLabel = computed(() => {
   }
   return store.activeGroup.label
 })
-const breadcrumbSubgroupLabel = computed(() => store.activeSubgroup.fullName ?? store.activeSubgroup.label)
+const listLabel = computed(() => store.listLabel)
+// Every route back to the list carries the list it came from.
+const backToList = computed(() => ({ name: 'indicators' as const, query: { list: store.listKey } }))
 
 const detailMeta = computed(() => {
   const item = detail.value
@@ -169,6 +174,46 @@ const detailMeta = computed(() => {
     { label: 'Update Schedule', value: detailUpdateSchedule(item) },
     { label: 'Source', value: detailSource(item) },
     { label: 'Last Updated', value: detailLastUpdated(item) },
+  ]
+})
+
+const latestStandardChartRow = computed(() => {
+  if (!Array.isArray(chartRows.value) || !chartRows.value.length) return null
+
+  const datedRows = chartRows.value
+    .map((row) => ({ row, timestamp: rowDateTimestamp(row) }))
+    .filter((item): item is { row: IndicatorChartDataRow; timestamp: number } => item.timestamp !== null)
+    .sort((left, right) => left.timestamp - right.timestamp)
+
+  return datedRows.at(-1)?.row ?? chartRows.value.at(-1) ?? null
+})
+
+const lastCloseValue = computed(() => {
+  const item = detail.value
+  const row = latestStandardChartRow.value
+  if (!item || !row) return null
+
+  return indicatorChartValue(item, row)
+})
+
+const extremeLevels = computed(() => {
+  const item = detail.value
+  if (!item) return []
+
+  const rowOpt = latestChartNumber('opt')
+  const rowPess = latestChartNumber('pess')
+
+  return [
+    {
+      label: 'Excessive Optimism',
+      value: formatExtremeValue(rowOpt ?? item.opt),
+      tone: 'optimism',
+    },
+    {
+      label: 'Excessive Pessimism',
+      value: formatExtremeValue(rowPess ?? item.pess),
+      tone: 'pessimism',
+    },
   ]
 })
 
@@ -188,9 +233,82 @@ function changeText(item: IndicatorDetail) {
 }
 
 function changeClass(value: number) {
-  if (value < 0) return 'text-[var(--app-negative)]'
-  if (value > 0) return 'text-[var(--app-positive)]'
-  return 'text-[var(--app-text)]'
+  if (value < 0) return 'indicator-stat-card__value--negative'
+  if (value > 0) return 'indicator-stat-card__value--positive'
+  return ''
+}
+
+function rowValueForKey(row: IndicatorChartDataRow, key: string) {
+  if (!key) return undefined
+  if (Object.prototype.hasOwnProperty.call(row, key)) return row[key]
+
+  const matchedKey = Object.keys(row).find((rowKey) => rowKey.toLowerCase() === key.toLowerCase())
+  return matchedKey ? row[matchedKey] : undefined
+}
+
+function rowNumberForKey(row: IndicatorChartDataRow, key: string) {
+  return parseIndicatorNumber(rowValueForKey(row, key))
+}
+
+function latestChartNumber(key: string) {
+  const row = latestStandardChartRow.value
+  return row ? rowNumberForKey(row, key) : null
+}
+
+function formatExtremeValue(value: unknown) {
+  return parseIndicatorNumber(value) === null ? 'None' : formatIndicatorNumber(value)
+}
+
+function isChartSummaryExcludedKey(key: string) {
+  return ['date', 'dumb', 'color', 'change', 'percent_change', 'opt', 'pess'].includes(key.toLowerCase())
+}
+
+function rawDetailString(item: IndicatorDetail, key: string) {
+  const value = item.raw?.[key]
+  return value === undefined || value === null ? '' : String(value).trim()
+}
+
+function detailTickerKeys(item: IndicatorDetail) {
+  return [
+    rawDetailString(item, 'ticker'),
+    rawDetailString(item, 'Ticker'),
+    rawDetailString(item, 'symbol'),
+    rawDetailString(item, 'Symbol'),
+    rawDetailString(item, 'chart_symbol'),
+    String(item.marketSymbol ?? '').trim(),
+    rawDetailString(item, 'market_symbol'),
+  ].filter(Boolean)
+}
+
+function indicatorChartValue(item: IndicatorDetail, row: IndicatorChartDataRow) {
+  const candidateKeys = [
+    ...detailTickerKeys(item),
+    'last_close',
+    'lastClose',
+    'close',
+    'Close',
+    item.id,
+    String(item.raw?.url ?? ''),
+    String(item.raw?.chart_url ?? ''),
+    'last_value',
+    'last',
+    'value',
+    'reading',
+  ].filter(Boolean)
+
+  for (const key of Array.from(new Set(candidateKeys))) {
+    const value = rowNumberForKey(row, key)
+    if (value !== null) return value
+  }
+
+  const marketSymbol = String(item.marketSymbol ?? item.raw?.market_symbol ?? '').trim().toLowerCase()
+  const numericEntries = Object.entries(row).filter(
+    ([key, value]) => !isChartSummaryExcludedKey(key) && parseIndicatorNumber(value) !== null,
+  )
+  const nonMarketEntry = numericEntries.find(([key]) => !marketSymbol || key.toLowerCase() !== marketSymbol)
+  const fallbackValue = nonMarketEntry?.[1] ?? numericEntries[0]?.[1]
+
+  return parseIndicatorNumber(fallbackValue)
 }
 
 function detailTimeFrame(item: IndicatorDetail) {
@@ -242,6 +360,10 @@ function toggleFavorite() {
   if (id) {
     void store.toggleFavorite(id)
   }
+}
+
+function toggleSidebarFavorite(id: string) {
+  void store.toggleFavorite(id)
 }
 
 /** Chart rows carry no fixed schema, so columns are the union of their keys. */
@@ -391,13 +513,17 @@ function ensureRelatedRows() {
 
 function updateSidebarHeight() {
   const element = detailContentElement.value
-  if (!element) {
-    sidebarMaxHeight.value = ''
+  // Only in the two-column layout: stacked, a sidebar forced to the detail's height
+  // would just leave a large gap under a short list.
+  const sideBySide = typeof window !== 'undefined' && window.matchMedia(sidebarBreakpoint).matches
+
+  if (!element || !sideBySide) {
+    sidebarHeight.value = ''
     return
   }
 
   const height = Math.ceil(element.getBoundingClientRect().height)
-  sidebarMaxHeight.value = height > 0 ? `${height}px` : ''
+  sidebarHeight.value = height > 0 ? `${height}px` : ''
 }
 
 function observeDetailContent() {
@@ -457,6 +583,17 @@ watch(
 
     try {
       const loadedDetail = await store.ensureDetail(id)
+
+      // A list carried in the URL wins: arriving from Most Popular or My Favorites must
+      // keep that list, whereas `setActiveSource` would force the grouped section and
+      // drop the user into a subgroup list instead.
+      const originKey = route.query.list
+      if (typeof originKey === 'string' && originKey && store.setListKey(originKey)) {
+        await store.ensureCurrentList()
+        if (requestId === chartRequestId) await loadChartRows(id, requestId)
+        return
+      }
+
       const source = store.sourceForDetail(id, loadedDetail)
       if (source) store.setActiveSource(source)
       await store.ensureList(source ?? store.activeSource)
@@ -521,15 +658,18 @@ watch(activeTab, (tab) => {
       </section>
 
       <nav class="mb-3 flex min-h-14 flex-wrap items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-4 text-sm font-semibold">
-        <RouterLink class="inline-flex items-center gap-2 text-[var(--app-primary)] hover:underline" to="/indicators">
+        <RouterLink class="inline-flex items-center gap-2 text-[var(--app-primary)] hover:underline" :to="backToList">
           <ChevronLeft :size="18" />
           Back to Indicators
         </RouterLink>
         <span class="h-6 w-px bg-[var(--app-border)]" />
-        <span class="text-[var(--app-text-secondary)]">{{ breadcrumbGroupLabel }}</span>
-        <span class="text-[var(--app-text-faint)]">/</span>
-        <RouterLink class="text-[var(--app-primary)] hover:underline" to="/indicators">
-          {{ breadcrumbSubgroupLabel }}
+        <!-- Standalone lists have no group, so only the list name is shown. -->
+        <template v-if="!store.isStandaloneList">
+          <span class="text-[var(--app-text-secondary)]">{{ breadcrumbGroupLabel }}</span>
+          <span class="text-[var(--app-text-faint)]">/</span>
+        </template>
+        <RouterLink class="text-[var(--app-primary)] hover:underline" :to="backToList">
+          {{ listLabel }}
         </RouterLink>
       </nav>
 
@@ -543,13 +683,13 @@ watch(activeTab, (tab) => {
       <section v-else-if="detail" class="grid items-start gap-3 xl:grid-cols-[400px_minmax(0,1fr)]">
         <aside
           class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
-          :style="sidebarMaxHeight ? { maxHeight: sidebarMaxHeight } : undefined"
+          :style="sidebarHeight ? { height: sidebarHeight } : undefined"
         >
           <div class="mb-4 flex items-center justify-between">
             <h2 class="text-2xl font-semibold">Indicators</h2>
             <RouterLink
               class="flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-primary)] transition hover:bg-[var(--app-primary-soft)]"
-              to="/indicators"
+              :to="backToList"
               aria-label="Back to indicators list"
             >
               <ChevronLeft :size="20" />
@@ -561,61 +701,97 @@ watch(activeTab, (tab) => {
             <Search :size="18" class="ml-2 shrink-0 text-[var(--app-text-secondary)]" />
           </label>
 
-          <h3 class="mb-2 shrink-0 text-sm font-semibold">{{ breadcrumbSubgroupLabel }}</h3>
+          <h3 class="mb-2 shrink-0 text-sm font-semibold">{{ listLabel }}</h3>
           <div class="min-h-0 flex-1 overflow-y-auto pr-1">
-            <RouterLink
+            <!-- Split so the star can be its own control: a button nested in a link
+                 would be invalid, and clicking the star must not navigate. -->
+            <div
               v-for="item in sidebarItems"
               :key="item.id"
-              class="flex items-start justify-between gap-2 border-b border-[var(--app-border-muted)] px-2 py-2 text-sm leading-5 text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]"
-              :class="{ 'border-l-4 border-l-[var(--app-primary)] bg-[var(--app-primary-soft)] pl-2 font-semibold text-[var(--app-primary)]': item.id === indicatorId }"
-              :to="{ name: 'indicator-detail', params: { id: item.id } }"
-              @click="store.rememberIndicatorSource(item.id, item.sourceList)"
+              class="flex items-start gap-2 border-b border-[var(--app-border-muted)] px-2 py-2 text-sm leading-5"
+              :class="{ 'border-l-4 border-l-[var(--app-primary)] bg-[var(--app-primary-soft)] pl-2 font-semibold': item.id === indicatorId }"
             >
-              <span class="line-clamp-2">{{ item.name }}</span>
-              <Star v-if="item.favorite" :size="16" class="mt-0.5 shrink-0 text-[var(--app-primary)]" fill="var(--app-primary)" />
-            </RouterLink>
+              <RouterLink
+                class="line-clamp-2 min-w-0 flex-1 hover:text-[var(--app-primary)]"
+                :class="item.id === indicatorId ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"
+                :to="{ name: 'indicator-detail', params: { id: item.id }, query: { list: store.listKey } }"
+                @click="store.rememberIndicatorSource(item.id, item.sourceList)"
+              >
+                {{ item.name }}
+              </RouterLink>
+
+              <span v-if="item.favoriteLocked" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <button
+                v-else
+                class="mt-0.5 shrink-0 transition"
+                :class="item.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-favorite)]'"
+                type="button"
+                :title="favoriteActionLabel(item.favorite)"
+                :aria-label="favoriteActionLabel(item.favorite)"
+                @click="toggleSidebarFavorite(item.id)"
+              >
+                <Star :size="16" :fill="item.favorite ? 'var(--app-favorite)' : 'transparent'" />
+              </button>
+            </div>
             <p v-if="!sidebarItems.length" class="py-8 text-center text-sm text-[var(--app-text-muted)]">No indicators found</p>
           </div>
         </aside>
 
         <section ref="detailContentElement" class="min-w-0 space-y-3">
-          <section class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-6">
-            <div class="mb-5 flex items-start justify-between gap-4">
-              <h3 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">{{ detail.title }}</h3>
-              <button class="mt-1 shrink-0 text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]" type="button" aria-label="Toggle favorite" @click="toggleFavorite">
-                <Star :size="32" :fill="isFavorite ? 'var(--app-primary)' : 'transparent'" />
+          <section class="indicator-summary">
+            <div class="indicator-summary__header">
+              <h3 class="indicator-summary__title">{{ detail.title }}</h3>
+              <button
+                class="indicator-summary__favorite"
+                :class="{ 'indicator-summary__favorite--active': isFavorite }"
+                type="button"
+                :aria-label="favoriteActionLabel(isFavorite)"
+                :title="favoriteActionLabel(isFavorite)"
+                @click="toggleFavorite"
+              >
+                <Star :size="32" :fill="isFavorite ? 'var(--app-favorite)' : 'transparent'" />
               </button>
             </div>
 
-            <div class="grid gap-3 2xl:grid-cols-[150px_150px_minmax(0,1fr)]">
-              <div class="flex min-h-[104px] flex-col justify-center rounded-lg border border-[var(--app-border)] px-5 py-4">
-                <p class="text-base font-semibold text-[var(--app-text-muted)]">Current</p>
-                <p class="mt-1 text-3xl font-semibold">{{ formatIndicatorNumber(detail.currentValue) }}</p>
+            <div class="indicator-summary__meta-row">
+              <span v-for="meta in detailMeta" :key="meta.label" class="indicator-meta-pill">
+                <span class="indicator-meta-pill__label">{{ meta.label }}:</span>
+                <span class="indicator-meta-pill__value">{{ meta.value }}</span>
+              </span>
+              <span class="indicator-sentiment-pill">
+                <IndicatorSentimentMeter :score="detail.sentimentScore" />
+                <span class="indicator-sentiment-pill__text" :class="sentimentTextClass(detail.sentimentScore)">
+                  {{ sentimentLabelFromScore(detail.sentimentScore) }}
+                </span>
+              </span>
+            </div>
+
+            <div class="indicator-summary__stats">
+              <div class="indicator-stat-card">
+                <p class="indicator-stat-card__label">Current</p>
+                <p class="indicator-stat-card__value">{{ formatIndicatorNumber(detail.currentValue) }}</p>
               </div>
-              <div class="flex min-h-[104px] flex-col justify-center rounded-lg border border-[var(--app-border)] px-5 py-4">
-                <p class="text-base font-semibold text-[var(--app-text-muted)]">Change</p>
-                <p class="mt-1 text-3xl font-semibold" :class="changeClass(detail.change)">
+              <div class="indicator-stat-card">
+                <p class="indicator-stat-card__label">Change</p>
+                <p class="indicator-stat-card__value" :class="changeClass(detail.change)">
                   {{ changeText(detail) }}
                 </p>
               </div>
-
-              <div class="flex min-h-[104px] items-center rounded-lg border border-[var(--app-border)] px-5 py-4">
-                <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                  <div class="flex min-w-0 flex-wrap items-center gap-3 text-sm font-semibold">
-                    <span
-                      v-for="meta in detailMeta"
-                      :key="meta.label"
-                      class="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--app-primary-soft-alt)] px-4 text-[var(--app-text-secondary)]"
-                    >
-                      <span class="text-[var(--app-text-muted)]">{{ meta.label }}:</span>
-                      <span class="text-[var(--app-text)]">{{ meta.value }}</span>
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-5 border-t border-[var(--app-border)] pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-                    <IndicatorSentimentMeter :score="detail.sentimentScore" />
-                    <div class="text-base font-semibold" :class="sentimentTextClass(detail.sentimentScore)">
-                      {{ sentimentLabelFromScore(detail.sentimentScore) }}
-                    </div>
+              <div class="indicator-stat-card">
+                <p class="indicator-stat-card__label">Updated</p>
+                <p class="indicator-stat-card__value indicator-stat-card__value--date">{{ detailLastUpdated(detail) }}</p>
+              </div>
+              <div class="indicator-stat-card">
+                <p class="indicator-stat-card__label">LAST CLOSE</p>
+                <p class="indicator-stat-card__value">{{ formatIndicatorNumber(lastCloseValue) }}</p>
+              </div>
+              <div class="indicator-stat-card indicator-stat-card--extremes">
+                <p class="indicator-stat-card__label">EXTREME LEVELS</p>
+                <div class="indicator-extreme-list">
+                  <div v-for="level in extremeLevels" :key="level.label" class="indicator-extreme-row">
+                    <span class="indicator-extreme-dot" :class="`indicator-extreme-dot--${level.tone}`" />
+                    <span class="indicator-extreme-label">{{ level.label }}</span>
+                    <span class="indicator-extreme-value">{{ level.value }}</span>
                   </div>
                 </div>
               </div>
@@ -759,6 +935,226 @@ watch(activeTab, (tab) => {
 </template>
 
 <style scoped>
+.indicator-summary {
+  color: var(--app-text);
+}
+
+.indicator-summary__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.indicator-summary__title {
+  min-width: 0;
+  color: var(--app-text);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.indicator-summary__favorite {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  color: var(--app-text-secondary);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.indicator-summary__favorite:hover,
+.indicator-summary__favorite:focus-visible {
+  background: var(--app-primary-soft);
+  color: var(--app-favorite);
+  box-shadow: 0 0 0 3px var(--app-primary-shadow);
+  outline: none;
+}
+
+/* Held yellow while saved, so hovering a starred indicator never looks like removal. */
+.indicator-summary__favorite--active,
+.indicator-summary__favorite--active:hover,
+.indicator-summary__favorite--active:focus-visible {
+  color: var(--app-favorite);
+}
+
+.indicator-summary__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  margin-bottom: 16px;
+}
+
+.indicator-meta-pill,
+.indicator-sentiment-pill {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--app-border-muted);
+  border-radius: 999px;
+  background: var(--app-primary-soft-alt);
+  color: var(--app-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 14px;
+}
+
+.indicator-meta-pill__label {
+  color: var(--app-text-muted);
+}
+
+.indicator-meta-pill__value {
+  color: var(--app-text);
+}
+
+.indicator-sentiment-pill {
+  gap: 12px;
+  padding-right: 16px;
+}
+
+.indicator-sentiment-pill__text {
+  white-space: nowrap;
+}
+
+.indicator-summary__stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(148px, 1fr));
+  gap: 14px;
+}
+
+.indicator-stat-card {
+  display: flex;
+  min-height: 104px;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-surface);
+  padding: 18px 22px;
+  box-shadow: 0 1px 0 var(--app-border-muted);
+}
+
+.indicator-stat-card__label {
+  color: var(--app-text-muted);
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.indicator-stat-card__value {
+  min-width: 0;
+  margin-top: 10px;
+  color: var(--app-text);
+  font-size: 1.875rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.indicator-stat-card__value--date {
+  font-size: 1.35rem;
+  line-height: 1.18;
+}
+
+.indicator-stat-card__value--positive {
+  color: var(--app-positive);
+}
+
+.indicator-stat-card__value--negative {
+  color: var(--app-negative);
+}
+
+.indicator-stat-card--extremes {
+  justify-content: flex-start;
+}
+
+.indicator-extreme-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.indicator-extreme-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  color: var(--app-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.indicator-extreme-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.indicator-extreme-dot--optimism {
+  background: var(--app-negative);
+}
+
+.indicator-extreme-dot--pessimism {
+  background: var(--app-positive);
+}
+
+.indicator-extreme-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.indicator-extreme-value {
+  color: var(--app-text);
+  font-weight: 800;
+}
+
+@media (max-width: 1536px) {
+  .indicator-summary__stats {
+    grid-template-columns: repeat(3, minmax(148px, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .indicator-summary__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .indicator-summary__header {
+    gap: 12px;
+  }
+
+  .indicator-summary__title {
+    font-size: 1.5rem;
+  }
+
+  .indicator-summary__stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .indicator-stat-card {
+    min-height: 96px;
+    padding: 16px;
+  }
+}
+
 :deep(.indicator-rich-text a) {
   color: var(--app-primary);
   font-weight: 600;

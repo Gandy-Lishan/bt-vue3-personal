@@ -24,29 +24,40 @@
   --app-primary-shadow: rgba(45, 140, 255, 0.28);
   --app-positive: #047857;
   --app-negative: #be123c;
+  /* Favourited star. Yellow reads as "saved" at a glance, where the brand blue does not. */
+  --app-favorite: #eab308;
+  /* Third and later lines of a multi-line chart, where blue/red are already taken. */
+  --app-accent: #7c3aed;
   --app-overlay: rgba(6, 17, 31, 0.55);
   --chart-grid: #dbe5f2;
   --chart-primary: #111827;
+  /* risk_measure: a per-row Color flag decides red or black. */
+  --chart-flag-true: #ff0000;
+  --chart-flag-false: #000000;
   --chart-marker-fill: #ffffff;
   --chart-tooltip-bg: #ffffff;
   --chart-selection-fill: #dceaff;
   --chart-selection-border: #8fb6f2;
-  --chrome-bg: #07111f;
-  --chrome-border: #1b334c;
-  --chrome-border-muted: #21344a;
-  --chrome-field-bg: #14263b;
-  --chrome-field-border: #4f6885;
-  --chrome-kbd-bg: #21354c;
-  --chrome-kbd-border: #5a718c;
-  --chrome-kbd-text: #d5e8ff;
-  --chrome-menu-bg: #0e1a29;
-  --chrome-menu-bg-alt: #101722;
-  --chrome-menu-hover: #17304a;
-  --chrome-menu-border: #29445f;
-  --chrome-active-bg: #102b46;
-  --chrome-accent: #3b9dff;
-  --chrome-text-muted: #d5e1ef;
-  --chrome-heading: #6fbaff;
+  /* Light chrome: the header and footer are a light bar here, not the dark one the
+     dark theme uses. Text colours flip with --chrome-text. */
+  --chrome-bg: #ffffff;
+  --chrome-border: #dbe5f2;
+  --chrome-border-muted: #e5eef9;
+  --chrome-field-bg: #f4f7fb;
+  --chrome-field-border: #c7d9f4;
+  --chrome-kbd-bg: #eef4ff;
+  --chrome-kbd-border: #c7d9f4;
+  --chrome-kbd-text: #173267;
+  --chrome-menu-bg: #ffffff;
+  --chrome-menu-bg-alt: #ffffff;
+  --chrome-menu-hover: #eaf4ff;
+  --chrome-menu-border: #d5e3f7;
+  --chrome-active-bg: #eaf4ff;
+  --chrome-accent: #006cff;
+  --chrome-text: #071b4f;
+  --chrome-text-muted: #5a6c8c;
+  --chrome-heading: #071b4f;
+  --chrome-hover: rgba(0, 108, 255, 0.08);
   color: var(--app-text);
   background: var(--app-bg);
   font-family:
@@ -81,9 +92,14 @@
   --app-primary-shadow: rgba(97, 180, 255, 0.22);
   --app-positive: #34d399;
   --app-negative: #fb7185;
+  --app-favorite: #facc15;
+  --app-accent: #a78bfa;
   --app-overlay: rgba(2, 8, 15, 0.72);
   --chart-grid: #263b55;
   --chart-primary: #f0f7ff;
+  /* Literal black would disappear on the dark surface, so it inverts to white. */
+  --chart-flag-true: #ff4d4d;
+  --chart-flag-false: #ffffff;
   --chart-marker-fill: #0f1b2b;
   --chart-tooltip-bg: #0f1b2b;
   --chart-selection-fill: #102b46;
@@ -102,8 +118,10 @@
   --chrome-menu-border: #20354e;
   --chrome-active-bg: #102b46;
   --chrome-accent: #61b4ff;
+  --chrome-text: #ffffff;
   --chrome-text-muted: #c7d6e8;
   --chrome-heading: #8dccff;
+  --chrome-hover: rgba(255, 255, 255, 0.1);
 }
 
 @media (min-width: 1280px) {

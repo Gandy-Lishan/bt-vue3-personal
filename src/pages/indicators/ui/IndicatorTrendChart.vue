@@ -12,6 +12,8 @@ import {
   indicatorChartTheme,
   monthLabels,
 } from './indicatorHighcharts'
+import { colorZonesFromFlags, type ChartZone } from './indicatorChartZones'
+import { indicatorLineIndexes, seriesColorFallback, seriesColorVar } from './indicatorSeriesColor'
 
 type RangeId = '3M' | '6M' | 'YTD' | '1Y' | '3Y' | '5Y' | '10Y' | '15Y' | '20Y' | 'All'
 
@@ -20,6 +22,8 @@ interface ChartSeriesModel {
   name: string
   data: Array<[number, number]>
   color: string
+  /** Set only for series whose rows carry a per-row Color flag. */
+  zones?: ChartZone[]
 }
 
 interface ChartThresholdValues {
@@ -256,32 +260,53 @@ function seriesLabel(key: string, index: number) {
   return titleCaseKey(key)
 }
 
-function seriesColor(key: string, index: number) {
-  if (index === 0 || isMarketKey(key)) return cssVar('--chart-primary', '#111827')
-  if (isTrendReltrend() && key.includes('_reltrend')) return cssVar('--app-negative', '#be123c')
-  return cssVar('--app-primary', '#1677ff')
+function seriesColor(key: string, indicatorIndex: number) {
+  const variable = seriesColorVar(isMarketKey(key), indicatorIndex)
+  return cssVar(variable, seriesColorFallback(variable))
+}
+
+/** The per-row `Color` flag that drives risk_measure's segment colours. */
+function rowColorFlag(row: IndicatorChartDataRow): boolean | null {
+  const value = row.Color ?? row.color
+  return typeof value === 'boolean' ? value : null
+}
+
+function riskFlagZones(entries: Array<{ timestamp: number; flag: boolean | null }>) {
+  // The flag is a market-wide state, so every line drawn from these rows carries it —
+  // the indicator's own line and the ticker overlay alike.
+  if (!entries.length || !entries.every((entry) => entry.flag !== null)) return undefined
+
+  return colorZonesFromFlags(
+    entries.map((entry) => ({ x: entry.timestamp, flagged: Boolean(entry.flag) })),
+    {
+      flagged: cssVar('--chart-flag-true', '#ff0000'),
+      unflagged: cssVar('--chart-flag-false', '#000000'),
+    },
+  )
 }
 
 function buildSeriesModels(): ChartSeriesModel[] {
   const rows = datedRows()
   const keys = orderedSeriesKeys().filter((key) => !isThresholdKey(key))
+  const lineIndexes = indicatorLineIndexes(keys, isMarketKey)
 
   return keys
-    .map((key, index) => {
-      const data = rows
-        .map((item): [number, number] | null => {
+    .map((key, index): ChartSeriesModel | null => {
+      const entries = rows
+        .map((item) => {
           const value = numericValue(item.row[key])
-          return value === null ? null : [item.timestamp, value]
+          return value === null ? null : { timestamp: item.timestamp, value, flag: rowColorFlag(item.row) }
         })
-        .filter((point): point is [number, number] => point !== null)
+        .filter((entry): entry is { timestamp: number; value: number; flag: boolean | null } => entry !== null)
 
-      if (data.length < 2) return null
+      if (entries.length < 2) return null
 
       return {
         key,
         name: seriesLabel(key, index),
-        data,
-        color: seriesColor(key, index),
+        data: entries.map((entry) => [entry.timestamp, entry.value] as [number, number]),
+        color: seriesColor(key, lineIndexes.get(key) ?? 0),
+        zones: riskFlagZones(entries),
       }
     })
     .filter((series): series is ChartSeriesModel => series !== null)
@@ -835,6 +860,9 @@ function renderChart() {
       data: series.data,
       yAxis: twoPane ? (index === 0 ? 0 : 1) : 0,
       color: series.color,
+      // x-axis zones recolour the line per segment; without them it draws solid.
+      zones: series.zones,
+      zoneAxis: series.zones ? 'x' : undefined,
       lineWidth: 2,
       marker: {
         enabled: false,

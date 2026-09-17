@@ -47,8 +47,8 @@
     "runtime": "Node.js 2425"
   },
   "build": {
-    "buildCommand": "cd \"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\" && npm run typecheck 2>&1 | tail -5 && npm run test:unit 2>&1 | tail -15 && npm run build 2>&1 | tail -3",
-    "testCommand": null,
+    "buildCommand": "cd \"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\" && grep -n \"sidebarMaxHeight\" src/pages/indicators/IndicatorDetailPage.vue; echo \"--- leftovers above (expect none) ---\" && npm run typecheck 2>&1 | tail -5 && npm run test:unit 2>&1 | grep -E \"FAIL|Tests \" | head -4 && npm run build 2>&1 | tail -3",
+    "testCommand": "cd \"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\" && cp src/entities/indicator/model/indicator.store.ts /tmp/store.bak && sed -i 's/^      this.favoriteAccountItems = this.favoriteAccountItems.map(withTrend)$/      \\/\\/ TEMP DISABLED/; s/^      this.favoriteLegacyItems = this.favoriteLegacyItems.map(withTrend)$/      \\/\\/ TEMP DISABLED/' src/entities/indicator/model/indicator.store.ts && npx vitest run tests/unit/indicator-store.spec.ts 2>&1 | grep -E \"×|✓ .*favorite lists|Tests \" | head -6",
     "lintCommand": null,
     "devCommand": "npm run dev",
     "scripts": {
@@ -173,14 +173,26 @@
   "hotPaths": [
     {
       "path": "src\\pages\\indicators\\IndicatorDetailPage.vue",
-      "accessCount": 60,
-      "lastAccessed": 1789622539400,
+      "accessCount": 85,
+      "lastAccessed": 1789631224456,
       "type": "file"
     },
     {
       "path": "src\\entities\\indicator\\model\\indicator.store.ts",
-      "accessCount": 21,
-      "lastAccessed": 1789620468808,
+      "accessCount": 25,
+      "lastAccessed": 1789630039829,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\IndicatorsPage.vue",
+      "accessCount": 20,
+      "lastAccessed": 1789629785984,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\ui\\IndicatorTrendChart.vue",
+      "accessCount": 14,
+      "lastAccessed": 1789629538221,
       "type": "file"
     },
     {
@@ -196,27 +208,39 @@
       "type": "file"
     },
     {
+      "path": "src\\shared\\styles\\index.css",
+      "accessCount": 12,
+      "lastAccessed": 1789630759039,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-store.spec.ts",
+      "accessCount": 10,
+      "lastAccessed": 1789630051099,
+      "type": "file"
+    },
+    {
       "path": "src\\entities\\indicator\\model\\indicator.values.ts",
       "accessCount": 9,
       "lastAccessed": 1789530077637,
       "type": "file"
     },
     {
-      "path": "src\\pages\\indicators\\IndicatorsPage.vue",
-      "accessCount": 8,
-      "lastAccessed": 1789622508024,
-      "type": "file"
-    },
-    {
       "path": "src\\pages\\indicators\\ui\\IndicatorListTable.vue",
-      "accessCount": 7,
-      "lastAccessed": 1789622034252,
+      "accessCount": 8,
+      "lastAccessed": 1789624249637,
       "type": "file"
     },
     {
       "path": "tests\\unit\\indicator-related.spec.ts",
       "accessCount": 6,
       "lastAccessed": 1789530111538,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.adapter.ts",
+      "accessCount": 6,
+      "lastAccessed": 1789628043317,
       "type": "file"
     },
     {
@@ -229,12 +253,6 @@
       "path": "src\\entities\\indicator\\model\\indicator.types.ts",
       "accessCount": 5,
       "lastAccessed": 1789538575705,
-      "type": "file"
-    },
-    {
-      "path": "src\\entities\\indicator\\model\\indicator.adapter.ts",
-      "accessCount": 5,
-      "lastAccessed": 1789538601076,
       "type": "file"
     },
     {
@@ -280,15 +298,9 @@
       "type": "file"
     },
     {
-      "path": "tests\\unit\\indicator-store.spec.ts",
-      "accessCount": 3,
-      "lastAccessed": 1789527184264,
-      "type": "file"
-    },
-    {
       "path": "tests\\unit\\indicator-adapter.spec.ts",
-      "accessCount": 3,
-      "lastAccessed": 1789538690334,
+      "accessCount": 4,
+      "lastAccessed": 1789628109601,
       "type": "file"
     },
     {
@@ -319,12 +331,6 @@
       "path": "package.json",
       "accessCount": 2,
       "lastAccessed": 1789527051898,
-      "type": "file"
-    },
-    {
-      "path": "src\\pages\\indicators\\ui\\IndicatorTrendChart.vue",
-      "accessCount": 2,
-      "lastAccessed": 1789528953470,
       "type": "file"
     },
     {
@@ -373,12 +379,6 @@
       "path": "C:\\Users\\he\\.claude\\skills\\my-indicator\\SKILL.md",
       "accessCount": 1,
       "lastAccessed": 1789464788275,
-      "type": "file"
-    },
-    {
-      "path": "src\\shared\\styles\\index.css",
-      "accessCount": 1,
-      "lastAccessed": 1789464793267,
       "type": "file"
     },
     {

@@ -134,14 +134,21 @@ function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
               class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
             >
               <td v-if="props.showFavorite" class="px-3 py-2.5 text-center">
+                <span
+                  v-if="indicator.favoriteLocked"
+                  class="inline-flex h-[18px] w-[18px]"
+                  aria-hidden="true"
+                />
                 <button
-                  class="inline-flex text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]"
+                  v-else
+                  class="inline-flex transition"
+                  :class="indicator.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-secondary)] hover:text-[var(--app-favorite)]'"
                   type="button"
                   :title="favoriteActionLabel(indicator.favorite)"
                   :aria-label="favoriteActionLabel(indicator.favorite)"
                   @click.stop="$emit('favorite', indicator.id)"
                 >
-                  <Star :size="18" :fill="indicator.favorite ? 'var(--app-primary)' : 'transparent'" />
+                  <Star :size="18" :fill="indicator.favorite ? 'var(--app-favorite)' : 'transparent'" />
                 </button>
               </td>
               <td
@@ -171,7 +178,7 @@ function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
                   <span v-else>{{ displayValue(indicator, column) }}</span>
                 </template>
                 <IndicatorSentimentMeter v-else-if="column.kind === 'sentiment'" :score="indicator.sentimentScore" />
-                <IndicatorSparkline v-else-if="column.kind === 'sparkline'" :points="indicator.trend" :tone="indicatorTrendTone(indicator)" />
+                <IndicatorSparkline v-else-if="column.kind === 'sparkline'" :series="indicator.trendLines" :tone="indicatorTrendTone(indicator)" />
                 <span v-else>{{ displayValue(indicator, column) }}</span>
               </td>
             </tr>

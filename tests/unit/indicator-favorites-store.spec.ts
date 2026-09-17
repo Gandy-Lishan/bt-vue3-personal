@@ -15,6 +15,8 @@ function emptyResponse(status = 200) {
 
 interface MockOptions {
   favorites?: unknown
+  details?: Record<string, Record<string, unknown>>
+  legacyFavorites?: unknown
   getFails?: boolean
   putFails?: boolean
 }
@@ -41,6 +43,15 @@ function mockApi(options: MockOptions = {}) {
 
       // A successful PUT answers with no body, which the shared JSON helper would reject.
       return options.putFails ? emptyResponse(500) : emptyResponse()
+    }
+
+    if (url.includes('search_url_info')) {
+      const id = new URL(url, 'https://example.test').searchParams.get('url') ?? ''
+      return jsonResponse(options.details?.[id] ?? {})
+    }
+
+    if (url.includes('btv1_user_favorite_indicator')) {
+      return jsonResponse(options.legacyFavorites ?? [])
     }
 
     return jsonResponse([])
@@ -137,6 +148,93 @@ describe('favorites store', () => {
     // Matched rows use real data; unmatched ones fall back to a name-only stub.
     expect(store.sourceItems.map((item) => item.name)).toEqual(['Alpha From Row', 'Not Loaded'])
     expect(store.sourceItems[1].currentValue).toBeNaN()
+  })
+
+  it('loads My Favorites from account detail rows and legacy favorites', async () => {
+    const { calls, fetchMock } = mockApi({
+      favorites: {
+        favorite_indicator: '[{"url":"alpha","name":"Alpha"}]',
+        favorite_symbol: '[]',
+      },
+      details: {
+        alpha: {
+          url: 'alpha',
+          chart_name: 'Alpha Detail',
+          groups: 'Macro',
+          sub_type: 'model',
+          timeframe: 'Short-Term',
+          last_value: 42,
+          last_change: 1.5,
+          last_update: '2026-09-16',
+          sentiment: 6,
+          type: 'Indicator',
+        },
+      },
+      legacyFavorites: [
+        {
+          url: 'legacy',
+          chart_name: 'Legacy Favorite',
+          groups: 'Breadth',
+          sub_type: 'etf_breadth',
+          timeframe: 'Long-Term',
+          last_value: 12,
+          last_change: -0.5,
+          last_update: '2026-09-15',
+          sentiment: 3,
+          type: 'Indicator',
+        },
+      ],
+    })
+    const store = useIndicatorStore()
+
+    store.setSection('favorites')
+    await store.ensureCurrentList()
+
+    expect(store.sourceItems.map((item) => item.name)).toEqual(['Alpha Detail', 'Legacy Favorite'])
+    expect(store.sourceItems[0]).toMatchObject({
+      group: 'Macro',
+      subgroup: 'Model',
+      timeFrame: 'Short',
+      favorite: true,
+      favoriteSource: 'account',
+      favoriteLocked: false,
+    })
+    expect(store.sourceItems[1]).toMatchObject({
+      group: 'Breadth',
+      subgroup: 'Sector Breadth',
+      timeFrame: 'Long',
+      favorite: true,
+      favoriteSource: 'legacy',
+      favoriteLocked: true,
+    })
+    expect(store.legacyFavoriteCount).toBe(1)
+    expect(calls.filter((call) => call.method === 'GET' && call.url.includes('favorites'))).toHaveLength(1)
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/dev/st_data/search_url_info?url=alpha'))).toBe(true)
+  })
+
+  it('keeps the removable account favorite when a legacy favorite has the same id', async () => {
+    mockApi({
+      favorites: {
+        favorite_indicator: '[{"url":"alpha","name":"Alpha"}]',
+        favorite_symbol: '[]',
+      },
+      details: {
+        alpha: { url: 'alpha', chart_name: 'Alpha Account', groups: 'Macro', sub_type: 'model' },
+      },
+      legacyFavorites: [{ url: 'alpha', chart_name: 'Alpha Legacy', groups: 'Breadth', sub_type: 'etf_breadth' }],
+    })
+    const store = useIndicatorStore()
+
+    store.setSection('favorites')
+    await store.ensureCurrentList()
+
+    expect(store.favoriteItems).toHaveLength(1)
+    expect(store.favoriteItems[0]).toMatchObject({
+      id: 'alpha',
+      name: 'Alpha Account',
+      favoriteSource: 'account',
+      favoriteLocked: false,
+    })
   })
 
   it('shows an empty table when the last favorite is removed', async () => {
