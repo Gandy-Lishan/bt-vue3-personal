@@ -1,0 +1,434 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  BarChart3,
+  CalendarDays,
+  Clock3,
+  Database,
+  Download,
+  Grid3X3,
+  Info,
+  LayoutGrid,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Table2,
+  Globe2,
+  X,
+} from '@lucide/vue'
+import { indicatorCsvFilename, indicatorCsvTable } from '@/entities/indicator/model/indicator.csv'
+import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
+import { getIndicatorTableMeta } from '@/entities/indicator/model/indicator.table'
+import { downloadCsv, toCsv } from '@/shared/utils/csv'
+import type { IndicatorTableColumn, IndicatorTableColumnKind } from '@/entities/indicator/model/indicator.table'
+import type { Indicator, IndicatorGroup, IndicatorSortDirection } from '@/entities/indicator/model/indicator.types'
+import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
+import IndicatorListTable from './ui/IndicatorListTable.vue'
+import IndicatorPagination from './ui/IndicatorPagination.vue'
+import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
+
+const store = useIndicatorStore()
+const router = useRouter()
+const isDescriptionOpen = ref(false)
+
+const iconMap = {
+  globe: Globe2,
+  chart: BarChart3,
+  bar: BarChart3,
+  clock: Clock3,
+  database: Database,
+  sliders: SlidersHorizontal,
+  calendar: CalendarDays,
+  grid: Grid3X3,
+}
+
+const currentTitle = computed(() => {
+  if (store.activeSection === 'popular') return 'Most Popular Indicators'
+  if (store.activeSection === 'favorites') return 'My Favorite Indicators'
+  return store.activeSubgroup.fullName ?? store.activeSubgroup.label
+})
+
+const currentFullTableName = computed(() => {
+  return store.activeSubgroup.fullName ?? store.activeSubgroup.label
+})
+
+const currentDescription = computed(() => {
+  if (store.activeSection === 'popular') return 'The indicators members use most often across market groups.'
+  if (store.activeSection === 'favorites') return 'Your saved indicators from BacktestEdge.'
+  return store.activeGroup.description
+})
+
+const visibleGroups = computed(() => store.groups.filter((group) => group.id !== 'all'))
+const summaryGroupCount = computed(() => visibleGroups.value.filter((group) => group.id !== 'overview').length)
+const tableMeta = computed(() => getIndicatorTableMeta(store.activeSource))
+const tableDescriptionParagraphs = computed(() =>
+  Array.isArray(tableMeta.value.description) ? tableMeta.value.description : [tableMeta.value.description],
+)
+const shouldShowLegend = computed(() =>
+  tableMeta.value.showLegend !== false && tableMeta.value.columns.some((column) => column.kind === 'sentiment'),
+)
+const descriptionDialogTitle = computed(() =>
+  shouldShowLegend.value ? 'Table Description and Optimism/Pessimism Legend' : 'Table Description',
+)
+const descriptionButtonLabel = computed(() => (shouldShowLegend.value ? 'Description & Legend' : 'Table Description'))
+const sortableColumns = computed(() => tableMeta.value.columns.filter((column) => isSortableColumn(column)))
+const activeSortValue = computed(() => {
+  if (!store.sortKey || !sortableColumns.value.some((column) => column.key === store.sortKey)) return ''
+  return `${store.sortKey}:${store.sortDirection}`
+})
+
+const sentimentLegend = [
+  { score: 1, label: 'Extremely Pessimistic' },
+  { score: 2, label: 'Very Pessimistic' },
+  { score: 3, label: 'Pessimistic' },
+  { score: 4, label: 'Neutral' },
+  { score: 5, label: 'Optimistic' },
+  { score: 6, label: 'Very Optimistic' },
+  { score: 7, label: 'Extremely Optimistic' },
+]
+
+function selectGroup(group: IndicatorGroup) {
+  store.setSection('indicators')
+  store.setGroup(group.id)
+}
+
+function openIndicator(indicator: Indicator) {
+  store.rememberIndicatorSource(indicator.id, indicator.sourceList)
+  router.push({ name: 'indicator-detail', params: { id: indicator.id } })
+}
+
+/**
+ * Exports the whole list as currently filtered and sorted, not just the visible page.
+ */
+function downloadListCsv() {
+  const { headers, rows } = indicatorCsvTable(store.sortedItems, tableMeta.value.columns)
+  if (!rows.length) return
+
+  const isoDate = new Date().toISOString().slice(0, 10)
+  downloadCsv(indicatorCsvFilename(currentFullTableName.value, isoDate), toCsv(headers, rows))
+}
+
+function setPage(page: number) {
+  store.page = Math.max(1, Math.min(page, store.pageCount))
+}
+
+function isSortableColumn(column: IndicatorTableColumn) {
+  return column.kind !== 'sparkline'
+}
+
+function sortDirectionLabel(kind: IndicatorTableColumnKind | undefined, direction: IndicatorSortDirection) {
+  if (kind === 'number' || kind === 'change' || kind === 'sentiment') {
+    return direction === 'asc' ? 'Low to High' : 'High to Low'
+  }
+
+  if (kind === 'date') return direction === 'asc' ? 'Oldest First' : 'Newest First'
+
+  return direction === 'asc' ? 'A to Z' : 'Z to A'
+}
+
+function handleSortSelect(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  if (!value) {
+    store.clearSort()
+    return
+  }
+
+  const [key, direction] = value.split(':') as [string, IndicatorSortDirection]
+  const column = sortableColumns.value.find((item) => item.key === key)
+  if (!column || (direction !== 'asc' && direction !== 'desc')) return
+
+  store.setSort(column, direction)
+}
+
+watch(
+  () => [store.activeSection, store.activeGroupId, store.activeSubgroupId],
+  () => {
+    void store.ensureCurrentList()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => [store.searchQuery, store.groupFilter, store.timeFrameFilter, store.sentimentFilter, store.favoritesOnly],
+  () => {
+    store.page = 1
+  },
+)
+
+watch(
+  () => [store.filteredItems.length, store.pageSize],
+  () => {
+    store.clampPage()
+  },
+)
+
+watch(
+  () => store.pagedItems.map((indicator) => indicator.id).join('|'),
+  () => {
+    void store.ensureTrendsForIndicators(store.pagedItems)
+  },
+  { immediate: true },
+)
+</script>
+
+<template>
+  <div class="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
+    <main class="px-[var(--page-gutter)] pb-8 pt-8">
+      <section class="mb-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-5 py-4">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h1 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">Indicators</h1>
+            <p class="mt-1 text-sm text-[var(--app-text-muted)]">
+              Explore market sentiment, breadth, flow, macro and seasonality.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3 text-sm font-semibold text-[var(--app-text)]">
+            <span class="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] px-3.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-rose-500" />
+              {{ store.optimisticCount }} optimistic
+            </span>
+            <span class="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] px-3.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              {{ store.pessimisticCount }} pessimistic
+            </span>
+            <span class="inline-flex h-10 items-center rounded-md bg-[var(--app-primary-soft-alt)] px-3.5">
+              {{ summaryGroupCount }} Groups
+            </span>
+            <span class="inline-flex h-10 items-center rounded-md bg-[var(--app-primary-soft-alt)] px-3.5">
+              {{ store.totalIndicators }} Indicators
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
+        <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
+          <h2 class="mb-3 px-1 text-sm font-semibold text-[var(--app-text)]">Indicator Groups</h2>
+          <button
+            v-for="group in visibleGroups"
+            :key="group.id"
+            class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
+            :class="store.activeGroupId === group.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
+            type="button"
+            @click="selectGroup(group)"
+          >
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+              :class="store.activeGroupId === group.id ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"
+            >
+              <component :is="iconMap[group.icon as keyof typeof iconMap]" :size="21" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold leading-5">{{ group.label }}</span>
+              <span class="block text-xs text-[var(--app-text-muted)]">{{ group.views }} views</span>
+            </span>
+          </button>
+        </aside>
+
+        <section class="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
+          <header class="flex flex-col gap-3 border-b border-[var(--app-border)] px-4 py-4 xl:flex-row xl:items-start xl:justify-between">
+            <div class="min-w-0">
+              <div class="flex min-w-0 flex-wrap items-center gap-2">
+                <h2 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">{{ currentTitle }}</h2>
+                <button
+                  class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-surface-muted)] px-2.5 text-xs font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]"
+                  type="button"
+                  @click="isDescriptionOpen = true"
+                >
+                  <Info :size="15" />
+                  {{ descriptionButtonLabel }}
+                </button>
+              </div>
+              <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ currentDescription }}</p>
+            </div>
+
+            <div class="flex h-10 shrink-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
+              <button
+                class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
+                :class="store.viewMode === 'table' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                :style="store.viewMode === 'table' ? { color: '#ffffff' } : undefined"
+                type="button"
+                :aria-pressed="store.viewMode === 'table'"
+                @click="store.setViewMode('table')"
+              >
+                <Table2 :size="16" /> Table
+              </button>
+              <button
+                class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
+                :class="store.viewMode === 'cards' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                :style="store.viewMode === 'cards' ? { color: '#ffffff' } : undefined"
+                type="button"
+                :aria-pressed="store.viewMode === 'cards'"
+                @click="store.setViewMode('cards')"
+              >
+                <LayoutGrid :size="16" /> Card
+              </button>
+            </div>
+          </header>
+
+          <nav class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
+            <button
+              v-for="subgroup in store.activeSubgroups"
+              :key="subgroup.id"
+              class="h-14 shrink-0 border-b-2 px-3 text-sm font-semibold transition"
+              :class="store.activeSubgroupId === subgroup.id ? 'border-[var(--app-primary)] text-[var(--app-text)]' : 'border-transparent text-[var(--app-text)] hover:text-[var(--app-primary)]'"
+              type="button"
+              @click="store.setSubgroup(subgroup.id)"
+            >
+              {{ subgroup.label }}
+            </button>
+          </nav>
+
+          <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto]">
+            <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
+              <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
+              <input v-model="store.searchQuery" class="w-full bg-transparent text-[13px] outline-none" placeholder="Search indicators..." />
+            </label>
+            <select v-model="store.timeFrameFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[13px] text-[var(--app-text-secondary)]">
+              <option value="">All Time Frames</option>
+              <option>Short</option>
+              <option>Medium</option>
+              <option>Long</option>
+            </select>
+            <select v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[13px] text-[var(--app-text-secondary)]">
+              <option value="">All Sentiment Types</option>
+              <option value="pessimistic">Pessimistic</option>
+              <option value="neutral">Neutral</option>
+              <option value="optimistic">Optimistic</option>
+            </select>
+            <select
+              class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[13px] text-[var(--app-text-secondary)]"
+              :value="activeSortValue"
+              @change="handleSortSelect"
+            >
+              <option value="">Sort by: Default</option>
+              <template v-for="column in sortableColumns" :key="column.key">
+                <option :value="`${column.key}:asc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'asc') }}</option>
+                <option :value="`${column.key}:desc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'desc') }}</option>
+              </template>
+            </select>
+            <button
+              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[13px] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]"
+              type="button"
+              @click="store.resetFilters"
+            >
+              <RotateCcw :size="16" />
+              Reset
+            </button>
+            <button
+              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[13px] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--app-border)] disabled:hover:text-[var(--app-text-secondary)]"
+              type="button"
+              :disabled="!store.totalIndicators"
+              title="Download this list as CSV"
+              @click="downloadListCsv"
+            >
+              <Download :size="16" />
+              CSV
+            </button>
+          </div>
+
+          <div class="px-4 pb-4">
+            <IndicatorListTable
+              v-if="store.viewMode === 'table'"
+              :indicators="store.pagedItems"
+              :loading="store.isCurrentSourceLoading"
+              :columns="tableMeta.columns"
+              :show-favorite="tableMeta.showFavorite !== false"
+              :sort-key="store.sortKey"
+              :sort-direction="store.sortDirection"
+              @open="openIndicator"
+              @favorite="store.toggleFavorite"
+              @sort="store.setSort"
+            />
+            <IndicatorCardGrid
+              v-else
+              :indicators="store.pagedItems"
+              :loading="store.isCurrentSourceLoading"
+              :columns="tableMeta.columns"
+              @open="openIndicator"
+              @favorite="store.toggleFavorite"
+            />
+          </div>
+        </section>
+      </div>
+
+      <div class="mt-4 flex flex-col gap-3 text-sm font-semibold text-[var(--app-text-secondary)] lg:flex-row lg:items-center lg:justify-between">
+        <span>Showing {{ store.resultStart }}–{{ store.resultEnd }} of {{ store.totalIndicators }} indicators</span>
+        <IndicatorPagination :page="store.page" :page-count="store.pageCount" @change="setPage" />
+      </div>
+    </main>
+
+    <Teleport to="body">
+      <div
+        v-if="isDescriptionOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-[var(--app-overlay)] px-4 py-6"
+        @click.self="isDescriptionOpen = false"
+      >
+        <section
+          class="max-h-[86vh] w-full max-w-3xl overflow-hidden rounded-lg bg-[var(--app-surface)] text-[var(--app-text)] shadow-2xl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="indicator-description-title"
+        >
+          <header class="flex items-start justify-between gap-4 border-b border-[var(--app-border)] px-5 py-4">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-[var(--app-text-muted)]">{{ currentFullTableName }}</p>
+              <h2 id="indicator-description-title" class="mt-1 text-xl text-[var(--app-text)]">
+                {{ descriptionDialogTitle }}
+              </h2>
+            </div>
+            <button
+              class="flex h-9 w-9 items-center justify-center rounded-md border border-[var(--app-border)] text-[var(--app-text-subtle)] hover:bg-[var(--app-surface-muted)]"
+              type="button"
+              aria-label="Close description"
+              @click="isDescriptionOpen = false"
+            >
+              <X :size="18" />
+            </button>
+          </header>
+
+          <div class="max-h-[calc(86vh-92px)] overflow-y-auto px-5 py-4 text-sm leading-6 text-[var(--app-text-secondary)]">
+            <div class="space-y-3">
+              <p v-for="paragraph in tableDescriptionParagraphs" :key="paragraph">
+                {{ paragraph }}
+              </p>
+              <p v-if="tableMeta.bulletsIntro">
+                {{ tableMeta.bulletsIntro }}
+              </p>
+              <ul v-if="tableMeta.bullets?.length" class="list-disc space-y-1 pl-5">
+                <li v-for="bullet in tableMeta.bullets" :key="bullet">{{ bullet }}</li>
+              </ul>
+              <p v-for="paragraph in tableMeta.postBullets ?? []" :key="paragraph">
+                {{ paragraph }}
+              </p>
+              <div v-if="tableMeta.showSortNote !== false" class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-2 text-[var(--app-text-subtle)]">
+                You can sort the table below by a single column or by multiple columns. To sort by one column, click the column name. To sort by multiple columns, hold Shift and select additional columns.
+              </div>
+            </div>
+
+            <div v-if="shouldShowLegend" class="mt-5 border-t border-[var(--app-border)] pt-4">
+              <h3 class="text-base text-[var(--app-text)]">Optimism/Pessimism Legend</h3>
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                <div
+                  v-for="item in sentimentLegend"
+                  :key="item.label"
+                  class="flex items-center justify-between gap-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2"
+                >
+                  <span>{{ item.label }}</span>
+                  <IndicatorSentimentMeter :score="item.score" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </Teleport>
+  </div>
+</template>
+
+<style scoped>
+.selected-fill-button {
+  color: #ffffff !important;
+}
+</style>

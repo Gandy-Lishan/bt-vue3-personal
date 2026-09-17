@@ -1,0 +1,124 @@
+import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
+import type { ClientRequest } from 'node:http'
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vitest/config'
+import { loadEnv, type PluginOption, type ProxyOptions } from 'vite'
+
+const stApiTargets = {
+  prod: 'https://bt2api.sentimentrader.com',
+  dev: 'https://devbt2api.sentimentrader.com',
+  local: 'http://localhost:5001',
+} as const
+const defaultDevSentimenSession =
+  'IJLN7EhBuOXvsdvgYt7rLyYvp4GSk2hXdln69TOIHHgCIpzJIACssjQOW7bWH20fpw0OiGw0poJIV2Nzvk3FatVlMwKuU6zTMuorJTgFps1U8Hf6ux9GVpeoQR1iivqwN2hd9ZIY8qo4NiJD0KNh11JZNTcxiPKBDRcdvrCIKT6n6fP4p8m0vZCRGExnFzlNyGOMAg6L0P8uxwaORgH6lTcesVlyOUjwVPoejA8q5vu9+2Ua1ZC0EPtbgoyLBrCWduhPJnynwcIMq74y1JTK49iuJXZZ1xi0lq9R6vfCbfwQ6yKaPTUk5SLPIURdC+tXAgClauHMEAJ19C5IihySD7gIQ6luZFfq6GdHssy0ebkiQoEoX8ymUzMdH4a8jX583j6RaCOWJ+L9xfq8bbQ7vFSysWWZ6nzD3EbCdqKT7Kfvx5pSii2XwuP42aqx/k1nf26ufCqzOnUj4olrtCt/Tg=='
+
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, '')
+}
+
+function resolveStApiTarget(value?: string) {
+  if (!value) return stApiTargets.prod
+  if (value in stApiTargets) return stApiTargets[value as keyof typeof stApiTargets]
+  return trimTrailingSlash(value)
+}
+
+function rewritePrefix(prefix: string) {
+  return (path: string) => path.replace(new RegExp(`^${prefix}`), '')
+}
+
+function resolveDevSentimenSession(env: Record<string, string>) {
+  return env.DEV_SENTIMEN_SESSION || env.VITE_DEV_SENTIMEN_SESSION || defaultDevSentimenSession
+}
+
+function devSentimenCookieHeader(sentimenSession: string) {
+  return `sentimen_session=${encodeURIComponent(sentimenSession)}`
+}
+
+function configureDevelopmentCookieProxy(proxy: Parameters<NonNullable<ProxyOptions['configure']>>[0], sentimenSession: string) {
+  proxy.on('proxyReq', (proxyRequest: ClientRequest) => {
+    if (sentimenSession) {
+      proxyRequest.setHeader('Cookie', devSentimenCookieHeader(sentimenSession))
+    }
+  })
+}
+
+function developmentAuthCookiePlugin(sentimenSession: string): PluginOption {
+  return {
+    name: 'backtestedge-development-auth-cookie',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const hasSessionCookie = request.headers.cookie?.includes('sentimen_session=')
+        if (sentimenSession && !hasSessionCookie) {
+          response.setHeader('Set-Cookie', `${devSentimenCookieHeader(sentimenSession)}; Path=/; SameSite=Lax`)
+        }
+        next()
+      })
+    },
+  }
+}
+
+// https://vite.dev/config/
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const stApiTarget = resolveStApiTarget(env.VITE_ST_API_PROXY_TARGET)
+  const localApiTarget = trimTrailingSlash(env.VITE_LOCAL_API_PROXY_TARGET || 'http://localhost:5001')
+  const devSentimenSession = resolveDevSentimenSession(env)
+
+  const proxy: Record<string, ProxyOptions> = {
+    '/dev': {
+      target: stApiTarget,
+      ws: true,
+      changeOrigin: true,
+      rewrite: rewritePrefix('/dev'),
+      configure(proxy) {
+        configureDevelopmentCookieProxy(proxy, devSentimenSession)
+      },
+    },
+    '/bt': {
+      target: stApiTarget,
+      ws: true,
+      changeOrigin: true,
+      rewrite: rewritePrefix('/bt'),
+    },
+    '/api': {
+      target: localApiTarget,
+      changeOrigin: true,
+    },
+    '/ai': {
+      target: trimTrailingSlash(env.VITE_AI_PROXY_TARGET || 'https://ai.sentdevsite.com'),
+      ws: true,
+      changeOrigin: true,
+      rewrite: rewritePrefix('/ai'),
+    },
+    '/sn': {
+      target: trimTrailingSlash(env.VITE_SN_PROXY_TARGET || 'http://192.168.2.101:5000'),
+      ws: true,
+      changeOrigin: true,
+      rewrite: rewritePrefix('/sn'),
+    },
+    '/v1': {
+      target: trimTrailingSlash(env.VITE_AGENT_PROXY_TARGET || 'http://localhost:8000'),
+      ws: true,
+      changeOrigin: true,
+    },
+  }
+
+  return {
+    plugins: [vue(), tailwindcss(), developmentAuthCookiePlugin(devSentimenSession)],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
+    server: {
+      proxy,
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      include: ['tests/unit/**/*.spec.ts'],
+    },
+  }
+})

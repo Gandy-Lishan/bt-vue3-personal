@@ -1,0 +1,476 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1789609776952,
+  "projectRoot": "E:\\working folder(lishan)\\backtestUINew\\backtestedge-ui-vue3",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": ">=24 <25",
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "vue",
+        "version": "3.5.42",
+        "category": "frontend"
+      },
+      {
+        "name": "@playwright/test",
+        "version": "1.63.0",
+        "category": "testing"
+      },
+      {
+        "name": "vite",
+        "version": "8.3.0",
+        "category": "build"
+      },
+      {
+        "name": "vitest",
+        "version": "5.0.0",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": "Node.js 2425"
+  },
+  "build": {
+    "buildCommand": "cd \"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\" && npm run typecheck 2>&1 | tail -5 && npm run test:unit 2>&1 | tail -15 && npm run build 2>&1 | tail -3",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "vite",
+      "build": "vue-tsc -b && vite build",
+      "preview": "vite preview",
+      "typecheck": "vue-tsc -b",
+      "test:unit": "vitest run",
+      "test:unit:watch": "vitest",
+      "test:e2e": "playwright test"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": "ES modules",
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "public",
+      "src",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 3,
+      "lastAccessed": 1789609776907,
+      "keyFiles": [
+        "favicon.svg",
+        "icons.svg",
+        "index.html"
+      ]
+    },
+    "e2e": {
+      "path": "e2e",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1789609776907,
+      "keyFiles": [
+        "dashboard.spec.ts",
+        "indicators.spec.ts"
+      ]
+    },
+    "playwright-report": {
+      "path": "playwright-report",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1789609776908,
+      "keyFiles": [
+        "index.html"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 2,
+      "lastAccessed": 1789609776908,
+      "keyFiles": [
+        "favicon.svg",
+        "icons.svg"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1789609776908,
+      "keyFiles": [
+        "main.ts"
+      ]
+    },
+    "test-results": {
+      "path": "test-results",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1789609776909,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 0,
+      "lastAccessed": 1789609776909,
+      "keyFiles": []
+    },
+    "dist\\assets": {
+      "path": "dist\\assets",
+      "purpose": "Static assets",
+      "fileCount": 12,
+      "lastAccessed": 1789609776909,
+      "keyFiles": [
+        "BacktestsPage-lGWkuMGL.js",
+        "DashboardPage-CltKZew-.js",
+        "index-B6HLtL_9.css"
+      ]
+    },
+    "src\\app": {
+      "path": "src\\app",
+      "purpose": "Application code",
+      "fileCount": 1,
+      "lastAccessed": 1789609776910,
+      "keyFiles": [
+        "App.vue"
+      ]
+    },
+    "src\\pages": {
+      "path": "src\\pages",
+      "purpose": "Page components",
+      "fileCount": 0,
+      "lastAccessed": 1789609776910,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src\\pages\\indicators\\IndicatorDetailPage.vue",
+      "accessCount": 60,
+      "lastAccessed": 1789622539400,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.store.ts",
+      "accessCount": 21,
+      "lastAccessed": 1789620468808,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.table.ts",
+      "accessCount": 13,
+      "lastAccessed": 1789622869264,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.detail.ts",
+      "accessCount": 12,
+      "lastAccessed": 1789538580890,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.values.ts",
+      "accessCount": 9,
+      "lastAccessed": 1789530077637,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\IndicatorsPage.vue",
+      "accessCount": 8,
+      "lastAccessed": 1789622508024,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\ui\\IndicatorListTable.vue",
+      "accessCount": 7,
+      "lastAccessed": 1789622034252,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-related.spec.ts",
+      "accessCount": 6,
+      "lastAccessed": 1789530111538,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-detail.spec.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789537947611,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.types.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789538575705,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.adapter.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789538601076,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\api\\indicator.api.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789615982046,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-dates.spec.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789530087384,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.fixtures.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789538603314,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\composables\\useSortedPagedRows.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789538611259,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.constituents.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789538649032,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\use-sorted-paged-rows.spec.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789538666619,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-table.spec.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789622898673,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-store.spec.ts",
+      "accessCount": 3,
+      "lastAccessed": 1789527184264,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-adapter.spec.ts",
+      "accessCount": 3,
+      "lastAccessed": 1789538690334,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-favorites.spec.ts",
+      "accessCount": 3,
+      "lastAccessed": 1789622048137,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\router\\index.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789526842692,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\ui\\IndicatorPagination.vue",
+      "accessCount": 2,
+      "lastAccessed": 1789526889858,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.sentiment.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789527045799,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 2,
+      "lastAccessed": 1789527051898,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\ui\\IndicatorTrendChart.vue",
+      "accessCount": 2,
+      "lastAccessed": 1789528953470,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-research.spec.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789528984212,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.dates.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789530074004,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\he\\.claude\\plans\\hashed-wobbling-garden.md",
+      "accessCount": 2,
+      "lastAccessed": 1789618002013,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-favorites-store.spec.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789620632087,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.favorites.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789622026948,
+      "type": "file"
+    },
+    {
+      "path": "src\\main.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789464750619,
+      "type": "file"
+    },
+    {
+      "path": "src\\shared\\theme\\theme.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789464786571,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\he\\.claude\\skills\\my-indicator\\SKILL.md",
+      "accessCount": 1,
+      "lastAccessed": 1789464788275,
+      "type": "file"
+    },
+    {
+      "path": "src\\shared\\styles\\index.css",
+      "accessCount": 1,
+      "lastAccessed": 1789464793267,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\he\\.claude\\skills\\vue3-frontend-pro\\SKILL.md",
+      "accessCount": 1,
+      "lastAccessed": 1789464865905,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\he\\.claude\\skills\\vue3-frontend-pro\\references\\project-architecture.md",
+      "accessCount": 1,
+      "lastAccessed": 1789464872115,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\he\\.claude\\skills\\vue3-frontend-pro\\references\\code-patterns.md",
+      "accessCount": 1,
+      "lastAccessed": 1789464880839,
+      "type": "file"
+    },
+    {
+      "path": "e2e\\indicators.spec.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789526931295,
+      "type": "directory"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.related.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789527128134,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\he\\AppData\\Local\\Temp\\claude\\E--working-folder-lishan--backtestUINew-backtestedge-ui-vue3\\9c512eef-2b9a-4702-92f0-0b47402573bc\\tasks\\bcr5wp2tw.output",
+      "accessCount": 1,
+      "lastAccessed": 1789527823570,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.research.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789527997586,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\ui\\ConstituentConditionsTable.vue",
+      "accessCount": 1,
+      "lastAccessed": 1789538616074,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-constituents.spec.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789538675293,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\model\\indicator.notices.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789539432799,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\indicators\\ui\\CftcDataNotice.vue",
+      "accessCount": 1,
+      "lastAccessed": 1789539435865,
+      "type": "file"
+    },
+    {
+      "path": "tests\\unit\\indicator-notices.spec.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789539450401,
+      "type": "file"
+    },
+    {
+      "path": "src\\entities\\indicator\\api\\favorites.api.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789620356837,
+      "type": "file"
+    },
+    {
+      "path": "src\\shared\\ui\\AppToastStack.vue",
+      "accessCount": 1,
+      "lastAccessed": 1789620407305,
+      "type": "file"
+    },
+    {
+      "path": "src\\shared\\layout\\AppShell.vue",
+      "accessCount": 1,
+      "lastAccessed": 1789620410321,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}
