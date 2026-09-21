@@ -18,6 +18,14 @@ export interface IndicatorTableColumn {
   align?: 'left' | 'right' | 'center'
   minWidth?: number
   uppercase?: boolean
+  /** Numeric/change columns only: force a fixed number of decimal places. */
+  decimals?: number
+  /** Numeric/change columns only: drop trailing decimal zeroes without rounding to a fixed precision. */
+  trimTrailingZeros?: boolean
+  /** Numeric/change columns only: append a display suffix such as `%`. */
+  valueSuffix?: string
+  /** Change columns only: render an up/down indicator next to the value. */
+  showChangeArrow?: boolean
   /**
    * Date columns only: show the API string exactly as returned ("2026-09-15") rather
    * than a formatted date. Sorting still treats the column chronologically.
@@ -26,6 +34,8 @@ export interface IndicatorTableColumn {
    * that deliberately leaves it off, so its "Date Published" reads "July 16, 2026".
    */
   rawDate?: boolean
+  /** Raw date columns only: display a leading YYYY-MM-DD date and drop any time suffix. */
+  rawDateOnly?: boolean
 }
 
 export interface IndicatorTableMeta {
@@ -63,6 +73,10 @@ const defaultIndicatorColumns: IndicatorTableColumn[] = [
   sentimentColumn,
   trendColumn,
 ]
+
+const mostPopularColumns: IndicatorTableColumn[] = defaultIndicatorColumns.map((column) =>
+  column.key === 'last_update' ? { ...column, rawDateOnly: true } : column,
+)
 
 /**
  * Column set for the Indicator Detail page's Related Charts tab. Mirrors the default
@@ -344,6 +358,10 @@ const tableMetaBySource: Record<string, IndicatorTableMeta> = {
     columns: defaultIndicatorColumns,
     showLegend: false,
     showSortNote: false,
+  },
+  most_popular: {
+    description: 'The indicators members use most often across market groups.',
+    columns: mostPopularColumns,
   },
   country_spotlight: {
     description: 'This page displays thumbnail charts for Country ETF Optimism Index moving averages. Chart titles link to their detailed chart pages. If the page is blank, give it a second to load.',

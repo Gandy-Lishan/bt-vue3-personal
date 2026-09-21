@@ -32,7 +32,6 @@ interface IndicatorState {
   groupFilter: string
   timeFrameFilter: string
   sentimentFilter: string
-  favoritesOnly: boolean
   sortKey: string
   sortKind: IndicatorTableColumnKind | null
   sortDirection: IndicatorSortDirection
@@ -117,7 +116,6 @@ export const useIndicatorStore = defineStore('indicator', {
     groupFilter: '',
     timeFrameFilter: '',
     sentimentFilter: '',
-    favoritesOnly: false,
     sortKey: '',
     sortKind: null,
     sortDirection: 'asc',
@@ -187,8 +185,7 @@ export const useIndicatorStore = defineStore('indicator', {
         const matchesGroup = !state.groupFilter || item.group === state.groupFilter || item.subgroup === state.groupFilter
         const matchesTimeFrame = !state.timeFrameFilter || item.timeFrame === state.timeFrameFilter
         const matchesSentiment = !state.sentimentFilter || item.sentiment === state.sentimentFilter
-        const matchesFavorites = !state.favoritesOnly || item.favorite
-        return matchesQuery && matchesGroup && matchesTimeFrame && matchesSentiment && matchesFavorites
+        return matchesQuery && matchesGroup && matchesTimeFrame && matchesSentiment
       })
     },
     sortedItems(state): Indicator[] {
@@ -395,7 +392,10 @@ export const useIndicatorStore = defineStore('indicator', {
       this.groupFilter = ''
       this.timeFrameFilter = ''
       this.sentimentFilter = ''
-      this.favoritesOnly = false
+      // Sort counts as a filter here — Reset restores the default ordering too.
+      this.sortKey = ''
+      this.sortKind = null
+      this.sortDirection = 'asc'
       this.page = 1
     },
     clampPage() {

@@ -176,7 +176,7 @@ watch(
 )
 
 watch(
-  () => [store.searchQuery, store.groupFilter, store.timeFrameFilter, store.sentimentFilter, store.favoritesOnly],
+  () => [store.searchQuery, store.groupFilter, store.timeFrameFilter, store.sentimentFilter],
   () => {
     store.page = 1
   },
@@ -209,21 +209,27 @@ watch(
               Explore market sentiment, breadth, flow, macro and seasonality.
             </p>
           </div>
-          <div class="flex flex-wrap items-center gap-3 text-sm font-semibold text-[var(--app-text)]">
-            <span class="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] px-3.5">
-              <span class="h-2.5 w-2.5 rounded-full bg-rose-500" />
-              {{ store.optimisticCount }} optimistic
-            </span>
-            <span class="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] px-3.5">
-              <span class="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              {{ store.pessimisticCount }} pessimistic
-            </span>
-            <span class="inline-flex h-10 items-center rounded-md bg-[var(--app-primary-soft-alt)] px-3.5">
-              {{ summaryGroupCount }} Groups
-            </span>
-            <span class="inline-flex h-10 items-center rounded-md bg-[var(--app-primary-soft-alt)] px-3.5">
-              {{ store.totalIndicators }} Indicators
-            </span>
+          <div class="flex h-10 shrink-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
+            <button
+              class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
+              :class="store.viewMode === 'table' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+              :style="store.viewMode === 'table' ? { color: '#ffffff' } : undefined"
+              type="button"
+              :aria-pressed="store.viewMode === 'table'"
+              @click="store.setViewMode('table')"
+            >
+              <Table2 :size="16" /> Table
+            </button>
+            <button
+              class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
+              :class="store.viewMode === 'cards' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+              :style="store.viewMode === 'cards' ? { color: '#ffffff' } : undefined"
+              type="button"
+              :aria-pressed="store.viewMode === 'cards'"
+              @click="store.setViewMode('cards')"
+            >
+              <LayoutGrid :size="16" /> Card
+            </button>
           </div>
         </div>
       </section>
@@ -287,27 +293,33 @@ watch(
               <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ currentDescription }}</p>
             </div>
 
-            <div class="flex h-10 shrink-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
-              <button
-                class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
-                :class="store.viewMode === 'table' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
-                :style="store.viewMode === 'table' ? { color: '#ffffff' } : undefined"
-                type="button"
-                :aria-pressed="store.viewMode === 'table'"
-                @click="store.setViewMode('table')"
-              >
-                <Table2 :size="16" /> Table
-              </button>
-              <button
-                class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
-                :class="store.viewMode === 'cards' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
-                :style="store.viewMode === 'cards' ? { color: '#ffffff' } : undefined"
-                type="button"
-                :aria-pressed="store.viewMode === 'cards'"
-                @click="store.setViewMode('cards')"
-              >
-                <LayoutGrid :size="16" /> Card
-              </button>
+            <div class="flex shrink-0 flex-wrap items-center gap-2 text-xs font-semibold">
+              <span class="indicator-summary-pill">
+                <span class="indicator-summary-pill__dot bg-rose-500" />
+                <span class="indicator-summary-pill__text">
+                  <span class="indicator-summary-pill__value">{{ store.optimisticCount }}</span>
+                  <span class="indicator-summary-pill__label"> optimistic</span>
+                </span>
+              </span>
+              <span class="indicator-summary-pill">
+                <span class="indicator-summary-pill__dot bg-emerald-500" />
+                <span class="indicator-summary-pill__text">
+                  <span class="indicator-summary-pill__value">{{ store.pessimisticCount }}</span>
+                  <span class="indicator-summary-pill__label"> pessimistic</span>
+                </span>
+              </span>
+              <span class="indicator-summary-pill">
+                <span class="indicator-summary-pill__text">
+                  <span class="indicator-summary-pill__value">{{ summaryGroupCount }}</span>
+                  <span class="indicator-summary-pill__label"> Groups</span>
+                </span>
+              </span>
+              <span class="indicator-summary-pill">
+                <span class="indicator-summary-pill__text">
+                  <span class="indicator-summary-pill__value">{{ store.totalIndicators }}</span>
+                  <span class="indicator-summary-pill__label"> Indicators</span>
+                </span>
+              </span>
             </div>
           </header>
 
@@ -325,25 +337,25 @@ watch(
             </button>
           </nav>
 
-          <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto_auto]">
+          <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto]">
             <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
               <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
-              <input v-model="store.searchQuery" class="w-full bg-transparent text-[13px] outline-none" placeholder="Search indicators..." />
+              <input v-model="store.searchQuery" class="w-full bg-transparent text-[0.8125rem] outline-none" placeholder="Search indicators..." />
             </label>
-            <select v-model="store.timeFrameFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[13px] text-[var(--app-text-secondary)]">
+            <select v-model="store.timeFrameFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
               <option value="">All Time Frames</option>
               <option>Short</option>
               <option>Medium</option>
               <option>Long</option>
             </select>
-            <select v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[13px] text-[var(--app-text-secondary)]">
+            <select v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
               <option value="">All Sentiment Types</option>
               <option value="pessimistic">Pessimistic</option>
               <option value="neutral">Neutral</option>
               <option value="optimistic">Optimistic</option>
             </select>
             <select
-              class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[13px] text-[var(--app-text-secondary)]"
+              class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]"
               :value="activeSortValue"
               @change="handleSortSelect"
             >
@@ -354,20 +366,7 @@ watch(
               </template>
             </select>
             <button
-              class="flex h-9 items-center justify-center gap-1.5 rounded-md border px-3 text-[13px] transition"
-              :class="store.favoritesOnly
-                ? 'border-[var(--app-border)] bg-[var(--app-surface)] font-semibold text-[var(--app-text)]'
-                : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text-secondary)] hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]'"
-              type="button"
-              :aria-pressed="store.favoritesOnly"
-              title="Show only favorited indicators"
-              @click="store.favoritesOnly = !store.favoritesOnly"
-            >
-              <Star :size="16" :fill="store.favoritesOnly ? 'var(--app-favorite)' : 'transparent'" />
-              Favorites Only
-            </button>
-            <button
-              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[13px] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]"
+              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]"
               type="button"
               @click="store.resetFilters"
             >
@@ -375,7 +374,7 @@ watch(
               Reset
             </button>
             <button
-              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[13px] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--app-border)] disabled:hover:text-[var(--app-text-secondary)]"
+              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--app-border)] disabled:hover:text-[var(--app-text-secondary)]"
               type="button"
               :disabled="!store.totalIndicators"
               title="Download this list as CSV"
@@ -408,6 +407,7 @@ watch(
               :indicators="store.pagedItems"
               :loading="store.isCurrentSourceLoading"
               :columns="tableMeta.columns"
+              compact
               :show-favorite="tableMeta.showFavorite !== false"
               :sort-key="store.sortKey"
               :sort-direction="store.sortDirection"
@@ -424,12 +424,17 @@ watch(
               @favorite="store.toggleFavorite"
             />
           </div>
-        </section>
-      </div>
 
-      <div class="mt-4 flex flex-col gap-3 text-sm font-semibold text-[var(--app-text-secondary)] lg:flex-row lg:items-center lg:justify-between">
-        <span>Showing {{ store.resultStart }}–{{ store.resultEnd }} of {{ store.totalIndicators }} indicators</span>
-        <IndicatorPagination :page="store.page" :page-count="store.pageCount" @change="setPage" />
+          <div class="border-t border-[var(--app-border)] px-4 py-3">
+            <IndicatorPagination
+              :page="store.page"
+              :page-count="store.pageCount"
+              :total="store.totalIndicators"
+              item-label="indicators"
+              @change="setPage"
+            />
+          </div>
+        </section>
       </div>
     </main>
 
@@ -505,4 +510,5 @@ watch(
 .selected-fill-button {
   color: #ffffff !important;
 }
+
 </style>

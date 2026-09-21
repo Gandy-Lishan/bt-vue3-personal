@@ -25,6 +25,39 @@ const router = createRouter({
       component: () => import('@/pages/indicators/IndicatorDetailPage.vue'),
     },
     {
+      path: '/trend_score',
+      name: 'trend-score',
+      component: () => import('@/pages/indicators/TrendPage.vue'),
+    },
+    {
+      path: '/trend_score/trend',
+      redirect: (to) => ({ path: '/trend_score', query: to.query }),
+    },
+    {
+      path: '/trend_score/historical',
+      redirect: (to) => ({ path: '/historical', query: to.query }),
+    },
+    {
+      path: '/trend_score/:id',
+      name: 'trend-score-detail',
+      component: () => import('@/pages/indicators/IndicatorDetailPage.vue'),
+    },
+    {
+      path: '/historical',
+      name: 'historical-volatility',
+      component: () => import('@/pages/indicators/HistoricalVolatilityPage.vue'),
+    },
+    {
+      path: '/historical/:id',
+      name: 'historical-volatility-detail',
+      component: () => import('@/pages/indicators/IndicatorDetailPage.vue'),
+    },
+    {
+      path: '/sector_trend_score',
+      name: 'sector-trend-score',
+      component: () => import('@/pages/indicators/TrendPage.vue'),
+    },
+    {
       path: '/404',
       name: 'unauthorized',
       component: () => import('@/pages/system/UnauthorizedPage.vue'),

@@ -114,21 +114,18 @@ function renderCharts() {
   lineChart = Highcharts.chart(lineElement.value, {
     chart: {
       ...baseHighchartsChartOptions(theme),
-      height: 520,
+      height: 420,
       spacingLeft: 8,
       spacingRight: 56,
-      spacingTop: 10,
+      spacingTop: 0,
       spacingBottom: 0,
       zooming: {
         type: 'x',
       },
     },
-    title: {
-      text: 'Trading Day Of The Year',
-      style: {
-        color: theme.text
-      },
-    },
+    // Rendered in the template instead: Highcharts reserves vertical space for a title
+    // regardless of its size, and its type scale cannot follow the page.
+    title: { text: '', margin: 0 },
     credits: {
       enabled: true,
       text: 'SENTIMENTRADER',
@@ -150,7 +147,7 @@ function renderCharts() {
       enabled: true,
       align: 'center',
       verticalAlign: 'top',
-      y: 28,
+      y: 6,
       itemDistance: 28,
       itemStyle: {
         color: theme.text,
@@ -266,18 +263,13 @@ function renderCharts() {
   barChart = Highcharts.chart(barElement.value, {
     chart: {
       ...baseHighchartsChartOptions(theme),
-      height: 300,
+      height: 260,
       spacingLeft: 8,
       spacingRight: 56,
-      spacingTop: 8,
-      spacingBottom: 12,
+      spacingTop: 0,
+      spacingBottom: 8,
     },
-    title: {
-      text: 'Month Of The Year',
-      style: {
-        color: theme.text
-      },
-    },
+    title: { text: '', margin: 0 },
     credits: {
       enabled: true,
       text: 'SENTIMENTRADER',
@@ -412,12 +404,18 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="seasonality-chart-stack">
-    <div v-if="!hasRenderableData" class="flex h-[820px] items-center justify-center text-sm text-[var(--app-text-muted)]">
+    <div v-if="!hasRenderableData" class="flex h-[690px] items-center justify-center text-sm text-[var(--app-text-muted)]">
       No chart data
     </div>
     <template v-else>
-      <div ref="lineElement" class="seasonality-line-chart" />
-      <div ref="barElement" class="seasonality-bar-chart" />
+      <section>
+        <h4 class="seasonality-chart-title">Trading Day Of The Year</h4>
+        <div ref="lineElement" class="seasonality-line-chart" />
+      </section>
+      <section>
+        <h4 class="seasonality-chart-title">Month Of The Year</h4>
+        <div ref="barElement" class="seasonality-bar-chart" />
+      </section>
     </template>
   </div>
 </template>
@@ -425,22 +423,31 @@ onBeforeUnmount(() => {
 <style scoped>
 .seasonality-chart-stack {
   display: flex;
-  min-height: 852px;
   flex-direction: column;
-  gap: 32px;
-  padding: 4px 16px 16px;
+  gap: 16px;
+  padding: 0 16px 8px;
 }
 
+.seasonality-chart-title {
+  margin-bottom: 10px;
+  color: var(--app-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* Must match the `chart.height` passed to Highcharts. */
 .seasonality-line-chart,
 .seasonality-bar-chart {
   width: 100%;
 }
 
 .seasonality-line-chart {
-  height: 520px;
+  height: 420px;
 }
 
 .seasonality-bar-chart {
-  height: 300px;
+  height: 260px;
 }
 </style>

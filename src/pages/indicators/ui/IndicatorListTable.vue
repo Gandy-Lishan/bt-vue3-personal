@@ -2,7 +2,12 @@
 import { computed } from 'vue'
 import { ArrowDown, ArrowUp, ArrowUpDown, Star } from '@lucide/vue'
 import { favoriteActionLabel } from '@/entities/indicator/model/indicator.favorites'
-import { displayIndicatorValue, indicatorRawValue } from '@/entities/indicator/model/indicator.values'
+import {
+  displayIndicatorValue,
+  formatIndicatorNumber,
+  indicatorRawValue,
+  parseIndicatorNumber,
+} from '@/entities/indicator/model/indicator.values'
 import { indicatorTrendTone } from '@/entities/indicator/model/indicator.trends'
 import type { IndicatorTableColumn } from '@/entities/indicator/model/indicator.table'
 import type { Indicator, IndicatorSortDirection } from '@/entities/indicator/model/indicator.types'
@@ -16,10 +21,12 @@ const props = withDefaults(defineProps<{
   showFavorite?: boolean
   sortKey?: string
   sortDirection?: IndicatorSortDirection
+  compact?: boolean
 }>(), {
   showFavorite: true,
   sortKey: '',
   sortDirection: 'asc',
+  compact: false,
 })
 
 defineEmits<{
@@ -50,6 +57,36 @@ function isSortable(column: IndicatorTableColumn) {
   return column.kind !== 'sparkline'
 }
 
+function columnMinWidth(column: IndicatorTableColumn) {
+  if (!props.compact) return column.minWidth ?? 120
+
+  const compactWidths: Record<string, number> = {
+    chart_name: 300,
+    sub_type: 90,
+    groups: 90,
+    timeframe: 86,
+    last_value: 72,
+    last_change: 78,
+    last_update: 90,
+    sentiment: 106,
+    trend: 110,
+  }
+
+  const compactKindWidths: Record<string, number> = {
+    name: 300,
+    link: 300,
+    text: 110,
+    number: 86,
+    change: 78,
+    date: 90,
+    sentiment: 106,
+    sparkline: 110,
+  }
+
+  const width = compactWidths[column.key] ?? compactKindWidths[column.kind ?? 'text'] ?? column.minWidth ?? 120
+  return Math.min(column.minWidth ?? width, width)
+}
+
 function isSorted(column: IndicatorTableColumn) {
   return props.sortKey === column.key
 }
@@ -78,32 +115,55 @@ function linkHref(indicator: Indicator) {
 
 function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
   if (column.kind !== 'change') return ''
-  const value = Number(String(indicatorRawValue(indicator, column.key)).replace('%', ''))
-  if (value < 0) return 'text-[var(--app-negative)]'
-  if (value > 0) return 'text-[var(--app-positive)]'
+  const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
+  if (value !== null && value < 0) return 'text-[var(--app-negative)]'
+  if (value !== null && value > 0) return 'text-[var(--app-positive)]'
   return 'text-[var(--app-text)]'
+}
+
+function changeArrow(indicator: Indicator, column: IndicatorTableColumn) {
+  if (!column.showChangeArrow) return null
+  const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
+  if (value === null || value === 0) return null
+  return value > 0 ? ArrowUp : ArrowDown
+}
+
+function directionalDisplayValue(indicator: Indicator, column: IndicatorTableColumn) {
+  if (!column.showChangeArrow) return displayValue(indicator, column)
+
+  const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
+  if (value === null || value === 0) return displayValue(indicator, column)
+
+  const formatted = formatIndicatorNumber(Math.abs(value), column.decimals, column.trimTrailingZeros)
+  return formatted === '—' || !column.valueSuffix ? formatted : `${formatted}${column.valueSuffix}`
 }
 </script>
 
 <template>
   <div class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
     <div class="overflow-x-auto">
-      <table class="min-w-full border-collapse text-left text-[13px] text-[var(--app-text)]">
-        <thead class="bg-[var(--app-surface-muted)] text-[11px] font-semibold">
+      <table class="min-w-full border-collapse text-left text-[0.8125rem] text-[var(--app-text)]">
+        <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
           <tr class="border-b border-[var(--app-border)]">
-            <th v-if="props.showFavorite" class="w-11 px-3 py-2.5 text-center text-[var(--app-text-faint)]">☆</th>
+            <th
+              v-if="props.showFavorite"
+              class="box-border py-2.5 text-center text-[var(--app-text-faint)]"
+              :class="props.compact ? 'w-9 px-2' : 'w-11 px-3'"
+            >
+              ☆
+            </th>
             <th
               v-for="column in props.columns"
               :key="column.key"
               scope="col"
-              class="px-3 py-2.5"
-              :class="alignClass(column)"
-              :style="{ minWidth: `${column.minWidth ?? 120}px` }"
+              class="box-border py-2.5"
+              :class="[props.compact ? 'px-2' : 'px-3', alignClass(column)]"
+              :style="{ minWidth: `${columnMinWidth(column)}px` }"
               :aria-sort="sortAria(column)"
             >
               <button
                 v-if="isSortable(column)"
-                class="inline-flex w-full items-center gap-1 text-[11px] font-semibold transition hover:text-[var(--app-primary)]"
+                class="inline-flex w-full items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
                 :class="[justifyClass(column), isSorted(column) ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]']"
                 type="button"
                 :aria-label="sortButtonLabel(column)"
@@ -133,7 +193,11 @@ function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
               :key="indicator.id"
               class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
             >
-              <td v-if="props.showFavorite" class="px-3 py-2.5 text-center">
+              <td
+                v-if="props.showFavorite"
+                class="box-border py-2.5 text-center"
+                :class="props.compact ? 'px-2' : 'px-3'"
+              >
                 <span
                   v-if="indicator.favoriteLocked"
                   class="inline-flex h-[18px] w-[18px]"
@@ -154,8 +218,8 @@ function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
               <td
                 v-for="column in props.columns"
                 :key="column.key"
-                class="px-3 py-2.5"
-                :class="[alignClass(column), changeTone(indicator, column)]"
+                class="box-border py-2.5"
+                :class="[props.compact ? 'px-2' : 'px-3', alignClass(column), changeTone(indicator, column)]"
               >
                 <button
                   v-if="column.kind === 'name'"
@@ -177,8 +241,21 @@ function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
                   </a>
                   <span v-else>{{ displayValue(indicator, column) }}</span>
                 </template>
-                <IndicatorSentimentMeter v-else-if="column.kind === 'sentiment'" :score="indicator.sentimentScore" />
-                <IndicatorSparkline v-else-if="column.kind === 'sparkline'" :series="indicator.trendLines" :tone="indicatorTrendTone(indicator)" />
+                <IndicatorSentimentMeter v-else-if="column.kind === 'sentiment'" :score="indicator.sentimentScore" :compact="props.compact" />
+                <IndicatorSparkline
+                  v-else-if="column.kind === 'sparkline'"
+                  :series="indicator.trendLines"
+                  :tone="indicatorTrendTone(indicator)"
+                  :width="props.compact ? 104 : 128"
+                />
+                <span
+                  v-else-if="column.kind === 'change' && column.showChangeArrow"
+                  class="inline-flex items-center gap-1"
+                  :class="justifyClass(column)"
+                >
+                  <component :is="changeArrow(indicator, column)" v-if="changeArrow(indicator, column)" :size="13" aria-hidden="true" />
+                  <span>{{ directionalDisplayValue(indicator, column) }}</span>
+                </span>
                 <span v-else>{{ displayValue(indicator, column) }}</span>
               </td>
             </tr>

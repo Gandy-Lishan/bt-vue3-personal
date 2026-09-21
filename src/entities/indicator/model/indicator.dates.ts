@@ -76,6 +76,21 @@ export function rawIndicatorDate(value: unknown): string {
   return String(value ?? '').trim() || '—'
 }
 
+/** "2026-09-17T00:00:00.000" -> "2026-09-17"; falls back to the raw text. */
+export function rawIndicatorDateOnly(value: unknown): string {
+  const text = rawIndicatorDate(value)
+  if (text === '—') return text
+
+  const parts = parseIndicatorDate(text)
+  if (!parts) return text
+
+  return [
+    String(parts.year).padStart(4, '0'),
+    String(parts.month).padStart(2, '0'),
+    String(parts.day).padStart(2, '0'),
+  ].join('-')
+}
+
 /**
  * Sort key for a date column. Built with `Date.UTC`, so ordering is identical in every
  * timezone. Unparseable dates sort last via the null handling in `compareSortValues`.

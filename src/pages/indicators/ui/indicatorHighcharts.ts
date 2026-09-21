@@ -79,8 +79,7 @@ export function axisLabelStyle(theme: IndicatorChartTheme, fontSize = '10px'): H
 export function axisTitleStyle(theme: IndicatorChartTheme, fontSize = '10px'): Highcharts.CSSObject {
   return {
     color: theme.text,
-    fontSize,
-    fontWeight: '700',
+    fontSize
   }
 }
 

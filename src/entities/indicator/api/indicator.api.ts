@@ -9,6 +9,7 @@ const requestMap = new Map<string, string>([
   ['commod_spotlight', 'spot_light_overview/?spot_light_type=commod_spotlight'],
   ['sector_spotlight', 'spot_light_overview/?spot_light_type=sector_spotlight'],
   ['country_spotlight', 'spot_light_overview/?spot_light_type=country_spotlight'],
+  ['watchlist', 'user_watchlist_trend/'],
 ])
 
 export class IndicatorRequestError extends Error {
@@ -24,7 +25,44 @@ export class IndicatorRequestError extends Error {
 }
 
 function requestUrlForSource(source: string) {
+  if (source.startsWith('sector_trend_reltrend')) return source
+  if (isTrendScoreSource(source)) return `trend_reltrend?index=${source}`
+  if (isHistoricalVolatilitySource(source)) return `volatility?index=${source.replace('historical_', '')}`
   return requestMap.get(source) ?? source
+}
+
+function isTrendScoreSource(source: string) {
+  return [
+    'sp1500',
+    'sp1500&rel_trend=1',
+    'spx',
+    'spx&rel_trend=1',
+    'ndx',
+    'ndx&rel_trend=1',
+    'crp',
+    'crp&rel_trend=1',
+    'russell',
+    'russell&rel_trend=1',
+    'etf_domestic',
+    'etf_domestic&rel_trend=1',
+    'etf_foreign',
+    'etf_foreign&rel_trend=1',
+    'etf_other',
+    'etf_other&rel_trend=1',
+  ].includes(source)
+}
+
+function isHistoricalVolatilitySource(source: string) {
+  return [
+    'historical_sp1500',
+    'historical_spx',
+    'historical_ndx',
+    'historical_crp',
+    'historical_russell',
+    'historical_etf_domestic',
+    'historical_etf_foreign',
+    'historical_etf_other',
+  ].includes(source)
 }
 
 function safeJsonParse(value: unknown) {
@@ -106,6 +144,15 @@ export async function fetchIndicatorList(source: string, signal?: AbortSignal): 
   try {
     const payload = await fetchJson<unknown>(`/dev/st_data/${requestUrlForSource(source)}`, signal)
     return normalizeIndicatorRows(extractRows(payload, source), source)
+  } catch {
+    return []
+  }
+}
+
+export async function fetchSectorTrendScore(signal?: AbortSignal): Promise<IndicatorRawRow[]> {
+  try {
+    const payload = await fetchJson<unknown>('/dev/st_data/sector_trend_score', signal)
+    return extractRows(payload, 'sector_trend_score')
   } catch {
     return []
   }

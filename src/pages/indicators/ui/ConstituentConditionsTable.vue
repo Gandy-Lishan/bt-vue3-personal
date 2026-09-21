@@ -55,8 +55,8 @@ function justifyClass(column: ConstituentColumn) {
 <template>
   <div class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
     <div class="overflow-x-auto">
-      <table class="min-w-full border-collapse text-left text-[13px] text-[var(--app-text)]">
-        <thead class="bg-[var(--app-surface-muted)] text-[11px] font-semibold">
+      <table class="min-w-full border-collapse text-left text-[0.8125rem] text-[var(--app-text)]">
+        <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
           <tr class="border-b border-[var(--app-border)]">
             <th
               v-for="column in props.columns"
@@ -68,7 +68,7 @@ function justifyClass(column: ConstituentColumn) {
               :aria-sort="sortAria(column)"
             >
               <button
-                class="inline-flex w-full items-center gap-1 text-[11px] font-semibold transition hover:text-[var(--app-primary)]"
+                class="inline-flex w-full items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
                 :class="[justifyClass(column), isSorted(column) ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]']"
                 type="button"
                 :aria-label="sortButtonLabel(column)"

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeIndicatorRows } from '@/entities/indicator/model/indicator.adapter'
+import { historicalVolatilityColumns } from '@/entities/indicator/model/indicator.historical-volatility'
+import { getIndicatorTableMeta } from '@/entities/indicator/model/indicator.table'
 import { displayIndicatorGroup, displayIndicatorValue } from '@/entities/indicator/model/indicator.values'
 
 describe('indicator display values', () => {
@@ -37,6 +39,49 @@ describe('indicator display values', () => {
     expect(displayIndicatorValue(indicator, { key: 'last_change', label: 'Change', kind: 'change' })).toBe('-0.40%')
   })
 
+  it('formats percent numeric columns without trailing zero decimals for integers', () => {
+    const [indicator] = normalizeIndicatorRows(
+      [
+        {
+          url: 'sample_indicator',
+          chart_name: 'Sample Indicator',
+          volatility_20d: '12',
+        },
+      ],
+      'historical_spx',
+    )
+
+    expect(
+      displayIndicatorValue(indicator, {
+        key: 'volatility_20d',
+        label: 'Volatility 20d',
+        kind: 'number',
+        valueSuffix: '%',
+      }),
+    ).toBe('12%')
+  })
+
+  it('trims historical volatility trailing zeroes without rounding to integers', () => {
+    const [indicator] = normalizeIndicatorRows(
+      [
+        {
+          url: 'sample_indicator',
+          chart_name: 'Sample Indicator',
+          volatility_20d: '12.60',
+        },
+      ],
+      'historical_spx',
+    )
+    const volatility20dColumn = historicalVolatilityColumns({
+      id: 'HistoricalSP500Score',
+      label: 'S&P 500',
+      source: 'historical_spx',
+      includeSector: true,
+    }).find((column) => column.key === 'volatility_20d')
+
+    expect(displayIndicatorValue(indicator, volatility20dColumn!)).toBe('12.6%')
+  })
+
   it('keeps non-percent last change values unitless', () => {
     const [indicator] = normalizeIndicatorRows(
       [
@@ -65,6 +110,38 @@ describe('indicator display values', () => {
     )
 
     expect(displayIndicatorValue(indicator, { key: 'timeframe', label: 'Time Frame', kind: 'text' })).toBe('Medium')
+  })
+
+  it('shows date-only values for Most Popular ISO timestamps', () => {
+    const [indicator] = normalizeIndicatorRows(
+      [
+        {
+          url: 'sample_indicator',
+          chart_name: 'Sample Indicator',
+          last_update: '2026-09-17T00:00:00.000',
+        },
+      ],
+      'most_popular',
+    )
+    const dateColumn = getIndicatorTableMeta('most_popular').columns.find((column) => column.key === 'last_update')
+
+    expect(displayIndicatorValue(indicator, dateColumn!)).toBe('2026-09-17')
+  })
+
+  it('keeps raw dates verbatim unless the column asks for date-only display', () => {
+    const [indicator] = normalizeIndicatorRows(
+      [
+        {
+          url: 'sample_indicator',
+          chart_name: 'Sample Indicator',
+          last_update: '2026-09-17T00:00:00.000',
+        },
+      ],
+      'stock_complete_list',
+    )
+    const dateColumn = getIndicatorTableMeta('stock_complete_list').columns.find((column) => column.key === 'last_update')
+
+    expect(displayIndicatorValue(indicator, dateColumn!)).toBe('2026-09-17T00:00:00.000')
   })
 
   it('uses the active group column when displaying card group text', () => {

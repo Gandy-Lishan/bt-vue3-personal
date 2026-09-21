@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { BarChart3, CalendarDays, Download, Maximize2, Plus } from '@lucide/vue'
+import { BarChart3, CalendarDays, Download, ExternalLink, Maximize2, Plus } from '@lucide/vue'
 import Highcharts from 'highcharts/highstock'
 import { isIndicatorSeasonalityChartData, isSeasonalityIndicatorType } from '@/entities/indicator/model/indicator.chart'
 import type { IndicatorChartData, IndicatorChartDataRow, IndicatorDetail } from '@/entities/indicator/model/indicator.types'
@@ -54,7 +54,6 @@ let themeObserver: MutationObserver | null = null
 const chartElement = ref<HTMLDivElement | null>(null)
 const chartShell = ref<HTMLElement | null>(null)
 const activeRange = ref<RangeId>('3Y')
-const annotationsEnabled = ref(true)
 const isComparing = ref(false)
 const visibleMin = ref<number | null>(null)
 const visibleMax = ref<number | null>(null)
@@ -232,6 +231,7 @@ function seriesLabel(key: string, index: number) {
   const type = rawString('type') || props.detail.type
   const subType = rawString('sub_type')
   const groups = rawString('groups')
+  const volatilitySymbol = marketSymbol().toLowerCase()
 
   if (isMarketKey(key)) return marketSeriesLabel(key)
   if (lower === props.detail.id.toLowerCase()) return props.detail.title
@@ -245,6 +245,10 @@ function seriesLabel(key: string, index: number) {
   if (key === 'model_dumb_money' && url === 'smart_dumb') return 'Dumb Money'
   if (key === 'model_risk_stocks_short' && url === 'risk_levels') return 'Short Term Risk Levels'
   if (key === 'model_risk_stocks_medium' && url === 'risk_levels') return 'Intermediate Term Risk Levels'
+  if (groups === 'volatility_relvolatility' && volatilitySymbol) {
+    if (lower === `${volatilitySymbol}_volatility`) return 'Historical Volatility (20-Day)'
+    if (lower === `${volatilitySymbol}_volatility_60d`) return 'Historical Volatility (60-Day)'
+  }
 
   if (
     key.includes('_') &&
@@ -346,6 +350,13 @@ function seriesLegendName(series: ChartSeriesModel) {
   return `${series.name} (Last = ${formattedNumber(latestValue)})`
 }
 
+function seriesAxisTitle(series: ChartSeriesModel) {
+  const latestValue = latestSeriesValue(series.data)
+  const name = escapeHtml(series.name)
+  if (latestValue === null) return name
+  return `${name}<br/><span style="white-space:nowrap;">(Last = ${formattedNumber(latestValue)})</span>`
+}
+
 function stripLastValueSuffix(name: string) {
   return name.replace(/\s+\(Last = [^)]+\)$/, '')
 }
@@ -365,6 +376,8 @@ function normalizeThresholdValue(value: number | null, indicatorValues: number[]
   if (!Number.isFinite(maxAbsIndicator) || maxAbsIndicator === 0) return value
 
   let normalized = value
+  if (normalized === 0) return normalized
+
   while (Math.abs(normalized) > maxAbsIndicator * 5 && Math.abs(normalized) > 1) {
     normalized /= 100
   }
@@ -564,22 +577,13 @@ function toggleCompare() {
   )
 }
 
-function toggleAnnotations() {
-  annotationsEnabled.value = !annotationsEnabled.value
-  chart?.xAxis[0]?.update(
-    {
-      crosshair: annotationsEnabled.value ? crosshairOptions() : undefined,
-    } as Highcharts.XAxisOptions,
-    true,
-  )
-}
-
 function crosshairOptions() {
   return {
     width: 1,
     color: cssVar('--app-text-muted', '#7383a7'),
-    dashStyle: 'Dash',
+    dashStyle: 'ShortDash',
     snap: false,
+    zIndex: 4,
   } as Highcharts.AxisCrosshairOptions
 }
 
@@ -733,7 +737,7 @@ function renderChart() {
         format: "{value:%b '%y}",
         style: { color: textColor, fontSize: '11px' },
       },
-      crosshair: annotationsEnabled.value ? crosshairOptions() : undefined,
+      crosshair: crosshairOptions(),
       events: {
         afterSetExtremes(event) {
           updateVisibleRange(event.min, event.max)
@@ -760,8 +764,9 @@ function renderChart() {
               style: { color: textColor, fontSize: '10px' },
             },
             title: {
-              text: seriesModels[0] ? seriesLegendName(seriesModels[0]) : undefined,
-              style: { color: textColor, fontSize: '10px', fontWeight: '600' },
+              text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
+              useHTML: true,
+              style: { color: textColor, fontSize: '10px', lineHeight: '1.15' },
               x: 36,
             },
           },
@@ -782,8 +787,9 @@ function renderChart() {
               style: { color: textColor, fontSize: '10px' },
             },
             title: {
-              text: seriesModels[1] ? seriesLegendName(seriesModels[1]) : props.detail.title,
-              style: { color: primaryColor, fontSize: '10px', fontWeight: '600' },
+              text: seriesModels[1] ? seriesAxisTitle(seriesModels[1]) : escapeHtml(props.detail.title),
+              useHTML: true,
+              style: { color: primaryColor, fontSize: '10px', lineHeight: '1.15' },
               x: 44,
             },
             plotLines: thresholdPlotLines(thresholds),
@@ -806,8 +812,9 @@ function renderChart() {
               style: { color: textColor, fontSize: '10px' },
             },
             title: {
-              text: seriesModels[0] ? seriesLegendName(seriesModels[0]) : undefined,
-              style: { color: primaryColor, fontSize: '10px', fontWeight: '600' },
+              text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
+              useHTML: true,
+              style: { color: primaryColor, fontSize: '10px', fontWeight: '600', lineHeight: '1.15' },
               x: 44,
             },
             plotLines: thresholdPlotLines(thresholds),
@@ -912,7 +919,7 @@ watch(
   { deep: true },
 )
 
-watch([isComparing, annotationsEnabled], () => {
+watch(isComparing, () => {
   void nextTick(renderChart)
 })
 
@@ -938,7 +945,7 @@ onBeforeUnmount(() => {
           <button
             v-for="range in rangeOptions"
             :key="range.id"
-            class="chart-range-button border-r border-[var(--app-border)] text-sm font-semibold last:border-r-0"
+            class="chart-range-button border-r border-[var(--app-border)] text-[0.8125rem] font-semibold last:border-r-0"
             :class="activeRange === range.id ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]'"
             type="button"
             @click="applyRange(range.id)"
@@ -947,9 +954,9 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <div v-if="!isSeasonalityChart" class="chart-date-range text-sm font-semibold text-[var(--app-primary)]">
+        <div v-if="!isSeasonalityChart" class="chart-date-range text-[0.8125rem] font-semibold text-[var(--app-primary)]">
           <span>{{ visibleRangeLabel }}</span>
-          <CalendarDays :size="20" />
+          <CalendarDays :size="16" />
         </div>
 
         <div class="chart-actions-row">
@@ -960,27 +967,8 @@ onBeforeUnmount(() => {
             type="button"
             @click="toggleCompare"
           >
-            <Plus :size="18" />
+            <Plus :size="15" />
             Compare
-          </button>
-
-          <button
-            v-if="!isSeasonalityChart"
-            class="chart-annotation-button"
-            type="button"
-            :aria-pressed="annotationsEnabled"
-            @click="toggleAnnotations"
-          >
-            <span
-              class="relative h-6 w-11 rounded-full transition"
-              :class="annotationsEnabled ? 'bg-[var(--app-primary)]' : 'bg-[var(--app-border-strong)]'"
-            >
-              <span
-                class="absolute top-1 h-4 w-4 rounded-full bg-white transition"
-                :class="annotationsEnabled ? 'left-6' : 'left-1'"
-              />
-            </span>
-            Annotations
           </button>
 
           <button
@@ -988,7 +976,7 @@ onBeforeUnmount(() => {
             type="button"
             @click="toggleFullScreen"
           >
-            <Plus :size="18" />
+            <Maximize2 :size="15" />
             Full Screen
           </button>
 
@@ -999,7 +987,7 @@ onBeforeUnmount(() => {
               aria-describedby="indicator-download-tooltip"
               @click="emit('download')"
             >
-              <Download :size="18" />
+              <Download :size="15" />
               Download
             </button>
             <div id="indicator-download-tooltip" class="download-tooltip" role="tooltip">
@@ -1014,8 +1002,8 @@ onBeforeUnmount(() => {
             type="button"
             @click="openLargeChart"
           >
-            <Maximize2 :size="18" />
-            Full Chart
+            <ExternalLink :size="15" />
+            Legacy Indicator Chart
           </button>
 
           <button
@@ -1024,20 +1012,20 @@ onBeforeUnmount(() => {
             type="button"
             @click="openBacktest"
           >
-            <BarChart3 :size="18" />
+            <BarChart3 :size="15" />
             Backtest
           </button>
         </div>
       </div>
     </div>
 
-    <div v-if="loading" class="flex h-[820px] items-center justify-center text-sm text-[var(--app-text-muted)]">
+    <div v-if="loading" class="flex h-[680px] items-center justify-center text-sm text-[var(--app-text-muted)]">
       Loading chart...
     </div>
-    <div v-else-if="error" class="flex h-[820px] items-center justify-center px-6 text-center text-sm text-[var(--app-negative)]">
+    <div v-else-if="error" class="flex h-[680px] items-center justify-center px-6 text-center text-sm text-[var(--app-negative)]">
       {{ error }}
     </div>
-    <div v-else-if="!hasRows" class="flex h-[820px] items-center justify-center text-sm text-[var(--app-text-muted)]">
+    <div v-else-if="!hasRows" class="flex h-[680px] items-center justify-center text-sm text-[var(--app-text-muted)]">
       No chart data
     </div>
     <IndicatorSeasonalityChart
@@ -1045,7 +1033,7 @@ onBeforeUnmount(() => {
       :detail="detail"
       :data="seasonalityData"
     />
-    <div v-else ref="chartElement" class="h-[820px] w-full px-4 pb-4 pt-1" />
+    <div v-else ref="chartElement" class="h-[680px] w-full px-4 pb-4 pt-1" />
   </section>
 </template>
 
@@ -1053,14 +1041,14 @@ onBeforeUnmount(() => {
 .chart-toolbar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
 }
 
 .chart-primary-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
 }
 
 .chart-range-group {
@@ -1072,14 +1060,13 @@ onBeforeUnmount(() => {
 }
 
 .chart-range-button {
-  min-width: 42px;
-  height: 44px;
-  padding: 0 10px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
 }
 
 .chart-date-range,
 .chart-action-button,
-.chart-annotation-button,
 .chart-actions-row,
 .download-tooltip-wrapper {
   display: inline-flex;
@@ -1087,20 +1074,20 @@ onBeforeUnmount(() => {
 }
 
 .chart-date-range {
-  height: 44px;
-  gap: 8px;
+  height: 30px;
+  gap: 6px;
   white-space: nowrap;
 }
 
 .chart-action-button {
-  height: 44px;
-  gap: 8px;
+  height: 30px;
+  gap: 6px;
   border: 1px solid var(--app-border);
   border-radius: 6px;
   background: var(--app-surface);
-  padding: 0 13px;
+  padding: 0 9px;
   color: var(--app-primary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1147,25 +1134,10 @@ onBeforeUnmount(() => {
   transform: translateY(0);
 }
 
-.chart-annotation-button {
-  height: 44px;
-  gap: 8px;
-  border-radius: 6px;
-  padding: 0 4px;
-  color: var(--app-text-secondary);
-  font-size: 0.875rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.chart-annotation-button:hover {
-  color: var(--app-primary);
-}
-
 .chart-actions-row {
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 7px;
   margin-left: auto;
 }
 
@@ -1228,8 +1200,12 @@ onBeforeUnmount(() => {
   stroke: var(--app-border);
 }
 
+:deep(.highcharts-crosshair) {
+  stroke-dasharray: 4 4;
+}
+
 :deep(.highcharts-navigator-mask-inside) {
-  fill: rgba(22, 119, 255, 0.06);
+  fill: rgba(22, 119, 255, 0.338);
 }
 
 :root[data-theme='dark'] :deep(.highcharts-navigator-mask-inside) {

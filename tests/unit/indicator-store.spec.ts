@@ -93,51 +93,6 @@ describe('indicator store', () => {
     expect(store.pageSize).toBe(12)
   })
 
-  it('narrows the list to favorites while favoritesOnly is on', async () => {
-    mockIndicatorList([
-      { url: 'alpha', chart_name: 'Alpha', favorite: true },
-      { url: 'bravo', chart_name: 'Bravo' },
-      { url: 'charlie', chart_name: 'Charlie', favorite: true },
-    ])
-    const store = useIndicatorStore()
-
-    await store.ensureCurrentList()
-    expect(store.filteredItems).toHaveLength(3)
-
-    store.favoritesOnly = true
-    expect(store.filteredItems.map((item) => item.name)).toEqual(['Alpha', 'Charlie'])
-    expect(store.totalIndicators).toBe(2)
-
-    store.favoritesOnly = false
-    expect(store.filteredItems).toHaveLength(3)
-  })
-
-  it('combines favoritesOnly with the other filters instead of replacing them', async () => {
-    mockIndicatorList([
-      { url: 'alpha', chart_name: 'Alpha', timeframe: 'Short', favorite: true },
-      { url: 'bravo', chart_name: 'Bravo', timeframe: 'Long', favorite: true },
-      { url: 'charlie', chart_name: 'Charlie', timeframe: 'Short' },
-    ])
-    const store = useIndicatorStore()
-
-    await store.ensureCurrentList()
-    store.favoritesOnly = true
-    store.timeFrameFilter = 'Short'
-
-    expect(store.filteredItems.map((item) => item.name)).toEqual(['Alpha'])
-  })
-
-  it('clears favoritesOnly through the reset action', async () => {
-    mockIndicatorList([{ url: 'alpha', chart_name: 'Alpha' }])
-    const store = useIndicatorStore()
-
-    await store.ensureCurrentList()
-    store.favoritesOnly = true
-    store.resetFilters()
-
-    expect(store.favoritesOnly).toBe(false)
-  })
-
   it('indexes loaded indicators by lowercased id across every source', async () => {
     mockIndicatorList([
       { url: 'Alpha', chart_name: 'Alpha' },
@@ -220,6 +175,27 @@ describe('indicator store', () => {
     store.rememberIndicatorSource('xlv_reltrend_above8_spx_ratio', 'stock_complete_list')
 
     expect(store.sourceForDetail('xlv_reltrend_above8_spx_ratio', detail)).toBe('stock_complete_list')
+  })
+
+  it('resets filters and sorting together', async () => {
+    mockIndicatorList([
+      { url: 'bravo', chart_name: 'Bravo' },
+      { url: 'alpha', chart_name: 'Alpha' },
+    ])
+    const store = useIndicatorStore()
+
+    await store.ensureCurrentList()
+    store.setSort({ key: 'chart_name', kind: 'name' })
+    store.searchQuery = 'x'
+    store.timeFrameFilter = 'Short'
+
+    store.resetFilters()
+
+    expect(store.sortKey).toBe('')
+    expect(store.sortDirection).toBe('asc')
+    expect(store.searchQuery).toBe('')
+    expect(store.timeFrameFilter).toBe('')
+    expect(store.pagedItems.map((item) => item.name)).toEqual(['Bravo', 'Alpha'])
   })
 
   it('sorts the current list by text columns and toggles direction', async () => {

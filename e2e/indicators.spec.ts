@@ -140,9 +140,9 @@ test('shows indicator table and card toggle', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Stock Market', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Stock Market' })).toBeVisible()
   await expect(page.getByText('20 Indicators', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('Showing 1–12 of 20 indicators')).toBeVisible()
+  await expect(page.getByText('Page 1 / 2 | 20 indicators')).toBeVisible()
   await expect(page.getByRole('button', { name: /Table/ }).first()).toHaveCSS('color', 'rgb(255, 255, 255)')
-  await expect(page.getByRole('button', { name: '1', exact: true })).toHaveCSS('color', 'rgb(255, 255, 255)')
+  await expect(page.getByRole('button', { name: '1', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('option', { name: 'Short' })).toBeAttached()
   await expect(page.getByRole('option', { name: 'Long' })).toBeAttached()
   expect(requestCookies[0]).toContain('sentimen_session=')
@@ -156,7 +156,7 @@ test('shows indicator table and card toggle', async ({ page }) => {
   await page.getByRole('button', { name: /Card/ }).click()
   await page.waitForTimeout(250)
   await expect(page.getByRole('heading', { name: 'Stock Market' })).toBeVisible()
-  await expect(page.getByText('Showing 1–12 of 20 indicators')).toBeVisible()
+  await expect(page.getByText('Page 1 / 2 | 20 indicators')).toBeVisible()
   await expect(page.getByRole('button', { name: /Card/ }).first()).toHaveCSS('color', 'rgb(255, 255, 255)')
   await expect(page.getByTestId('indicator-sparkline').first()).toBeVisible()
   await expect(page.getByTestId('indicator-sparkline').first().locator('polyline')).toHaveAttribute(
@@ -357,6 +357,62 @@ test('shows indicator detail layout and keeps detail features', async ({ page })
   await page.getByRole('button', { name: /Related Breadth Chart/ }).click()
   await expect(page).toHaveURL(/related_breadth_chart/)
   await expect(page.getByRole('heading', { name: /Related Breadth Chart/ })).toBeVisible()
+})
+
+test('renders shares detail charts when threshold levels are zero', async ({ page }) => {
+  const row = {
+    url: 'etf_crpt_shares',
+    chart_name: 'CRPT Outstanding Shares',
+    groups: 'ETF',
+    sub_type: 'sector',
+    timeframe: 'Medium-Term',
+    last_value: 8,
+    last_change: 0,
+    last_update: '2026-09-16',
+    sentiment: 4,
+    type: 'shares',
+    market_symbol: 'CRPT',
+    opt: '0.0',
+    pess: '0.0',
+  }
+  const chartRows = Array.from({ length: 90 }, (_, index) => {
+    const date = new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10)
+    return {
+      date,
+      CRPT: 18 + Math.sin(index / 6) * 2,
+      etf_crpt_shares: index < 20 ? 0 : 8,
+    }
+  })
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('backtestedge-theme', 'light')
+  })
+  await page.route('**/dev/st_data/shares_outstanding', async (route) => {
+    await route.fulfill({ json: [row] })
+  })
+  await page.route('**/dev/st_data/search_url_info**', async (route) => {
+    await route.fulfill({
+      json: {
+        ...row,
+        description: '<p>Shares outstanding.</p>',
+        updated: 'Daily',
+        source: 'SentimenTrader',
+        related: [],
+        blog_results: [],
+        constituent_conditions: [],
+        return_segments: '[]',
+      },
+    })
+  })
+  await page.route('**/dev/st_data/get_data?index=**', async (route) => {
+    await route.fulfill({ json: chartRows })
+  })
+
+  await page.goto('/indicators/etf_crpt_shares?list=etf-shares')
+
+  await expect(page.getByRole('heading', { name: 'CRPT Outstanding Shares' })).toBeVisible()
+  await expect(page.locator('.highcharts-container')).toBeVisible()
+  await expect(page.getByText('No chart data')).toHaveCount(0)
 })
 
 test('resolves the source table from direct indicator detail links', async ({ page }) => {

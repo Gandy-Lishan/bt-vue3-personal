@@ -1,4 +1,4 @@
-import { formatIndicatorDate, indicatorDateTimestamp, rawIndicatorDate } from './indicator.dates'
+import { formatIndicatorDate, indicatorDateTimestamp, rawIndicatorDate, rawIndicatorDateOnly } from './indicator.dates'
 import type { Indicator, IndicatorSortDirection } from './indicator.types'
 import type { IndicatorTableColumn, IndicatorTableColumnKind } from './indicator.table'
 
@@ -31,9 +31,24 @@ export function parseIndicatorNumber(value: unknown) {
   return Number.isFinite(numeric) ? numeric : null
 }
 
-export function formatIndicatorNumber(value: unknown) {
+function formatTrimmedNumber(value: unknown, numeric: number) {
+  if (typeof value === 'string') {
+    const text = value.trim().replace(/%$/, '')
+    if (/^-?\d+(?:\.\d+)?$/.test(text)) {
+      const trimmed = text.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
+      return trimmed === '-0' ? '0' : trimmed
+    }
+  }
+
+  const trimmed = String(Number(numeric.toFixed(12)))
+  return trimmed === '-0' ? '0' : trimmed
+}
+
+export function formatIndicatorNumber(value: unknown, decimals?: number, trimTrailingZeros = false) {
   const numeric = parseIndicatorNumber(value)
   if (numeric === null) return '—'
+  if (decimals !== undefined) return numeric.toFixed(decimals)
+  if (trimTrailingZeros) return formatTrimmedNumber(value, numeric)
   return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2)
 }
 
@@ -53,6 +68,11 @@ function hasPercentChange(indicator: Indicator, column: IndicatorTableColumn) {
   return column.key === 'last_change' && String(indicator.raw?.last_change_type ?? '').toLowerCase() === 'percent'
 }
 
+function appendValueSuffix(value: string, column: IndicatorTableColumn) {
+  if (value === '—' || !column.valueSuffix) return value
+  return `${value}${column.valueSuffix}`
+}
+
 export function displayIndicatorTimeFrame(value: unknown) {
   const text = String(value ?? '').trim().replace(/-/g, ' ')
   if (!text) return '—'
@@ -65,11 +85,16 @@ export function displayIndicatorTimeFrame(value: unknown) {
 export function displayIndicatorValue(indicator: Indicator, column: IndicatorTableColumn) {
   const value = column.key === 'timeframe' ? indicator.timeFrame : indicatorRawValue(indicator, column.key)
 
-  if (column.kind === 'date') return column.rawDate ? rawIndicatorDate(value) : formatIndicatorDate(value)
-  if (column.kind === 'number') return formatIndicatorNumber(value)
+  if (column.kind === 'date') {
+    if (column.rawDateOnly) return rawIndicatorDateOnly(value)
+    return column.rawDate ? rawIndicatorDate(value) : formatIndicatorDate(value)
+  }
+  if (column.kind === 'number') return appendValueSuffix(formatIndicatorNumber(value, column.decimals, column.trimTrailingZeros), column)
   if (column.kind === 'change') {
-    const formatted = formatIndicatorNumber(value)
-    if (formatted === '—' || !hasPercentChange(indicator, column)) return formatted
+    const formatted = formatIndicatorNumber(value, column.decimals, column.trimTrailingZeros)
+    if (formatted === '—') return formatted
+    if (column.valueSuffix) return appendValueSuffix(formatted, column)
+    if (!hasPercentChange(indicator, column)) return formatted
     return formatted.endsWith('%') ? formatted : `${formatted}%`
   }
 

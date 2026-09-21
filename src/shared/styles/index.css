@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 :root {
+  /*
+   * 14px rather than the 16px default, so the interface fits a smaller laptop screen.
+   * Expressed as a percentage so it still honours a reader's own browser font-size
+   * setting. Everything in rem — all Tailwind type AND spacing — scales with this.
+   */
+  font-size: 87.5%;
   --page-gutter: 32px;
   --app-bg: #f6fbff;
   --app-bg-muted: #f4f7fb;
@@ -174,4 +180,51 @@ button:disabled {
 input::placeholder,
 textarea::placeholder {
   color: var(--app-text-muted);
+}
+
+/*
+ * Compact summary pill, shared by the Indicators list header and the detail page's
+ * meta row so the two stay visually identical. Promoted here from IndicatorsPage's
+ * scoped block, where a second copy on the detail page would have drifted.
+ */
+.indicator-summary-pill {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--app-border-muted);
+  border-radius: 999px;
+  background: var(--app-primary-soft-alt);
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.indicator-summary-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+/*
+ * Typography only, no `display` — the value/label children set their own size and weight,
+ * so this leaves the list header's inline spacing untouched.
+ */
+.indicator-summary-pill__text {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.indicator-summary-pill__value {
+  color: var(--app-text);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.indicator-summary-pill__label {
+  color: var(--app-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
 }
