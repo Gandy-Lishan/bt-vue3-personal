@@ -8,6 +8,11 @@
    */
   font-size: 87.5%;
   --page-gutter: 32px;
+  --fixed-ui-scale: 1;
+  --icon-scale: 1;
+  --sparkline-scale: 1;
+  --chart-ui-scale: 1;
+  --indicator-chart-height: 680px;
   --app-bg: #f6fbff;
   --app-bg-muted: #f4f7fb;
   --app-surface: #ffffff;
@@ -139,6 +144,52 @@
 @media (min-width: 1536px) {
   :root {
     --page-gutter: 64px;
+  }
+}
+
+@media (min-width: 1920px) and (min-height: 1080px) {
+  :root {
+    font-size: 100%;
+    --page-gutter: 72px;
+    --fixed-ui-scale: 1.08;
+    --sparkline-scale: 1.12;
+    --chart-ui-scale: 1.08;
+    --indicator-chart-height: 760px;
+  }
+}
+
+@media (min-width: 2560px) and (min-height: 1440px) {
+  :root {
+    font-size: 137.5%;
+    --page-gutter: 96px;
+    --fixed-ui-scale: 1.38;
+    --icon-scale: 1.1;
+    --sparkline-scale: 1.42;
+    --chart-ui-scale: 1.38;
+    --indicator-chart-height: 940px;
+  }
+}
+
+@media (min-width: 3000px) and (min-height: 1700px) {
+  :root {
+    font-size: 200%;
+    --page-gutter: 128px;
+    --fixed-ui-scale: 1.85;
+    --icon-scale: 1.18;
+    --sparkline-scale: 1.85;
+    --chart-ui-scale: 1.8;
+    --indicator-chart-height: 1040px;
+  }
+
+  button > svg,
+  a > svg {
+    width: calc(1em * var(--icon-scale));
+    height: calc(1em * var(--icon-scale));
+  }
+
+  .no-print img[alt='SentimenTrader logo'] {
+    width: calc(175px * var(--fixed-ui-scale));
+    height: calc(35px * var(--fixed-ui-scale));
   }
 }
 

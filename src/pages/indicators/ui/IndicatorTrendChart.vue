@@ -89,6 +89,19 @@ const excludedKeys = new Set(['date', 'Date', 'dumb', 'Dumb', 'color', 'Color'])
 const thresholdKeys = new Set(['opt', 'pess'])
 const chartTheme = indicatorChartTheme
 
+function chartUiScale() {
+  const value = Number(cssVar('--chart-ui-scale', '1'))
+  return Number.isFinite(value) && value > 0 ? value : 1
+}
+
+function chartSize(value: number) {
+  return Number((value * chartUiScale()).toFixed(2))
+}
+
+function chartFontSize(value: number) {
+  return `${chartSize(value)}px`
+}
+
 const visibleRangeLabel = computed(() => {
   if (visibleMin.value === null || visibleMax.value === null) return 'No date range'
   return `${formatChartDate(visibleMin.value)} - ${formatChartDate(visibleMax.value)}`
@@ -413,7 +426,7 @@ function thresholdPlotLines(thresholds: ChartThresholdValues): Highcharts.YAxisP
         align: 'left',
         x: 4,
         y: -5,
-        style: { color, fontSize: '12px', fontWeight: '700' },
+        style: { color, fontSize: chartFontSize(12), fontWeight: '700' },
       },
     })
   }
@@ -431,7 +444,7 @@ function thresholdPlotLines(thresholds: ChartThresholdValues): Highcharts.YAxisP
         align: 'left',
         x: 4,
         y: -5,
-        style: { color, fontSize: '12px', fontWeight: '700' },
+        style: { color, fontSize: chartFontSize(12), fontWeight: '700' },
       },
     })
   }
@@ -651,10 +664,10 @@ function renderChart() {
     },
     chart: {
       ...baseHighchartsChartOptions(theme),
-      spacingLeft: 8,
-      spacingRight: 72,
-      spacingTop: 8,
-      spacingBottom: 10,
+      spacingLeft: chartSize(8),
+      spacingRight: chartSize(72),
+      spacingTop: chartSize(8),
+      spacingBottom: chartSize(10),
       zooming: {
         type: 'x',
       },
@@ -673,14 +686,14 @@ function renderChart() {
       align: 'center',
       verticalAlign: 'top',
       layout: 'horizontal',
-      itemDistance: 26,
-      margin: 46,
-      symbolWidth: 34,
+      itemDistance: chartSize(26),
+      margin: chartSize(46),
+      symbolWidth: chartSize(34),
       x: 0,
-      y: 28,
+      y: chartSize(28),
       itemStyle: {
         color: textColor,
-        fontSize: '11px',
+        fontSize: chartFontSize(11),
         fontWeight: '600',
       },
       itemHoverStyle: {
@@ -689,8 +702,8 @@ function renderChart() {
     },
     navigator: {
       enabled: true,
-      height: 40,
-      margin: 20,
+      height: chartSize(40),
+      margin: chartSize(20),
       maskFill: theme.navigatorMask,
       outlineColor: theme.border,
       series: {
@@ -705,7 +718,7 @@ function renderChart() {
         gridLineColor: gridColor,
         labels: {
           format: '{value:%Y}',
-          style: { color: textColor },
+          style: { color: textColor, fontSize: chartFontSize(9) },
         },
       },
       handles: {
@@ -715,7 +728,7 @@ function renderChart() {
     },
     scrollbar: {
       enabled: true,
-      height: 8,
+      height: chartSize(8),
       barBackgroundColor: theme.scrollbarBar,
       barBorderColor: theme.dark ? 'rgba(97, 180, 255, 0.28)' : 'rgba(143, 182, 242, 0.35)',
       buttonBackgroundColor: theme.scrollbarButton,
@@ -732,10 +745,10 @@ function renderChart() {
       gridLineDashStyle: 'Dot',
       lineColor: borderColor,
       tickColor: borderColor,
-      tickPixelInterval: 150,
+      tickPixelInterval: chartSize(150),
       labels: {
         format: "{value:%b '%y}",
-        style: { color: textColor, fontSize: '11px' },
+        style: { color: textColor, fontSize: chartFontSize(11) },
       },
       crosshair: crosshairOptions(),
       events: {
@@ -758,16 +771,16 @@ function renderChart() {
             lineWidth: 0,
             minPadding: 0.1,
             maxPadding: 0.1,
-            tickPixelInterval: 46,
+            tickPixelInterval: chartSize(46),
             labels: {
-              x: 25,
-              style: { color: textColor, fontSize: '10px' },
+              x: chartSize(25),
+              style: { color: textColor, fontSize: chartFontSize(10) },
             },
             title: {
               text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
               useHTML: true,
-              style: { color: textColor, fontSize: '10px', lineHeight: '1.15' },
-              x: 36,
+              style: { color: textColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
+              x: chartSize(36),
             },
           },
           {
@@ -781,16 +794,16 @@ function renderChart() {
             lineWidth: 0,
             minPadding: 0.1,
             maxPadding: 0.1,
-            tickPixelInterval: 44,
+            tickPixelInterval: chartSize(44),
             labels: {
-              x: 25,
-              style: { color: textColor, fontSize: '10px' },
+              x: chartSize(25),
+              style: { color: textColor, fontSize: chartFontSize(10) },
             },
             title: {
               text: seriesModels[1] ? seriesAxisTitle(seriesModels[1]) : escapeHtml(props.detail.title),
               useHTML: true,
-              style: { color: primaryColor, fontSize: '10px', lineHeight: '1.15' },
-              x: 44,
+              style: { color: primaryColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
+              x: chartSize(44),
             },
             plotLines: thresholdPlotLines(thresholds),
           },
@@ -806,16 +819,16 @@ function renderChart() {
             lineWidth: 0,
             minPadding: 0.1,
             maxPadding: 0.1,
-            tickPixelInterval: 44,
+            tickPixelInterval: chartSize(44),
             labels: {
-              x: 25,
-              style: { color: textColor, fontSize: '10px' },
+              x: chartSize(25),
+              style: { color: textColor, fontSize: chartFontSize(10) },
             },
             title: {
               text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
               useHTML: true,
-              style: { color: primaryColor, fontSize: '10px', fontWeight: '600', lineHeight: '1.15' },
-              x: 44,
+              style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
+              x: chartSize(44),
             },
             plotLines: thresholdPlotLines(thresholds),
           },
@@ -825,12 +838,12 @@ function renderChart() {
       useHTML: true,
       backgroundColor: theme.tooltipBg,
       borderColor,
-      borderRadius: 8,
-      padding: 8,
+      borderRadius: chartSize(8),
+      padding: chartSize(8),
       shadow: true,
       style: {
         color: textColor,
-        fontSize: '12px',
+        fontSize: chartFontSize(12),
       },
       formatter(this: { x?: number; points?: Highcharts.Point[]; point?: Highcharts.Point }) {
         const points = this.points ?? (this.point ? [this.point] : [])
@@ -1019,13 +1032,13 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="loading" class="flex h-[680px] items-center justify-center text-sm text-[var(--app-text-muted)]">
+    <div v-if="loading" class="indicator-chart-body flex items-center justify-center text-sm text-[var(--app-text-muted)]">
       Loading chart...
     </div>
-    <div v-else-if="error" class="flex h-[680px] items-center justify-center px-6 text-center text-sm text-[var(--app-negative)]">
+    <div v-else-if="error" class="indicator-chart-body flex items-center justify-center px-6 text-center text-sm text-[var(--app-negative)]">
       {{ error }}
     </div>
-    <div v-else-if="!hasRows" class="flex h-[680px] items-center justify-center text-sm text-[var(--app-text-muted)]">
+    <div v-else-if="!hasRows" class="indicator-chart-body flex items-center justify-center text-sm text-[var(--app-text-muted)]">
       No chart data
     </div>
     <IndicatorSeasonalityChart
@@ -1033,7 +1046,7 @@ onBeforeUnmount(() => {
       :detail="detail"
       :data="seasonalityData"
     />
-    <div v-else ref="chartElement" class="h-[680px] w-full px-4 pb-4 pt-1" />
+    <div v-else ref="chartElement" class="indicator-chart-body w-full px-4 pb-4 pt-1" />
   </section>
 </template>
 
@@ -1041,28 +1054,32 @@ onBeforeUnmount(() => {
 .chart-toolbar {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: calc(7px * var(--fixed-ui-scale, 1));
+}
+
+.indicator-chart-body {
+  height: var(--indicator-chart-height);
 }
 
 .chart-primary-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: calc(7px * var(--fixed-ui-scale, 1));
 }
 
 .chart-range-group {
   display: inline-flex;
   overflow: hidden;
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--fixed-ui-scale, 1));
   background: var(--app-surface);
 }
 
 .chart-range-button {
-  min-width: 30px;
-  height: 30px;
-  padding: 0 6px;
+  min-width: calc(30px * var(--fixed-ui-scale, 1));
+  height: calc(30px * var(--fixed-ui-scale, 1));
+  padding: 0 calc(6px * var(--fixed-ui-scale, 1));
 }
 
 .chart-date-range,
@@ -1074,18 +1091,18 @@ onBeforeUnmount(() => {
 }
 
 .chart-date-range {
-  height: 30px;
-  gap: 6px;
+  height: calc(30px * var(--fixed-ui-scale, 1));
+  gap: calc(6px * var(--fixed-ui-scale, 1));
   white-space: nowrap;
 }
 
 .chart-action-button {
-  height: 30px;
-  gap: 6px;
+  height: calc(30px * var(--fixed-ui-scale, 1));
+  gap: calc(6px * var(--fixed-ui-scale, 1));
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--fixed-ui-scale, 1));
   background: var(--app-surface);
-  padding: 0 9px;
+  padding: 0 calc(9px * var(--fixed-ui-scale, 1));
   color: var(--app-primary);
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1102,13 +1119,13 @@ onBeforeUnmount(() => {
 
 .download-tooltip {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + (8px * var(--fixed-ui-scale, 1)));
   right: 0;
   z-index: 20;
   width: min(360px, calc(100vw - 32px));
-  padding: 10px 12px;
+  padding: calc(10px * var(--fixed-ui-scale, 1)) calc(12px * var(--fixed-ui-scale, 1));
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: calc(6px * var(--fixed-ui-scale, 1));
   background: var(--app-surface);
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
   color: var(--app-text-secondary);
@@ -1137,7 +1154,7 @@ onBeforeUnmount(() => {
 .chart-actions-row {
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 7px;
+  gap: calc(7px * var(--fixed-ui-scale, 1));
   margin-left: auto;
 }
 
@@ -1165,7 +1182,7 @@ onBeforeUnmount(() => {
 
 :deep(.highcharts-navigator-xaxis text),
 :deep(.highcharts-scrollbar text) {
-  font-size: 9px !important;
+  font-size: calc(9px * var(--chart-ui-scale, 1)) !important;
   font-weight: 400 !important;
 }
 

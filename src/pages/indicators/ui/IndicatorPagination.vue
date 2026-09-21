@@ -138,9 +138,9 @@ function goToRequestedPage() {
 <style scoped>
 .indicator-pagination {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) auto minmax(250px, 1fr);
+  grid-template-columns: minmax(calc(190px * var(--fixed-ui-scale, 1)), 1fr) auto minmax(calc(250px * var(--fixed-ui-scale, 1)), 1fr);
   align-items: center;
-  gap: 12px;
+  gap: calc(12px * var(--fixed-ui-scale, 1));
   color: var(--app-text-secondary);
   font-size: 0.8125rem;
   font-weight: 700;
@@ -151,7 +151,7 @@ function goToRequestedPage() {
 .indicator-pagination__status {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: calc(7px * var(--fixed-ui-scale, 1));
 }
 
 .indicator-pagination__jump {
@@ -169,21 +169,21 @@ function goToRequestedPage() {
 .indicator-pagination__input,
 .indicator-pagination__button,
 .indicator-pagination__page {
-  height: 32px;
+  height: calc(32px * var(--fixed-ui-scale, 1));
   border: 1px solid var(--app-border);
-  border-radius: 7px;
+  border-radius: calc(7px * var(--fixed-ui-scale, 1));
   background: var(--app-surface);
   color: var(--app-text);
 }
 
 .indicator-pagination__input {
-  width: 64px;
-  padding: 0 10px;
+  width: calc(64px * var(--fixed-ui-scale, 1));
+  padding: 0 calc(10px * var(--fixed-ui-scale, 1));
   font-weight: 800;
 }
 
 .indicator-pagination__button {
-  padding: 0 12px;
+  padding: 0 calc(12px * var(--fixed-ui-scale, 1));
   font-weight: 800;
 }
 
@@ -194,7 +194,7 @@ function goToRequestedPage() {
 }
 
 .indicator-pagination__page {
-  width: 32px;
+  width: calc(32px * var(--fixed-ui-scale, 1));
   font-weight: 800;
 }
 
@@ -205,7 +205,7 @@ function goToRequestedPage() {
 }
 
 .indicator-pagination__ellipsis {
-  min-width: 20px;
+  min-width: calc(20px * var(--fixed-ui-scale, 1));
   text-align: center;
   color: var(--app-text-muted);
 }

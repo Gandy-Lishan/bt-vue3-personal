@@ -31,6 +31,10 @@ const bounds = computed(() => {
 })
 
 const hasPoints = computed(() => lines.value.length > 0 && bounds.value !== null)
+const svgStyle = computed(() => ({
+  width: `calc(${props.width}px * var(--sparkline-scale, 1))`,
+  height: `calc(${props.height}px * var(--sparkline-scale, 1))`,
+}))
 
 function lineStroke(index: number) {
   if (lines.value.length > 1) {
@@ -58,7 +62,15 @@ function polyline(line: number[]) {
 </script>
 
 <template>
-  <svg v-if="hasPoints" data-testid="indicator-sparkline" :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`" aria-hidden="true">
+  <svg
+    v-if="hasPoints"
+    data-testid="indicator-sparkline"
+    :width="width"
+    :height="height"
+    :viewBox="`0 0 ${width} ${height}`"
+    :style="svgStyle"
+    aria-hidden="true"
+  >
     <polyline
       v-for="(line, index) in lines"
       :key="index"

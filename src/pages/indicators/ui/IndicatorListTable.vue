@@ -158,7 +158,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
               scope="col"
               class="box-border py-2.5"
               :class="[props.compact ? 'px-2' : 'px-3', alignClass(column)]"
-              :style="{ minWidth: `${columnMinWidth(column)}px` }"
+              :style="{ minWidth: `calc(${columnMinWidth(column)}px * var(--fixed-ui-scale, 1))` }"
               :aria-sort="sortAria(column)"
             >
               <button
