@@ -43,12 +43,12 @@ function sortIcon(column: ConstituentColumn) {
   return props.sortDirection === 'asc' ? ArrowUp : ArrowDown
 }
 
-function alignClass(column: ConstituentColumn) {
-  return column.kind === 'number' ? 'text-right' : 'text-left'
+function alignClass(_column: ConstituentColumn) {
+  return 'text-left'
 }
 
-function justifyClass(column: ConstituentColumn) {
-  return column.kind === 'number' ? 'justify-end' : 'justify-start'
+function justifyClass(_column: ConstituentColumn) {
+  return 'justify-start'
 }
 </script>
 

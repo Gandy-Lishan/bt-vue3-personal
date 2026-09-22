@@ -188,12 +188,11 @@ onMounted(async () => {
               v-for="column in columns"
               :key="column.key"
               scope="col"
-              class="box-border px-1.5 py-2"
-              :class="column.kind === 'text' ? 'text-left' : 'text-right'"
+              class="box-border px-1.5 py-2 text-left"
             >
               <button
                 class="inline-flex w-full min-w-0 items-center gap-0.5 text-[0.625rem] font-semibold leading-tight transition hover:text-[var(--app-primary)]"
-                :class="[column.kind === 'text' ? 'justify-start' : 'justify-end', sortKey === column.key ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]']"
+                :class="['justify-start', sortKey === column.key ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]']"
                 type="button"
                 :title="column.label"
                 @click="handleSort(column)"
@@ -224,8 +223,8 @@ onMounted(async () => {
             <td
               v-for="column in columns"
               :key="column.key"
-              class="box-border px-1.5 py-2"
-              :class="column.kind === 'text' ? 'text-left font-semibold' : 'text-right'"
+              class="box-border px-1.5 py-2 text-left"
+              :class="{ 'font-semibold': column.kind === 'text' }"
             >
               <RouterLink
                 v-if="column.key === 'index_name'"

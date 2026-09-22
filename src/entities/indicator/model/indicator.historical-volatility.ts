@@ -1,4 +1,4 @@
-import type { IndicatorTableColumn } from './indicator.table'
+import { trendSparklineColumn, type IndicatorTableColumn } from './indicator.table'
 
 export type HistoricalVolatilityOptionId =
   | 'HistoricalSP500Score'
@@ -40,14 +40,15 @@ export function historicalVolatilityColumns(option: HistoricalVolatilityOption):
   const percentNumberColumn: Partial<IndicatorTableColumn> = { trimTrailingZeros: true, valueSuffix: '%' }
 
   return [
-    { key: 'market_symbol', label: 'Symbol', kind: 'name', minWidth: 92, uppercase: true },
-    { key: 'chart_name', label: 'Name', kind: 'text', minWidth: 260 },
-    ...(option.includeSector ? [historicalColumn('sector_name', 'Sector', 'text', 150)] : []),
+    { key: 'market_symbol', label: 'Symbol', kind: 'name', minWidth: 78, uppercase: true },
+    { key: 'chart_name', label: 'Name', kind: 'text', minWidth: 220 },
+    ...(option.includeSector ? [historicalColumn('sector_name', 'Sector', 'text', 74)] : []),
     historicalColumn('volatility_20d', 'Volatility 20d', 'number', 130, percentNumberColumn),
     historicalColumn('volatility_60d', 'Volatility 60d', 'number', 130, percentNumberColumn),
     historicalColumn('volatility_diff', 'Volatility Diff', 'change', 110, {
       ...percentNumberColumn,
       showChangeArrow: true,
     }),
+    trendSparklineColumn,
   ]
 }

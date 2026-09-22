@@ -295,7 +295,7 @@ function firstPath(item: NavItem) {
       </div>
     </div>
 
-    <nav class="relative flex h-11 items-stretch overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
+    <nav class="relative flex h-11 items-stretch justify-center overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
       <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0">
         <component
           :is="item.external ? 'a' : 'RouterLink'"
@@ -310,7 +310,7 @@ function firstPath(item: NavItem) {
         </component>
         <div
           v-if="item.subMenu?.length"
-          class="invisible absolute right-0 top-full z-30 min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100"
+          class="invisible absolute left-0 top-full z-30 min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100"
         >
           <component
             :is="subItem.external ? 'a' : 'RouterLink'"

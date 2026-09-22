@@ -56,12 +56,14 @@ const sentimentColumn: IndicatorTableColumn = {
   minWidth: 150,
 }
 
-const trendColumn: IndicatorTableColumn = {
+export const trendSparklineColumn: IndicatorTableColumn = {
   key: 'trend',
   label: 'Trend (30D)',
   kind: 'sparkline',
   minWidth: 150,
 }
+
+const trendColumn = trendSparklineColumn
 
 const defaultIndicatorColumns: IndicatorTableColumn[] = [
   { key: 'chart_name', label: 'Indicator Name', kind: 'name', minWidth: 430 },

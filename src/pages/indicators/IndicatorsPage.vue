@@ -2,21 +2,19 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  BarChart3,
-  CalendarDays,
-  Clock3,
-  Database,
+  CalendarRange,
+  ChartCandlestick,
+  ChartSpline,
+  CircleDollarSign,
   Download,
   Flame,
-  Grid3X3,
   Info,
-  LayoutGrid,
+  LayoutDashboard,
+  Network,
   RotateCcw,
+  Scale,
   Search,
-  SlidersHorizontal,
   Star,
-  Table2,
-  Globe2,
   X,
 } from '@lucide/vue'
 import { indicatorCsvFilename, indicatorCsvTable } from '@/entities/indicator/model/indicator.csv'
@@ -26,6 +24,7 @@ import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import type { IndicatorTableColumn, IndicatorTableColumnKind } from '@/entities/indicator/model/indicator.table'
 import type { Indicator, IndicatorGroup, IndicatorSection, IndicatorSortDirection } from '@/entities/indicator/model/indicator.types'
 import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
+import IndicatorPageHeader from './ui/IndicatorPageHeader.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
 import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
@@ -36,14 +35,20 @@ const route = useRoute()
 const isDescriptionOpen = ref(false)
 
 const iconMap = {
-  globe: Globe2,
-  chart: BarChart3,
-  bar: BarChart3,
-  clock: Clock3,
-  database: Database,
-  sliders: SlidersHorizontal,
-  calendar: CalendarDays,
-  grid: Grid3X3,
+  candlestick: ChartCandlestick,
+  spline: ChartSpline,
+  dollar: CircleDollarSign,
+  scale: Scale,
+  network: Network,
+  calendarRange: CalendarRange,
+  dashboard: LayoutDashboard,
+  chart: ChartCandlestick,
+  bar: ChartSpline,
+  clock: CircleDollarSign,
+  database: Scale,
+  sliders: Network,
+  calendar: CalendarRange,
+  grid: LayoutDashboard,
 }
 
 const currentTitle = computed(() => {
@@ -201,38 +206,12 @@ watch(
 <template>
   <div class="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
     <main class="px-[var(--page-gutter)] pb-8 pt-8">
-      <section class="mb-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-5 py-4">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h1 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">Indicators</h1>
-            <p class="mt-1 text-sm text-[var(--app-text-muted)]">
-              Explore market sentiment, breadth, flow, macro and seasonality.
-            </p>
-          </div>
-          <div class="flex h-10 shrink-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
-            <button
-              class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
-              :class="store.viewMode === 'table' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
-              :style="store.viewMode === 'table' ? { color: '#ffffff' } : undefined"
-              type="button"
-              :aria-pressed="store.viewMode === 'table'"
-              @click="store.setViewMode('table')"
-            >
-              <Table2 :size="16" /> Table
-            </button>
-            <button
-              class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
-              :class="store.viewMode === 'cards' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
-              :style="store.viewMode === 'cards' ? { color: '#ffffff' } : undefined"
-              type="button"
-              :aria-pressed="store.viewMode === 'cards'"
-              @click="store.setViewMode('cards')"
-            >
-              <LayoutGrid :size="16" /> Card
-            </button>
-          </div>
-        </div>
-      </section>
+      <IndicatorPageHeader
+        title="Indicators"
+        description="Explore market sentiment, breadth, flow, macro and seasonality."
+        :view-mode="store.viewMode"
+        @update:view-mode="store.setViewMode"
+      />
 
       <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
         <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
@@ -328,11 +307,17 @@ watch(
             <button
               v-for="subgroup in store.activeSubgroups"
               :key="subgroup.id"
-              class="h-14 shrink-0 border-b-2 px-3 text-sm font-semibold transition"
+              class="flex h-14 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold transition"
               :class="store.activeSubgroupId === subgroup.id ? 'border-[var(--app-primary)] text-[var(--app-text)]' : 'border-transparent text-[var(--app-text)] hover:text-[var(--app-primary)]'"
               type="button"
               @click="store.setSubgroup(subgroup.id)"
             >
+              <component
+                :is="iconMap[subgroup.icon as keyof typeof iconMap]"
+                v-if="subgroup.icon && iconMap[subgroup.icon as keyof typeof iconMap]"
+                :size="17"
+                aria-hidden="true"
+              />
               {{ subgroup.label }}
             </button>
           </nav>

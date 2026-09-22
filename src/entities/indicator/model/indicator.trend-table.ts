@@ -1,4 +1,4 @@
-import type { IndicatorTableColumn } from './indicator.table'
+import { trendSparklineColumn, type IndicatorTableColumn } from './indicator.table'
 
 export type TrendScoreOptionId =
   | 'SP500Score'
@@ -31,8 +31,8 @@ export const trendScoreOptions: TrendScoreOption[] = [
   { id: 'RussellScore', label: 'Russell 3000', source: 'russell', includeSector: true },
   { id: 'DomesticETFScore', label: 'Domestic ETF', source: 'etf_domestic' },
   { id: 'ForeignETFScore', label: 'Foreign ETF', source: 'etf_foreign' },
-  { id: 'OtherAssetsETFScore', label: 'Other Assets', source: 'etf_other' },
   { id: 'CRPScore', label: 'Crypto', source: 'crp' },
+  { id: 'OtherAssetsETFScore', label: 'Other Assets', source: 'etf_other' },
   { id: 'TrendSector', label: 'Sector Summary', source: 'sector_trend_score', summary: true },
   { id: 'WatchList', label: 'My Favorites', source: 'watchlist' },
 ]
@@ -70,9 +70,9 @@ function trendColumn(
 
 function identityColumns(includeSector: boolean): IndicatorTableColumn[] {
   return [
-    { key: 'market_symbol', label: 'Symbol', kind: 'name', minWidth: 92, uppercase: true },
-    { key: 'chart_name', label: 'Name', kind: 'text', minWidth: 260 },
-    ...(includeSector ? [trendColumn('sector_name', 'Sector', 'text', 150)] : []),
+    { key: 'market_symbol', label: 'Symbol', kind: 'name', minWidth: 78, uppercase: true },
+    { key: 'chart_name', label: 'Name', kind: 'text', minWidth: 220 },
+    ...(includeSector ? [trendColumn('sector_name', 'Sector', 'text', 74)] : []),
   ]
 }
 
@@ -136,10 +136,10 @@ const rangeRankColumns: IndicatorTableColumn[] = [
 export function trendScoreColumns(option: TrendScoreOption, condition: TrendScoreCondition): IndicatorTableColumn[] {
   const prefix = identityColumns(Boolean(option.includeSector))
 
-  if (condition === 'trend') return [...prefix, ...trendConditionColumns]
-  if (condition === 'relative') return [...prefix, ...relativeConditionColumns]
-  if (condition === 'consecutive') return [...prefix, ...consecutiveColumns]
-  if (condition === 'rangeRank') return [...prefix, ...rangeRankColumns]
+  if (condition === 'trend') return [...prefix, ...trendConditionColumns, trendSparklineColumn]
+  if (condition === 'relative') return [...prefix, ...relativeConditionColumns, trendSparklineColumn]
+  if (condition === 'consecutive') return [...prefix, ...consecutiveColumns, trendSparklineColumn]
+  if (condition === 'rangeRank') return [...prefix, ...rangeRankColumns, trendSparklineColumn]
 
-  return [...prefix, ...scoreColumns]
+  return [...prefix, ...scoreColumns, trendSparklineColumn]
 }

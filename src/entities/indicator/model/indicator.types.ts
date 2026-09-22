@@ -33,6 +33,7 @@ export interface IndicatorSubgroup {
   label: string
   source: string
   fullName?: string
+  icon?: string
 }
 
 export interface Indicator {

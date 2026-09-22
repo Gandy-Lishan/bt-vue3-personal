@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BarChart3,
+  ChartPie,
+  Coins,
   Cpu,
   Download,
   Globe,
@@ -10,12 +12,10 @@ import {
   Info,
   Landmark,
   Layers,
-  LayoutGrid,
   RotateCcw,
   Search,
   Shapes,
   Star,
-  Table2,
   TrendingUp,
   X,
 } from '@lucide/vue'
@@ -35,6 +35,7 @@ import type { IndicatorTableColumn } from '@/entities/indicator/model/indicator.
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import { useSortedPagedRows } from './composables/useSortedPagedRows'
 import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
+import IndicatorPageHeader from './ui/IndicatorPageHeader.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
 import SectorTrendSummaryTable from './ui/SectorTrendSummaryTable.vue'
@@ -184,7 +185,8 @@ function optionIcon(option: TrendScoreOption) {
   if (option.id === 'DomesticETFScore') return Landmark
   if (option.id === 'ForeignETFScore') return Globe
   if (option.id === 'OtherAssetsETFScore') return Shapes
-  if (option.summary) return Grid3X3
+  if (option.id === 'CRPScore') return Coins
+  if (option.summary) return ChartPie
   return BarChart3
 }
 
@@ -308,38 +310,13 @@ watch(
 <template>
   <div class="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
     <main class="px-[var(--page-gutter)] pb-8 pt-8">
-      <section class="mb-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-5 py-4">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h1 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">Trend Score</h1>
-            <p class="mt-1 text-sm text-[var(--app-text-muted)]">
-              Rank stocks, ETFs, crypto and other assets by absolute and relative trend strength.
-            </p>
-          </div>
-          <div v-if="!isSummary" class="flex h-10 shrink-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
-            <button
-              class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
-              :class="store.viewMode === 'table' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
-              :style="store.viewMode === 'table' ? { color: '#ffffff' } : undefined"
-              type="button"
-              :aria-pressed="store.viewMode === 'table'"
-              @click="store.setViewMode('table')"
-            >
-              <Table2 :size="16" /> Table
-            </button>
-            <button
-              class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
-              :class="store.viewMode === 'cards' ? 'selected-fill-button bg-[var(--app-primary)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
-              :style="store.viewMode === 'cards' ? { color: '#ffffff' } : undefined"
-              type="button"
-              :aria-pressed="store.viewMode === 'cards'"
-              @click="store.setViewMode('cards')"
-            >
-              <LayoutGrid :size="16" /> Card
-            </button>
-          </div>
-        </div>
-      </section>
+      <IndicatorPageHeader
+        title="Trend Score"
+        description="Rank stocks, ETFs, crypto and other assets by absolute and relative trend strength."
+        :view-mode="store.viewMode"
+        :show-view-mode-toggle="!isSummary"
+        @update:view-mode="store.setViewMode"
+      />
 
       <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
         <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
@@ -376,7 +353,6 @@ watch(
             </span>
             <span class="min-w-0">
               <span class="block text-sm font-semibold leading-5">{{ option.label }}</span>
-              <span class="block text-xs text-[var(--app-text-muted)]">{{ option.summary ? 'Summary' : 'Trend scores' }}</span>
             </span>
           </button>
         </aside>

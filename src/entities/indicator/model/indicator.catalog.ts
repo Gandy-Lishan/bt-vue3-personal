@@ -7,7 +7,7 @@ export const indicatorGroups: IndicatorGroup[] = [
     description: 'Browse and analyze sentiment indicators for the U.S. stock market.',
     source: 'stock_complete_list',
     views: 7,
-    icon: 'chart',
+    icon: 'candlestick',
     subgroups: [
       { id: 'stock', label: 'Stock Market', source: 'stock_complete_list', fullName: 'Stock Market Indicators' },
       { id: 'nasdaq100', label: 'NASDAQ 100', source: 'ndx_100_complete_list', fullName: 'NASDAQ 100 Stock Sentiment' },
@@ -24,7 +24,7 @@ export const indicatorGroups: IndicatorGroup[] = [
     description: 'Macroeconomic conditions, liquidity, and investor behavior.',
     source: 'macro_indicator_list',
     views: 2,
-    icon: 'bar',
+    icon: 'spline',
     subgroups: [
       { id: 'macro', label: 'Macroeconomic Conditions', source: 'macro_indicator_list', fullName: 'Macroeconomic Conditions' },
       { id: 'kaeppel', label: 'Jay Kaeppel Indicators', source: 'jk_complete_list', fullName: 'Jay Kaeppel’s Indicators' },
@@ -36,7 +36,7 @@ export const indicatorGroups: IndicatorGroup[] = [
     description: 'ETF sentiment, fund flow, monthly flows, and shares outstanding.',
     source: 'etf_complete_list',
     views: 4,
-    icon: 'clock',
+    icon: 'dollar',
     subgroups: [
       { id: 'etf-sentiment', label: 'Most Active ETF Sentiment', source: 'etf_complete_list', fullName: 'Most Active ETF Sentiment' },
       { id: 'etf-flow', label: 'Most Active ETF Fund Flow', source: 'etf_flow', fullName: 'Most Active ETF Fund Flow' },
@@ -50,7 +50,7 @@ export const indicatorGroups: IndicatorGroup[] = [
     description: 'Bond and commodity sentiment plus COT extremes.',
     source: 'bond_complete_list',
     views: 3,
-    icon: 'database',
+    icon: 'scale',
     subgroups: [
       { id: 'bond', label: 'Bond Market Indicators', source: 'bond_complete_list', fullName: 'Bond Market Indicators' },
       { id: 'commodity', label: 'Commodity Market Indicators', source: 'commodity_complete_list', fullName: 'Commodity Market Indicators' },
@@ -63,7 +63,7 @@ export const indicatorGroups: IndicatorGroup[] = [
     description: 'ETF sector, global index, and crypto breadth screens.',
     source: 'etf_breadth',
     views: 3,
-    icon: 'sliders',
+    icon: 'network',
     subgroups: [
       { id: 'etf-breadth', label: 'ETF Sector Breadth', source: 'etf_breadth', fullName: 'ETF Sector Breadth' },
       { id: 'global-breadth', label: 'Global Index Breadth', source: 'country_breadth', fullName: 'Global Index Breadth' },
@@ -76,7 +76,7 @@ export const indicatorGroups: IndicatorGroup[] = [
     description: 'Seasonal tendencies across commodities, ETFs, and bonds.',
     source: 'commod_seasonality',
     views: 3,
-    icon: 'calendar',
+    icon: 'calendarRange',
     subgroups: [
       { id: 'commodity-seasonality', label: 'Commodity Market Seasonality', source: 'commod_seasonality', fullName: 'Commodity Market Seasonality' },
       { id: 'etf-seasonality', label: 'ETF Seasonality', source: 'etf_seasonality', fullName: 'ETF Seasonality'},
@@ -89,7 +89,7 @@ export const indicatorGroups: IndicatorGroup[] = [
     description: 'High level breadth, spotlight, and market overview panels.',
     source: 'country_breadth_overview',
     views: 4,
-    icon: 'grid',
+    icon: 'dashboard',
     subgroups: [
       { id: 'global-overview', label: 'Global Breadth Overview', source: 'country_breadth_overview', fullName: 'Global Breadth Overview' },
       { id: 'commodity-overview', label: 'Currency & Commodity Sentiment Overview', source: 'commod_spotlight', fullName: 'Currency & Commodity Sentiment Overview' },

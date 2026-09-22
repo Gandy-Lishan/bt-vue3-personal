@@ -41,15 +41,11 @@ function displayValue(indicator: Indicator, column: IndicatorTableColumn) {
   return displayIndicatorValue(indicator, column)
 }
 
-function alignClass(column: IndicatorTableColumn) {
-  if (column.align === 'right') return 'text-right'
-  if (column.align === 'center') return 'text-center'
+function alignClass(_column: IndicatorTableColumn) {
   return 'text-left'
 }
 
-function justifyClass(column: IndicatorTableColumn) {
-  if (column.align === 'right') return 'justify-end'
-  if (column.align === 'center') return 'justify-center'
+function justifyClass(_column: IndicatorTableColumn) {
   return 'justify-start'
 }
 
@@ -147,7 +143,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
           <tr class="border-b border-[var(--app-border)]">
             <th
               v-if="props.showFavorite"
-              class="box-border py-2.5 text-center text-[var(--app-text-faint)]"
+              class="box-border py-2.5 text-left text-[var(--app-text-faint)]"
               :class="props.compact ? 'w-9 px-2' : 'w-11 px-3'"
             >
               ☆
@@ -195,7 +191,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
             >
               <td
                 v-if="props.showFavorite"
-                class="box-border py-2.5 text-center"
+                class="box-border py-2.5 text-left"
                 :class="props.compact ? 'px-2' : 'px-3'"
               >
                 <span

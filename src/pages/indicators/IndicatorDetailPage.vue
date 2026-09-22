@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw, type RouteLocationRaw } from 'vue-router'
-import { ChevronLeft, Search, Star } from '@lucide/vue'
+import { ArrowDown, ArrowUp, ChevronLeft, Search, Star } from '@lucide/vue'
 import { fetchIndicatorChartData, fetchIndicatorDownloadData } from '@/entities/indicator/api/indicator.api'
 import { isSeasonalityIndicatorType } from '@/entities/indicator/model/indicator.chart'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
@@ -142,6 +142,18 @@ let chartRequestId = 0
 let detailResizeObserver: ResizeObserver | null = null
 let observedDetailContent: HTMLElement | null = null
 
+interface IndicatorSummaryStat {
+  label: string
+  value: string
+  valueClass?: string
+  direction?: 'up' | 'down'
+  directionValue?: string
+}
+
+interface ChartLineCandidate {
+  key: string
+  label: string
+}
 
 const detailTabs = computed(() => {
   const tabs: Array<{ id: IndicatorDetailTab; label: string }> = [
@@ -291,6 +303,19 @@ const extremeLevels = computed(() => {
   ]
 })
 
+const primarySummaryStats = computed<IndicatorSummaryStat[]>(() => {
+  const item = detail.value
+  if (!item) return []
+
+  const lineStats = doubleLineSummaryStats(item)
+  if (lineStats.length === 2) return lineStats
+
+  return [
+    { label: 'Current', value: formatIndicatorNumber(item.currentValue) },
+    { label: 'Change', value: changeText(item), valueClass: changeClass(item.change) },
+  ]
+})
+
 const returnSegmentColumns = computed(() => {
   const columns = new Set<string>()
   for (const row of detail.value?.returnSegments ?? []) {
@@ -328,6 +353,179 @@ function latestChartNumber(key: string) {
   const row = latestStandardChartRow.value
   return row ? rowNumberForKey(row, key) : null
 }
+
+function sortedStandardChartRows() {
+  if (!Array.isArray(chartRows.value) || !chartRows.value.length) return []
+
+  const datedRows = chartRows.value
+    .map((row) => ({ row, timestamp: rowDateTimestamp(row) }))
+    .filter((item): item is { row: IndicatorChartDataRow; timestamp: number } => item.timestamp !== null)
+    .sort((left, right) => left.timestamp - right.timestamp)
+
+  return datedRows.length ? datedRows.map((item) => item.row) : chartRows.value
+}
+
+function latestChartNumberForKey(key: string) {
+  const rows = sortedStandardChartRows()
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const value = rowNumberForKey(rows[index], key)
+    if (value !== null) return value
+  }
+  return null
+}
+
+function latestChartChangeForKey(key: string): Pick<IndicatorSummaryStat, 'direction' | 'directionValue'> {
+  const rows = sortedStandardChartRows()
+  let latest: number | null = null
+
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const value = rowNumberForKey(rows[index], key)
+    if (value === null) continue
+
+    if (latest === null) {
+      latest = value
+      continue
+    }
+
+    const delta = latest - value
+    if (delta > 0) return { direction: 'up', directionValue: `+${formatIndicatorNumber(delta, undefined, true)}` }
+    if (delta < 0) return { direction: 'down', directionValue: formatIndicatorNumber(delta, undefined, true) }
+    return {}
+  }
+
+  return {}
+}
+
+function availableChartNumericKeys() {
+  if (!Array.isArray(chartRows.value)) return []
+
+  const keys = new Set<string>()
+  for (const row of chartRows.value) {
+    for (const [key, value] of Object.entries(row)) {
+      if (isChartSummaryExcludedKey(key)) continue
+      if (parseIndicatorNumber(value) !== null) keys.add(key)
+    }
+  }
+
+  return Array.from(keys)
+}
+
+function findChartKey(expectedKey: string) {
+  const normalized = expectedKey.toLowerCase()
+  return availableChartNumericKeys().find((key) => key.toLowerCase() === normalized)
+}
+
+function findChartKeyBySuffix(suffix: string, rejectSuffix = '') {
+  const normalizedSuffix = suffix.toLowerCase()
+  const normalizedRejectSuffix = rejectSuffix.toLowerCase()
+  return availableChartNumericKeys().find((key) => {
+    const lower = key.toLowerCase()
+    return lower.endsWith(normalizedSuffix) && (!normalizedRejectSuffix || !lower.endsWith(normalizedRejectSuffix))
+  })
+}
+
+function isTrendReltrendDetail(item: IndicatorDetail) {
+  const values = [
+    rawDetailString(item, 'type'),
+    rawDetailString(item, 'sub_type'),
+    rawDetailString(item, 'groups'),
+    item.type,
+  ]
+
+  return isTrendScoreDetail.value || values.some((value) => value.toLowerCase().includes('trend_reltrend'))
+}
+
+function trendLineCandidates(item: IndicatorDetail): ChartLineCandidate[] {
+  if (!isTrendReltrendDetail(item)) return []
+
+  const rawPrefix = item.id.match(/^(.*?)_trend_reltrend$/)?.[1] ?? String(item.marketSymbol ?? '').trim()
+  const trendKey = rawPrefix
+    ? findChartKey(`${rawPrefix}_trend`) ?? findChartKeyBySuffix('_trend', '_reltrend')
+    : findChartKeyBySuffix('_trend', '_reltrend')
+  const relativeKey = rawPrefix
+    ? findChartKey(`${rawPrefix}_reltrend`) ?? findChartKeyBySuffix('_reltrend')
+    : findChartKeyBySuffix('_reltrend')
+  if (!trendKey || !relativeKey) return []
+
+  return [
+    { key: trendKey, label: trendSeriesLabel(trendKey, 'trend') },
+    { key: relativeKey, label: trendSeriesLabel(relativeKey, 'relative') },
+  ]
+}
+
+function trendSeriesLabel(key: string, kind: 'trend' | 'relative') {
+  const suffix = kind === 'trend' ? /_trend$/i : /_reltrend$/i
+  const prefix = key.replace(suffix, '').trim()
+  const symbol = prefix || String(detail.value?.marketSymbol ?? '').trim()
+  return `${symbol.toUpperCase()} ${kind === 'trend' ? 'Trend Score' : 'Relative Trend Score'}`
+}
+
+function historicalVolatilityLineCandidates(item: IndicatorDetail): ChartLineCandidate[] {
+  const groups = rawDetailString(item, 'groups')
+  if (!isHistoricalVolatilityDetail.value && groups.toLowerCase() !== 'volatility_relvolatility') return []
+
+  const symbol = String(item.marketSymbol ?? rawDetailString(item, 'market_symbol')).trim()
+  const lowerSymbol = symbol.toLowerCase()
+  const key20 =
+    (lowerSymbol ? findChartKey(`${lowerSymbol}_volatility`) : undefined)
+    ?? findChartKey('volatility_20d')
+    ?? findChartKeyBySuffix('_volatility', '_volatility_60d')
+  const key60 =
+    (lowerSymbol ? findChartKey(`${lowerSymbol}_volatility_60d`) : undefined)
+    ?? findChartKey('volatility_60d')
+    ?? findChartKeyBySuffix('_volatility_60d')
+  if (!key20 || !key60) return []
+
+  return [
+    { key: key20, label: 'Historical Volatility (20-Day)' },
+    { key: key60, label: 'Historical Volatility (60-Day)' },
+  ]
+}
+
+function doubleLineSummaryCandidates(item: IndicatorDetail): ChartLineCandidate[] {
+  if (item.id === 'smart_dumb') {
+    return [
+      { key: 'model_smart_money', label: 'Smart Money' },
+      { key: 'model_dumb_money', label: 'Dumb Money' },
+    ]
+  }
+
+  if (item.id === 'risk_levels') {
+    return [
+      { key: 'model_risk_stocks_medium', label: 'Intermediate Term Risk Levels' },
+      { key: 'model_risk_stocks_short', label: 'Short Term Risk Levels' },
+    ]
+  }
+
+  const trendCandidates = trendLineCandidates(item)
+  if (trendCandidates.length === 2) return trendCandidates
+
+  return historicalVolatilityLineCandidates(item)
+}
+
+function doubleLineSummaryStats(item: IndicatorDetail): IndicatorSummaryStat[] {
+  const stats = doubleLineSummaryCandidates(item)
+    .map((candidate): IndicatorSummaryStat | null => {
+      const value = latestChartNumberForKey(candidate.key)
+      return value === null
+        ? null
+        : {
+            label: candidate.label,
+            value: formatIndicatorNumber(value, undefined, true),
+            ...latestChartChangeForKey(candidate.key),
+          }
+    })
+    .filter((stat): stat is IndicatorSummaryStat => stat !== null)
+
+  return stats.length === 2 ? stats : []
+}
+
+function statDirectionIcon(direction: IndicatorSummaryStat['direction']) {
+  if (direction === 'up') return ArrowUp
+  if (direction === 'down') return ArrowDown
+  return null
+}
+
 
 function formatExtremeValue(value: unknown) {
   return parseIndicatorNumber(value) === null ? 'None' : formatIndicatorNumber(value)
@@ -864,14 +1062,18 @@ watch(activeTab, (tab) => {
             </div>
 
             <div class="indicator-summary__stats">
-              <div class="indicator-stat-card">
-                <p class="indicator-stat-card__label">Current</p>
-                <p class="indicator-stat-card__value">{{ formatIndicatorNumber(detail.currentValue) }}</p>
-              </div>
-              <div class="indicator-stat-card">
-                <p class="indicator-stat-card__label">Change</p>
-                <p class="indicator-stat-card__value" :class="changeClass(detail.change)">
-                  {{ changeText(detail) }}
+              <div v-for="stat in primarySummaryStats" :key="stat.label" class="indicator-stat-card">
+                <p class="indicator-stat-card__label">{{ stat.label }}</p>
+                <p class="indicator-stat-card__value" :class="stat.valueClass">
+                  {{ stat.value }}
+                  <span
+                    v-if="stat.direction"
+                    class="indicator-stat-card__direction"
+                    :class="`indicator-stat-card__direction--${stat.direction}`"
+                  >
+                    <component :is="statDirectionIcon(stat.direction)" :size="12" aria-hidden="true" />
+                    {{ stat.directionValue }}
+                  </span>
                 </p>
               </div>
               <div class="indicator-stat-card">
@@ -1170,13 +1372,18 @@ watch(activeTab, (tab) => {
 }
 
 .indicator-stat-card__label {
+  min-width: 0;
   color: var(--app-text-muted);
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .indicator-stat-card__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
   color: var(--app-text);
   font-size: 1.0625rem;
@@ -1184,6 +1391,24 @@ watch(activeTab, (tab) => {
   letter-spacing: 0;
   line-height: 1.15;
   overflow-wrap: anywhere;
+}
+
+.indicator-stat-card__direction {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.indicator-stat-card__direction--up {
+  color: var(--app-positive);
+}
+
+.indicator-stat-card__direction--down {
+  color: var(--app-negative);
 }
 
 .indicator-stat-card__value--positive {
