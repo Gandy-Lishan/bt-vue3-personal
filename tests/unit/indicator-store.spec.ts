@@ -139,7 +139,7 @@ describe('indicator store', () => {
     store.setListKey('nasdaq100')
 
     expect(store.activeSection).toBe('indicators')
-    expect(store.activeGroupId).toBe('stock')
+    expect(store.activeGroupId).toBe('stock-sentiment')
     expect(store.activeSubgroupId).toBe('nasdaq100')
     expect(store.isStandaloneList).toBe(false)
     expect(store.listLabel).toBe('NASDAQ 100 Stock Sentiment')
@@ -158,7 +158,7 @@ describe('indicator store', () => {
 
     expect(store.setActiveSource('sp_1500_complete_list')).toBe(true)
 
-    expect(store.activeGroupId).toBe('stock')
+    expect(store.activeGroupId).toBe('stock-sentiment')
     expect(store.activeSubgroupId).toBe('sp1500')
     expect(store.activeSource).toBe('sp_1500_complete_list')
   })

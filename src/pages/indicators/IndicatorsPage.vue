@@ -250,7 +250,9 @@ watch(
             </span>
             <span class="min-w-0">
               <span class="block text-sm font-semibold leading-5">{{ group.label }}</span>
-              <span class="block text-xs text-[var(--app-text-muted)]">{{ group.views }} views</span>
+              <span class="block text-xs text-[var(--app-text-muted)]">
+                {{ group.views }} {{ group.views === 1 ? 'view' : 'views' }}
+              </span>
             </span>
           </button>
         </aside>

@@ -448,12 +448,14 @@ test('resolves the source table from direct indicator detail links', async ({ pa
 
   await expect(page.getByRole('heading', { name: 'XLV Relative Trend Score' })).toBeVisible()
   const detailBreadcrumb = page.locator('main nav').first()
-  await expect(detailBreadcrumb).toContainText('S&P 1500')
-  await expect(detailBreadcrumb).not.toContainText('Stock Market')
+  await expect(detailBreadcrumb).toContainText('Stock Market Sentiment Indicators')
   await expect(detailBreadcrumb).toContainText('S&P 1500 Stock Sentiment')
   await expect(detailBreadcrumb).not.toContainText('stock_sent')
   await expect(page.getByText('S&P 1500 Stock Sentiment').first()).toBeVisible()
-  await expect(page.getByLabel('Back to indicators list')).toHaveAttribute('href', '/indicators')
+  await expect(page.getByRole('link', { name: 'Back to Indicators', exact: true })).toHaveAttribute(
+    'href',
+    '/indicators?list=sp1500',
+  )
   await expect(page.getByRole('link', { name: 'XLV Relative Trend Score' })).toBeVisible()
   expect(sp1500ListRequests).toBe(1)
   expect(stockListRequests).toBe(0)

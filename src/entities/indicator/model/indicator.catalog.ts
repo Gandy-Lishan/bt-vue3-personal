@@ -2,20 +2,31 @@ import type { IndicatorGroup } from './indicator.types'
 
 export const indicatorGroups: IndicatorGroup[] = [
   {
-    id: 'stock',
-    label: 'Stock Market',
-    description: 'Browse and analyze sentiment indicators for the U.S. stock market.',
-    source: 'stock_complete_list',
+    id: 'stock-sentiment',
+    label: 'Stock Market Sentiment Indicators',
+    description: 'Browse and analyze stock market sentiment indicators by index, crypto, and active ETFs.',
+    source: 'ndx_100_complete_list',
     views: 7,
     icon: 'candlestick',
     subgroups: [
-      { id: 'stock', label: 'Stock Market', source: 'stock_complete_list', fullName: 'Stock Market Indicators' },
       { id: 'nasdaq100', label: 'NASDAQ 100', source: 'ndx_100_complete_list', fullName: 'NASDAQ 100 Stock Sentiment' },
       { id: 'sp1500', label: 'S&P 1500', source: 'sp_1500_complete_list', fullName: 'S&P 1500 Stock Sentiment' },
       { id: 'russell1000', label: 'Russell 1000', source: 'russell_1000_complete_list', fullName: 'Russell 1000 Stock Sentiment' },
       { id: 'russell2000', label: 'Russell 2000', source: 'russell_2000_complete_list', fullName: 'Russell 2000 Stock Sentiment' },
       { id: 'russell3000', label: 'Russell 3000', source: 'russell_3000_complete_list', fullName: 'Russell 3000 Stock Sentiment' },
       { id: 'crypto', label: 'Crypto Optix', source: 'crypt_complete_list', fullName: 'Crypto Optix' },
+      { id: 'etf-sentiment', label: 'Most Active ETF Sentiment', source: 'etf_complete_list', fullName: 'Most Active ETF Sentiment' },
+    ],
+  },
+  {
+    id: 'stock',
+    label: 'Stock Market',
+    description: 'Browse and analyze sentiment indicators for the U.S. stock market.',
+    source: 'stock_complete_list',
+    views: 1,
+    icon: 'candlestick',
+    subgroups: [
+      { id: 'stock', label: 'Stock Market', source: 'stock_complete_list', fullName: 'Stock Market Indicators' },
     ],
   },
   {
@@ -34,11 +45,10 @@ export const indicatorGroups: IndicatorGroup[] = [
     id: 'etf',
     label: 'ETF',
     description: 'ETF sentiment, fund flow, monthly flows, and shares outstanding.',
-    source: 'etf_complete_list',
-    views: 4,
+    source: 'etf_flow',
+    views: 3,
     icon: 'dollar',
     subgroups: [
-      { id: 'etf-sentiment', label: 'Most Active ETF Sentiment', source: 'etf_complete_list', fullName: 'Most Active ETF Sentiment' },
       { id: 'etf-flow', label: 'Most Active ETF Fund Flow', source: 'etf_flow', fullName: 'Most Active ETF Fund Flow' },
       { id: 'etf-monthly', label: 'Monthly Fund Flow', source: 'monthly_fund_flows', fullName: 'Monthly Fund Flow' },
       { id: 'etf-shares', label: 'Most Active ETF Shares Outstanding', source: 'shares_outstanding', fullName: 'Most Active ETF Shares Outstanding' },

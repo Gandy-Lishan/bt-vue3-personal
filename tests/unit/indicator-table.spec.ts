@@ -16,6 +16,25 @@ function groupColumnKey(source: string) {
 }
 
 describe('indicator table metadata', () => {
+  it('groups stock market sentiment lists separately from stock market and ETF lists', () => {
+    const stockSentiment = indicatorGroups.find((group) => group.id === 'stock-sentiment')
+    const stockMarket = indicatorGroups.find((group) => group.id === 'stock')
+    const etf = indicatorGroups.find((group) => group.id === 'etf')
+
+    expect(stockSentiment?.label).toBe('Stock Market Sentiment Indicators')
+    expect(stockSentiment?.subgroups.map((subgroup) => subgroup.label)).toEqual([
+      'NASDAQ 100',
+      'S&P 1500',
+      'Russell 1000',
+      'Russell 2000',
+      'Russell 3000',
+      'Crypto Optix',
+      'Most Active ETF Sentiment',
+    ])
+    expect(stockMarket?.subgroups.map((subgroup) => subgroup.label)).toEqual(['Stock Market'])
+    expect(etf?.subgroups.map((subgroup) => subgroup.label)).not.toContain('Most Active ETF Sentiment')
+  })
+
   it('uses legacy breadth group fields by source', () => {
     expect(columnKeys('etf_breadth')).toContain('underlying_name')
     expect(columnKeys('etf_breadth')).not.toContain('sub_type')
