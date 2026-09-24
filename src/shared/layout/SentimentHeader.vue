@@ -12,13 +12,13 @@ import {
   MessageCircle,
   Moon,
   Play,
-  Search,
   Settings,
   Sun,
   User,
 } from '@lucide/vue'
 import { canAccessNavigationItem } from '@/shared/auth/permission'
 import { useTheme } from '@/shared/theme/theme'
+import HeaderSearchAutocomplete from './HeaderSearchAutocomplete.vue'
 
 interface NavItem {
   label: string
@@ -195,18 +195,8 @@ function firstPath(item: NavItem) {
         <img :src="logoUrl" alt="SentimenTrader logo" width="175" height="35" class="h-[35px] w-[175px] object-contain" />
       </RouterLink>
 
-      <div class="mx-auto flex h-10 w-full max-w-[720px] items-center overflow-hidden rounded-lg border border-[var(--chrome-field-border)] bg-[var(--chrome-field-bg)] shadow-inner">
-        <Search :size="20" class="ml-4 text-[var(--chrome-text-muted)]" />
-        <input
-          class="h-full flex-1 bg-transparent px-4 text-sm font-normal text-[var(--chrome-text)] outline-none placeholder:text-[var(--chrome-text-muted)]"
-          placeholder="Search research, indicators, symbols or charts..."
-        />
-        <button
-          class="mr-2 rounded-md border border-[var(--chrome-kbd-border)] bg-[var(--chrome-kbd-bg)] px-2 py-1 text-sm font-normal text-[var(--chrome-kbd-text)]"
-          aria-label="Search"
-        >
-          ⌘ K
-        </button>
+      <div class="mx-auto w-full max-w-[720px]">
+        <HeaderSearchAutocomplete />
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
@@ -295,7 +285,7 @@ function firstPath(item: NavItem) {
       </div>
     </div>
 
-    <nav class="relative flex h-11 items-stretch justify-center overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
+    <nav class="relative flex h-11 items-stretch overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
       <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0">
         <component
           :is="item.external ? 'a' : 'RouterLink'"
@@ -310,7 +300,7 @@ function firstPath(item: NavItem) {
         </component>
         <div
           v-if="item.subMenu?.length"
-          class="invisible absolute left-0 top-full z-30 min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100"
+          class="absolute left-0 top-full z-30 hidden min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 shadow-xl group-hover:block"
         >
           <component
             :is="subItem.external ? 'a' : 'RouterLink'"

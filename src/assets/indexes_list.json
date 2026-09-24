@@ -1,0 +1,2594 @@
+[
+  {
+    "symbol": "ACWX",
+    "name": "MSCI World Ex USA",
+    "category": "ETF",
+    "inception": "2008/3/31"
+  },
+  {
+    "symbol": "AEX",
+    "name": "AEX Index",
+    "category": "Index",
+    "inception": "1983/1/3"
+  },
+  {
+    "symbol": "AGIX",
+    "name": "KraneShares Artificial Intelligence and Technology ETF (AGIX)",
+    "category": "ETF",
+    "inception": "2024/07/18"
+  },
+  {
+    "symbol": "AMJ",
+    "name": "JPM Alerian MLP (AMJ)",
+    "category": "ETF",
+    "inception": "2009/4/2"
+  },
+  {
+    "symbol": "AMLP",
+    "name": "Alerian MLP (AMLP)",
+    "category": "ETF",
+    "inception": "2010/8/25"
+  },
+  {
+    "symbol": "ARGT",
+    "name": "Argentina (ARGT)",
+    "category": "ETF",
+    "inception": "2011/3/3"
+  },
+  {
+    "symbol": "ARKG",
+    "name": "ARK Genomic ETF (ARKG)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "ARKK",
+    "name": "ARK Innovation ETF (ARKK)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "AS30",
+    "name": "AS30 Index",
+    "category": "Index",
+    "inception": "1935/1/31"
+  },
+  {
+    "symbol": "ATX",
+    "name": "ATX Index",
+    "category": "Index",
+    "inception": "1986/1/8"
+  },
+  {
+    "symbol": "BCOMSP",
+    "name": "Bloomberg Spot Index ",
+    "category": "Index",
+    "inception": "1960/1/5"
+  },
+  {
+    "symbol": "BEL20",
+    "name": "BEL20 Index",
+    "category": "Index",
+    "inception": "1990/12/31"
+  },
+  {
+    "symbol": "BIL",
+    "name": "SPDR Bloomberg 1-3 Month T-Bill ETF (BIL)",
+    "category": "ETF",
+    "inception": "2007/6/6"
+  },
+  {
+    "symbol": "BITW",
+    "name": "Bitwise 10 Crypto Fund (BITW)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "BLOK",
+    "name": "Amplify Trans Data ETF (BLOK)",
+    "category": "ETF",
+    "inception": "2018/1/17"
+  },
+  {
+    "symbol": "BND",
+    "name": "Total Bond (BND)",
+    "category": "ETF",
+    "inception": "2007/4/10"
+  },
+  {
+    "symbol": "BNO",
+    "name": "Brent Oil ETF (BNO)",
+    "category": "ETF",
+    "inception": "2010/6/2"
+  },
+  {
+    "symbol": "BTRN",
+    "name": "Global X Bitcoin Strategy ETF (BTRN)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "CALF",
+    "name": "Pacer US Small Cap ETF (CALF)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "CAOS",
+    "name": "Alpha Architect Tail Risk ETF (CAOS)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "CDX",
+    "name": "Credit Default Swaps (CDX Index)",
+    "category": "Index",
+    "inception": "2012/8/8"
+  },
+  {
+    "symbol": "CHIQ",
+    "name": "Global X China Consumer ETF (CHIQ)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "CL1",
+    "name": "Crude Oil Futures (CL1)",
+    "category": "Commodity",
+    "inception": "1983/3/30"
+  },
+  {
+    "symbol": "CLOU",
+    "name": "Global X Cloud ETF (CLOU)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "COMP",
+    "name": "NASDAQ Composite",
+    "category": "Index",
+    "inception": "2021/4/1"
+  },
+  {
+    "symbol": "COPX",
+    "name": "Copper Miners (COPX)",
+    "category": "ETF",
+    "inception": "2010/4/20"
+  },
+  {
+    "symbol": "COW",
+    "name": "COW",
+    "category": "ETF",
+    "inception": "2018/2/1"
+  },
+  {
+    "symbol": "COWZ",
+    "name": "Pacer US Cash Cows ETF (COWZ)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "CRPT",
+    "name": "FT SkyBridge Crypto ETF Trust (CRPT)",
+    "category": "ETF",
+    "inception": "2021/9/21"
+  },
+  {
+    "symbol": "CWB",
+    "name": "Convertible Bond ETF (CWB)",
+    "category": "ETF",
+    "inception": "2009/4/16"
+  },
+  {
+    "symbol": "DBC",
+    "name": "Commodity Index Tracking Fund",
+    "category": "ETF",
+    "inception": "2006/2/3"
+  },
+  {
+    "symbol": "DFEN",
+    "name": "Direxion Daily Aerospace & Defense Bull 3X Shares (DFEN)",
+    "category": "ETF",
+    "inception": "2017/05/03"
+  },
+  {
+    "symbol": "DIA",
+    "name": "Dow Jones Industrial (DIA)",
+    "category": "ETF",
+    "inception": "1998/1/20"
+  },
+  {
+    "symbol": "DJIA",
+    "name": "Dow Jones Industrial (DJIA)",
+    "category": "Index",
+    "inception": "1900/1/2"
+  },
+  {
+    "symbol": "DWCPF",
+    "name": "Dow Jones Completion Total Stock Market Index (DWCPF)",
+    "category": "Index",
+    "inception": "1987/1/30"
+  },
+  {
+    "symbol": "ECH",
+    "name": "Chile (ECH)",
+    "category": "ETF",
+    "inception": "2007/11/16"
+  },
+  {
+    "symbol": "EDEN",
+    "name": "Denmark (EDEN)",
+    "category": "ETF",
+    "inception": "2012/1/26"
+  },
+  {
+    "symbol": "EEM",
+    "name": "Emerging Markets (EEM)",
+    "category": "ETF",
+    "inception": "2003/4/11"
+  },
+  {
+    "symbol": "EFA",
+    "name": "MSCI EAFE ETF (EFA)",
+    "category": "ETF",
+    "inception": "2001/8/17"
+  },
+  {
+    "symbol": "EFNL",
+    "name": "Finland (EFNL)",
+    "category": "ETF",
+    "inception": "2012/1/26"
+  },
+  {
+    "symbol": "EGPT",
+    "name": "Egypt (EGPT)",
+    "category": "ETF",
+    "inception": "2010/2/18"
+  },
+  {
+    "symbol": "EIRL",
+    "name": "Ireland (EIRL)",
+    "category": "ETF",
+    "inception": "2010/5/7"
+  },
+  {
+    "symbol": "EIS",
+    "name": "Israel (EIS)",
+    "category": "ETF",
+    "inception": "2008/3/28"
+  },
+  {
+    "symbol": "EMQQ",
+    "name": "Emerging Mkts Internet (EMQQ)",
+    "category": "ETF",
+    "inception": "2014/11/13"
+  },
+  {
+    "symbol": "ENZL",
+    "name": "New Zealand (ENZL)",
+    "category": "ETF",
+    "inception": "1992/10/30"
+  },
+  {
+    "symbol": "EPHE",
+    "name": "Philippines (EPHE)",
+    "category": "ETF",
+    "inception": "2010/9/29"
+  },
+  {
+    "symbol": "EPU",
+    "name": "Peru (EPU)",
+    "category": "ETF",
+    "inception": "2009/6/22"
+  },
+  {
+    "symbol": "ERTH",
+    "name": "Invesco MSCI Sustainable ETF (ERTH)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "ETH",
+    "name": "Grayscale Ethereum Mini Trust ETF (ETH)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "ETHA",
+    "name": "Ethereum ETF",
+    "category": "ETF",
+    "inception": "2024/7/23"
+  },
+  {
+    "symbol": "ETHE",
+    "name": "Grayscale ETH Trust ETF (ETHE)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "ETHEREUM",
+    "name": "Ethereum",
+    "category": "Crypto",
+    "inception": "2015/8/9"
+  },
+  {
+    "symbol": "EWD",
+    "name": "Sweden (EWD)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWH",
+    "name": "Hong Kong (EWH)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWK",
+    "name": "Belgium (EWK)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWL",
+    "name": "Switzerland (EWL)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWM",
+    "name": "Malaysia (EWM)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWN",
+    "name": "Netherlands (EWN)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWO",
+    "name": "Austria (EWO)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWS",
+    "name": "Singapore (EWS)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "EWT",
+    "name": "Taiwan (EWT)",
+    "category": "ETF",
+    "inception": "2000/6/23"
+  },
+  {
+    "symbol": "EWY",
+    "name": "South Korea (EWY)",
+    "category": "ETF",
+    "inception": "2000/5/12"
+  },
+  {
+    "symbol": "EZA",
+    "name": "South Africa (EZA)",
+    "category": "ETF",
+    "inception": "2003/2/7"
+  },
+  {
+    "symbol": "EZU",
+    "name": "Eurozone (EZU)",
+    "category": "ETF",
+    "inception": "2000/7/31"
+  },
+  {
+    "symbol": "FDN",
+    "name": "First Trust Dow Jones Internet Index Fund (FDN)",
+    "category": "ETF",
+    "inception": "2006/06/23"
+  },
+  {
+    "symbol": "FILG",
+    "name": "Grayscale Filecoin Trust",
+    "category": "ETF",
+    "inception": "2022/5/16"
+  },
+  {
+    "symbol": "FSELX",
+    "name": "Fidelity Select Semiconductors (FSELX)",
+    "category": "ETF",
+    "inception": "1985/7/29"
+  },
+  {
+    "symbol": "FTLS",
+    "name": "Neuberger Berman Sustainable Equity Fund (FTLS)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "FTSEMIB",
+    "name": "FTSEMIB Index",
+    "category": "Index",
+    "inception": "1997/12/31"
+  },
+  {
+    "symbol": "FTXG",
+    "name": "First Trust Nasdaq Food ETF (FTXG)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "GC1",
+    "name": "Gold Futures (GC1)",
+    "category": "Commodity",
+    "inception": "1975/1/2"
+  },
+  {
+    "symbol": "GDLC",
+    "name": "Grayscale Digital Large Cap ETF (GDLC)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "GDM",
+    "name": "GDM Index",
+    "category": "Index",
+    "inception": "1993/9/17"
+  },
+  {
+    "symbol": "GDX",
+    "name": "Gold Miners (GDX)",
+    "category": "ETF",
+    "inception": "2006/5/22"
+  },
+  {
+    "symbol": "GDXJ",
+    "name": "Gold Miners - Junior (GDXJ)",
+    "category": "ETF",
+    "inception": "2009/11/11"
+  },
+  {
+    "symbol": "GLD",
+    "name": "Gold (GLD)",
+    "category": "ETF",
+    "inception": "2004/11/18"
+  },
+  {
+    "symbol": "GOLDLNPM",
+    "name": "GOLDLNPM",
+    "category": "Index",
+    "inception": "1901/1/31"
+  },
+  {
+    "symbol": "GREK",
+    "name": "Greece (GREK)",
+    "category": "ETF",
+    "inception": "2011/12/8"
+  },
+  {
+    "symbol": "GRID",
+    "name": "First Trust Clean Edge Smart Grid ETF (GRID)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "GSG",
+    "name": "Commodity Index Trust",
+    "category": "ETF",
+    "inception": "2006/7/21"
+  },
+  {
+    "symbol": "GSOL",
+    "name": "Grayscale Solana Trust",
+    "category": "ETF",
+    "inception": "2023/4/27"
+  },
+  {
+    "symbol": "GXG",
+    "name": "Colombia (GXG)",
+    "category": "ETF",
+    "inception": "2009/2/9"
+  },
+  {
+    "symbol": "HACK",
+    "name": "Amplify Cybersecurity ETF (HACK)",
+    "category": "ETF",
+    "inception": "2014/11/12"
+  },
+  {
+    "symbol": "HEAVYTRUCK",
+    "name": "Heavy Truck Index",
+    "category": "Index",
+    "inception": "1967/01/31"
+  },
+  {
+    "symbol": "HEX",
+    "name": "HEX Index",
+    "category": "Index",
+    "inception": "1987/1/2"
+  },
+  {
+    "symbol": "HG1",
+    "name": "Copper Futures (HG1)",
+    "category": "Commodity",
+    "inception": "1988/12/6"
+  },
+  {
+    "symbol": "HUI",
+    "name": "Gold Bugs Index (HUI)",
+    "category": "Index",
+    "inception": "1996/5/1"
+  },
+  {
+    "symbol": "HYG",
+    "name": "High Yield Corp (HYG)",
+    "category": "ETF",
+    "inception": "2007/4/11"
+  },
+  {
+    "symbol": "IBB",
+    "name": "Biotechnology (IBB)",
+    "category": "ETF",
+    "inception": "2001/2/9"
+  },
+  {
+    "symbol": "IBEX",
+    "name": "IBEX Index",
+    "category": "Index",
+    "inception": "2020/8/7"
+  },
+  {
+    "symbol": "IBIT",
+    "name": "Bitcoin ETF",
+    "category": "ETF",
+    "inception": "2024/1/11"
+  },
+  {
+    "symbol": "IBUY",
+    "name": "Amplify Online Retail (IBUY)",
+    "category": "ETF",
+    "inception": "2016/4/20"
+  },
+  {
+    "symbol": "ICLN",
+    "name": "Clean Energy (ICLN)",
+    "category": "ETF",
+    "inception": "2008/6/25"
+  },
+  {
+    "symbol": "IDX",
+    "name": "Indonesia (IDX)",
+    "category": "ETF",
+    "inception": "2009/1/20"
+  },
+  {
+    "symbol": "IEF",
+    "name": "7-10 Year Treasury Bond ETF (IEF)",
+    "category": "ETF",
+    "inception": "2002/7/26"
+  },
+  {
+    "symbol": "IEI",
+    "name": "3-7 Year Treasury Bond ETF (IEI)",
+    "category": "ETF",
+    "inception": "2007/1/11"
+  },
+  {
+    "symbol": "IGM",
+    "name": "iShares Expanded Tech Sector ETF (IGM)",
+    "category": "ETF",
+    "inception": "2001/3/19"
+  },
+  {
+    "symbol": "IGV",
+    "name": "iShares Expanded Tech-Software ETF",
+    "category": "ETF",
+    "inception": "2001/7/13"
+  },
+  {
+    "symbol": "IJH",
+    "name": "iShares Core S&P Mid-Cap ETF (IJH)",
+    "category": "ETF",
+    "inception": "2000/5/26"
+  },
+  {
+    "symbol": "IPAY",
+    "name": "Amplify Digital Payments ETF (IPAY)",
+    "category": "ETF",
+    "inception": "2015/7/16"
+  },
+  {
+    "symbol": "IPO",
+    "name": "Renaissance IPO ETF (IPO)",
+    "category": "ETF",
+    "inception": "2013/10/16"
+  },
+  {
+    "symbol": "ISEQ",
+    "name": "ISEQ Index",
+    "category": "Index",
+    "inception": "1983/1/5"
+  },
+  {
+    "symbol": "ITB",
+    "name": "Home Construction (ITB)",
+    "category": "ETF",
+    "inception": "2006/5/5"
+  },
+  {
+    "symbol": "IVOL",
+    "name": "IVOL",
+    "category": "ETF",
+    "inception": "2019/5/14"
+  },
+  {
+    "symbol": "IWB",
+    "name": "Russell 1000 ETF (IWB)",
+    "category": "ETF",
+    "inception": "2000/5/19"
+  },
+  {
+    "symbol": "IWD",
+    "name": "Ressell 1000 Value ETF (IWD)",
+    "category": "ETF",
+    "inception": "2000/5/26"
+  },
+  {
+    "symbol": "IWF",
+    "name": "Russell 1000 Growth ETF (IWF)",
+    "category": "ETF",
+    "inception": "2000/5/26"
+  },
+  {
+    "symbol": "IWM",
+    "name": "Russell 2000 ETF (IWM)",
+    "category": "ETF",
+    "inception": "2000/5/26"
+  },
+  {
+    "symbol": "IWN",
+    "name": "Russell 2000 Value ETF (IWN)",
+    "category": "ETF",
+    "inception": "2000/7/28"
+  },
+  {
+    "symbol": "IWO",
+    "name": "Russell 2000 Growth ETF (IWO)",
+    "category": "ETF",
+    "inception": "2000/7/28"
+  },
+  {
+    "symbol": "IWP",
+    "name": "Russell Mid-Cap Growth ETF (IWP)",
+    "category": "ETF",
+    "inception": "2001/8/1"
+  },
+  {
+    "symbol": "IWR",
+    "name": "iShares Russell Mid-Cap ETF (IWR)",
+    "category": "ETF",
+    "inception": "2001/7/20"
+  },
+  {
+    "symbol": "IWS",
+    "name": "Russell Mid-Cap Value ETF (IWS)",
+    "category": "ETF",
+    "inception": "2001/7/24"
+  },
+  {
+    "symbol": "IYH",
+    "name": "iShares U.S. Healthcare Providers ETF (IYH)",
+    "category": "ETF",
+    "inception": "2000/06/16"
+  },
+  {
+    "symbol": "IYR",
+    "name": "Real Estate (IYR)",
+    "category": "ETF",
+    "inception": "2000/6/19"
+  },
+  {
+    "symbol": "IYT",
+    "name": "iShares Transportation Average ETF (IYT)",
+    "category": "ETF",
+    "inception": "2003/10/10"
+  },
+  {
+    "symbol": "JNK",
+    "name": "High Yield Bonds (JNK)",
+    "category": "ETF",
+    "inception": "2007/12/4"
+  },
+  {
+    "symbol": "KBE",
+    "name": "S&P Bank (KBE)",
+    "category": "ETF",
+    "inception": "2005/11/15"
+  },
+  {
+    "symbol": "KOSPI",
+    "name": "Korea Stock Index (KOSPI)",
+    "category": "Index",
+    "inception": "1980/1/4"
+  },
+  {
+    "symbol": "KRBN",
+    "name": "Global Carbon (KRBN)",
+    "category": "ETF",
+    "inception": "2020/7/30"
+  },
+  {
+    "symbol": "KRE",
+    "name": "Regional Banking (KRE)",
+    "category": "ETF",
+    "inception": "2006/6/22"
+  },
+  {
+    "symbol": "KSA",
+    "name": "Saudi Arabia (KSA)",
+    "category": "ETF",
+    "inception": "2001/2/14"
+  },
+  {
+    "symbol": "KWEB",
+    "name": "China Internet (KWEB)",
+    "category": "ETF",
+    "inception": "2013/8/1"
+  },
+  {
+    "symbol": "LIT",
+    "name": "Lithuium & Battery (LIT)",
+    "category": "ETF",
+    "inception": "2010/7/23"
+  },
+  {
+    "symbol": "LQD",
+    "name": "Investment Grade (LQD)",
+    "category": "ETF",
+    "inception": "2002/7/26"
+  },
+  {
+    "symbol": "MASMX",
+    "name": "Madison Small Cap Fund (MASMX)",
+    "category": "ETF",
+    "inception": "2006/12/29"
+  },
+  {
+    "symbol": "MBB",
+    "name": "Mortgage-Backed Bond ETF (MBB)",
+    "category": "ETF",
+    "inception": "2007/3/16"
+  },
+  {
+    "symbol": "MDY",
+    "name": "SPDR S&P MIDCAP 400 ETF Trust (MDY)",
+    "category": "ETF",
+    "inception": "1995/5/4"
+  },
+  {
+    "symbol": "MDYG",
+    "name": "SPDR S&P 400 Mid Cap Growth ETF (MDYG)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "MEXBOL",
+    "name": "BMV IPC (MEXBOL)",
+    "category": "Index",
+    "inception": "1994/1/19"
+  },
+  {
+    "symbol": "MJ",
+    "name": "Alternative Harvest (MJ)",
+    "category": "ETF",
+    "inception": "2015/12/3"
+  },
+  {
+    "symbol": "MLPI",
+    "name": "UBS Alerian MLP (MLPI)",
+    "category": "ETF",
+    "inception": "2010/4/1"
+  },
+  {
+    "symbol": "MOAT",
+    "name": "VanEck Wide Moat ETF (MOAT)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "MUB",
+    "name": "Municipal Bond ETF (MUB)",
+    "category": "ETF",
+    "inception": "2007/9/10"
+  },
+  {
+    "symbol": "MXAP",
+    "name": "Asia Pacific (MXAP)",
+    "category": "Index",
+    "inception": "1987/12/31"
+  },
+  {
+    "symbol": "MXEF",
+    "name": "Emerging Markets (MXEF)",
+    "category": "Index",
+    "inception": "1987/12/31"
+  },
+  {
+    "symbol": "MXEU",
+    "name": "Europe (MXEU)",
+    "category": "Index",
+    "inception": "1998/12/31"
+  },
+  {
+    "symbol": "MXLA",
+    "name": "South America (MXLA)",
+    "category": "Index",
+    "inception": "1987/12/31"
+  },
+  {
+    "symbol": "MXWD",
+    "name": "MXWD Index",
+    "category": "Index",
+    "inception": "1987/12/31"
+  },
+  {
+    "symbol": "MXWO",
+    "name": "MXWO Index",
+    "category": "Index",
+    "inception": "1969/12/31"
+  },
+  {
+    "symbol": "NAPMPMI",
+    "name": "PMI Manufacturing Index",
+    "category": "Index",
+    "inception": "1948/01/31"
+  },
+  {
+    "symbol": "NDX",
+    "name": "NASDAQ 100 (NDX)",
+    "category": "Index",
+    "inception": "1985/2/4"
+  },
+  {
+    "symbol": "NGE",
+    "name": "Nigeria (NGE)",
+    "category": "ETF",
+    "inception": "2013/4/3"
+  },
+  {
+    "symbol": "NIFTY",
+    "name": "NIfty 50 Index",
+    "category": "Index",
+    "inception": "1990/7/3"
+  },
+  {
+    "symbol": "NLR",
+    "name": "VanEck Uranium and Nuclear ETF (NLR)",
+    "category": "ETF",
+    "inception": "2007/08/15"
+  },
+  {
+    "symbol": "NORW",
+    "name": "Norway (NORW)",
+    "category": "ETF",
+    "inception": "2009/8/19"
+  },
+  {
+    "symbol": "NYA",
+    "name": "NYSE Composite (NYA)",
+    "category": "Index",
+    "inception": "2002/12/2"
+  },
+  {
+    "symbol": "NZSE",
+    "name": "NZSE Index",
+    "category": "Index",
+    "inception": "1992/3/30"
+  },
+  {
+    "symbol": "OIH",
+    "name": "Crude Oil Services (OIH)",
+    "category": "ETF",
+    "inception": "2011/12/21"
+  },
+  {
+    "symbol": "OMX",
+    "name": "OMX Index",
+    "category": "Index",
+    "inception": "1986/12/18"
+  },
+  {
+    "symbol": "ONEQ",
+    "name": "NASDAQ Composite Index ETF (ONEQ)",
+    "category": "ETF",
+    "inception": "2003/10/1"
+  },
+  {
+    "symbol": "OSEBX",
+    "name": "OSEBX Index",
+    "category": "Index",
+    "inception": "1996/1/2"
+  },
+  {
+    "symbol": "PBW",
+    "name": "Invesco WilderHill Clean Energy ETF (PBW)",
+    "category": "ETF",
+    "inception": "2005/03/03"
+  },
+  {
+    "symbol": "PGAL",
+    "name": "Portugal (PGAL)",
+    "category": "ETF",
+    "inception": "2013/11/13"
+  },
+  {
+    "symbol": "PHYS",
+    "name": "Sprott Physical Gold Trust (PHYS)",
+    "category": "ETF",
+    "inception": "2010/02/26"
+  },
+  {
+    "symbol": "PLND",
+    "name": "Poland (PLND)",
+    "category": "ETF",
+    "inception": "2009/11/25"
+  },
+  {
+    "symbol": "PSCC",
+    "name": "Invesco S&P 600 Staples ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCD",
+    "name": "Invesco S&P 600 Discretionary ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCE",
+    "name": "Invesco S&P 600 Energy ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCF",
+    "name": "Invesco S&P 600 Financials ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCH",
+    "name": "Invesco S&P 600 Health Care ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCI",
+    "name": "Invesco S&P 600 Industrials ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCM",
+    "name": "Invesco S&P 600 Materials ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCT",
+    "name": "Invesco S&P 600 Technology ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSCU",
+    "name": "Invesco S&P SmCp Utilities and Communications ETF",
+    "category": "ETF",
+    "inception": "2010/4/7"
+  },
+  {
+    "symbol": "PSI20",
+    "name": "PSI20 Index",
+    "category": "Index",
+    "inception": "1992/12/31"
+  },
+  {
+    "symbol": "PSQ",
+    "name": "ProShares Short QQQ (PSQ)",
+    "category": "ETF",
+    "inception": "2006/06/21"
+  },
+  {
+    "symbol": "PUTW",
+    "name": "Strategy Fund (PUTW)",
+    "category": "ETF",
+    "inception": "2016/2/24"
+  },
+  {
+    "symbol": "QAT",
+    "name": "Qatar (QAT)",
+    "category": "ETF",
+    "inception": "2014/5/1"
+  },
+  {
+    "symbol": "QID",
+    "name": "ProShares UltraShort QQQ (QID)",
+    "category": "ETF",
+    "inception": "2006/07/13"
+  },
+  {
+    "symbol": "QLD",
+    "name": "ProShares Ultra QQQ (QLD)",
+    "category": "ETF",
+    "inception": "2006/06/21"
+  },
+  {
+    "symbol": "QQQ",
+    "name": "NASDAQ 100 ETF (QQQ)",
+    "category": "ETF",
+    "inception": "1999/3/10"
+  },
+  {
+    "symbol": "RAG",
+    "name": "Russell 3000 Growth Index",
+    "category": "Index",
+    "inception": "1995/5/31"
+  },
+  {
+    "symbol": "RAV",
+    "name": "Russell 3000 Value Index",
+    "category": "Index",
+    "inception": "1995/5/31"
+  },
+  {
+    "symbol": "RAY",
+    "name": "Russell 3000 Index",
+    "category": "Index",
+    "inception": "1978/12/29"
+  },
+  {
+    "symbol": "REMX",
+    "name": "Rare Earth/Strategic Metals (REMX)",
+    "category": "ETF",
+    "inception": "2010/10/28"
+  },
+  {
+    "symbol": "RSP",
+    "name": "Invesco S&P 500 Equal Weight ETF (RSP)",
+    "category": "ETF",
+    "inception": "2003/7/7"
+  },
+  {
+    "symbol": "RSPC",
+    "name": "Invesco S&P 500 EW Comm Srv",
+    "category": "ETF",
+    "inception": "2018/11/7"
+  },
+  {
+    "symbol": "RSPD",
+    "name": "Invesco S&P 500 EW Discretionary",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPF",
+    "name": "Invesco S&P 500 EW Financials",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPG",
+    "name": "Invesco S&P 500 EW Energy",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPH",
+    "name": "Invesco S&P 500 EW Health Care",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPM",
+    "name": "Invesco S&P 500 EW Materials",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPN",
+    "name": "Invesco S&P 500 EW Industrials",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPR",
+    "name": "Invesco S&P 500 EW Real Estate",
+    "category": "ETF",
+    "inception": "2015/8/14"
+  },
+  {
+    "symbol": "RSPS",
+    "name": "Invesco S&P 500 EW Staples",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPT",
+    "name": "Invesco S&P 500 EW Technology",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RSPU",
+    "name": "Invesco S&P 500 EW Utilities",
+    "category": "ETF",
+    "inception": "2006/11/7"
+  },
+  {
+    "symbol": "RUT",
+    "name": "Russell 2000 (RUT)",
+    "category": "Index",
+    "inception": "1978/12/29"
+  },
+  {
+    "symbol": "RWR",
+    "name": "Dow Jones REIT ETF",
+    "category": "ETF",
+    "inception": "2001/4/27"
+  },
+  {
+    "symbol": "S5RLST",
+    "name": "S&P Real Estate (S5RLST)",
+    "category": "Index",
+    "inception": "2001/10/09"
+  },
+  {
+    "symbol": "SDS",
+    "name": "ProShares UltraShort S&P500 (SDS)",
+    "category": "ETF",
+    "inception": "2006/07/13"
+  },
+  {
+    "symbol": "SENSEX",
+    "name": "SENSEX Index",
+    "category": "Index",
+    "inception": "1979/4/3"
+  },
+  {
+    "symbol": "SH",
+    "name": "ProShares Short S&P500 (SH)",
+    "category": "ETF",
+    "inception": "2006/06/21"
+  },
+  {
+    "symbol": "SHY",
+    "name": "1-3 Year Treasury Bond ETF (SHY)",
+    "category": "ETF",
+    "inception": "2002/7/26"
+  },
+  {
+    "symbol": "SI1",
+    "name": "Silver Futures (SI1)",
+    "category": "Commodity",
+    "inception": "1975/1/2"
+  },
+  {
+    "symbol": "SLV",
+    "name": "Silver (SLV)",
+    "category": "ETF",
+    "inception": "2006/4/28"
+  },
+  {
+    "symbol": "SLX",
+    "name": "VanEck Vctrs Steel ETF",
+    "category": "ETF",
+    "inception": "2006/10/16"
+  },
+  {
+    "symbol": "SMH",
+    "name": "Semiconductors (SMH)",
+    "category": "ETF",
+    "inception": "2011/12/21"
+  },
+  {
+    "symbol": "SMI",
+    "name": "Swiss Market Index (SMI)",
+    "category": "Index",
+    "inception": "1993/5/3"
+  },
+  {
+    "symbol": "SOXX",
+    "name": "Semiconductor (SOXX)",
+    "category": "ETF",
+    "inception": "2001/7/13"
+  },
+  {
+    "symbol": "SPHQ",
+    "name": "Invesco S&P 500 Quality ETF (SPHQ)",
+    "category": "ETF",
+    "inception": "2005/12/6"
+  },
+  {
+    "symbol": "SPSM",
+    "name": "SPDR S&P 600 ETF",
+    "category": "ETF",
+    "inception": "2013/7/9"
+  },
+  {
+    "symbol": "SPX",
+    "name": "S&P 500 (SPX)",
+    "category": "Index",
+    "inception": "1927/12/30"
+  },
+  {
+    "symbol": "SPXT",
+    "name": "S&P 500 Technical Index (SPXT)",
+    "category": "ETF",
+    "inception": "1990/1/2"
+  },
+  {
+    "symbol": "SPXU",
+    "name": "ProShares UltraPro Short S&P500 (SPXU)",
+    "category": "ETF",
+    "inception": "2009/06/25"
+  },
+  {
+    "symbol": "SPY",
+    "name": "S&P 500 ETF (SPY)",
+    "category": "ETF",
+    "inception": "1993/1/29"
+  },
+  {
+    "symbol": "SQQQ",
+    "name": "ProShares UltraPro Short QQQ (SQQQ)",
+    "category": "ETF",
+    "inception": "2010/02/11"
+  },
+  {
+    "symbol": "SRV",
+    "name": "NXG Cushing Midstream Energy Fund (SRV)",
+    "category": "ETF",
+    "inception": "2007/8/24"
+  },
+  {
+    "symbol": "SSO",
+    "name": "ProShares Ultra S&P500 (SSO)",
+    "category": "ETF",
+    "inception": "2006/06/21"
+  },
+  {
+    "symbol": "STI",
+    "name": "STI Index",
+    "category": "Index",
+    "inception": "2008/1/10"
+  },
+  {
+    "symbol": "STRV",
+    "name": "Strive 500 ETF (STRV)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "SXXP",
+    "name": "STOXX Europe 600 Price Index EUR",
+    "category": "Index",
+    "inception": "1986/12/31"
+  },
+  {
+    "symbol": "SYLD",
+    "name": "Cambria Yield ETF (SYLD)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "TA-35",
+    "name": "TA-35 Index",
+    "category": "Index",
+    "inception": "1992/1/2"
+  },
+  {
+    "symbol": "TAN",
+    "name": "Invesco Solar (TAN)",
+    "category": "ETF",
+    "inception": "2008/4/15"
+  },
+  {
+    "symbol": "THD",
+    "name": "Thailand (THD)",
+    "category": "ETF",
+    "inception": "2008/3/28"
+  },
+  {
+    "symbol": "TIP",
+    "name": "Inflation-Protected Bond ETF (TIP)",
+    "category": "ETF",
+    "inception": "2003/12/5"
+  },
+  {
+    "symbol": "TLT",
+    "name": "20-Year Treasuries (TLT)",
+    "category": "ETF",
+    "inception": "2002/7/26"
+  },
+  {
+    "symbol": "TNX",
+    "name": "10-Year Treasury Note Yield (TNX)",
+    "category": "Index",
+    "inception": "1993/11/2"
+  },
+  {
+    "symbol": "TPX",
+    "name": "Tokyo Stock Price Index (TOPIX)",
+    "category": "Index",
+    "inception": "1949/05/16"
+  },
+  {
+    "symbol": "TQQQ",
+    "name": "ProShares UltraPro QQQ (TQQQ)",
+    "category": "ETF",
+    "inception": "2010/02/11"
+  },
+  {
+    "symbol": "TRAN",
+    "name": "Dow Jones Transportation Index (TRAN)",
+    "category": "Index",
+    "inception": "1901/1/2"
+  },
+  {
+    "symbol": "TSX",
+    "name": "Toronto Stock Exchange (TSX)",
+    "category": "Index",
+    "inception": "1919/1/1"
+  },
+  {
+    "symbol": "TUR",
+    "name": "Turkey (TUR)",
+    "category": "ETF",
+    "inception": "2008/3/28"
+  },
+  {
+    "symbol": "UAE",
+    "name": "United Arab Emirates (UAE)",
+    "category": "ETF",
+    "inception": "2014/5/1"
+  },
+  {
+    "symbol": "UNG",
+    "name": "Natural Gas (UNG)",
+    "category": "ETF",
+    "inception": "2007/4/18"
+  },
+  {
+    "symbol": "UPRO",
+    "name": "ProShares UltraPro S&P500 (UPRO)",
+    "category": "ETF",
+    "inception": "2009/06/25"
+  },
+  {
+    "symbol": "USGG10YR",
+    "name": "10 year yield ",
+    "category": "Bond",
+    "inception": "1962/1/2"
+  },
+  {
+    "symbol": "USGG3M",
+    "name": "3-Month Treasury",
+    "category": "Bond",
+    "inception": "1954/1/4"
+  },
+  {
+    "symbol": "USO",
+    "name": "Crude Oil (USO)",
+    "category": "ETF",
+    "inception": "2006/4/10"
+  },
+  {
+    "symbol": "UTIL",
+    "name": "Dow Jones Utility Average (UTIL) ",
+    "category": "Index",
+    "inception": "1929/1/2"
+  },
+  {
+    "symbol": "VEU",
+    "name": "FTSE All World Ex USA",
+    "category": "ETF",
+    "inception": "2007/3/8"
+  },
+  {
+    "symbol": "VGT",
+    "name": "Information Technology Index ETF (VGT)",
+    "category": "ETF",
+    "inception": "2004/1/30"
+  },
+  {
+    "symbol": "VIX",
+    "name": "CBOE Volatility Index (VIX)",
+    "category": "Index",
+    "inception": "1990/1/2"
+  },
+  {
+    "symbol": "VNM",
+    "name": "Vietnam (VNM)",
+    "category": "ETF",
+    "inception": "2009/8/14"
+  },
+  {
+    "symbol": "VNQ",
+    "name": "REITs (VNQ)",
+    "category": "ETF",
+    "inception": "2004/9/29"
+  },
+  {
+    "symbol": "VOX",
+    "name": "Telecommunications (VOX)",
+    "category": "ETF",
+    "inception": "2004/9/29"
+  },
+  {
+    "symbol": "VXX",
+    "name": "Volatility (VXX)",
+    "category": "ETF",
+    "inception": "2018/1/18"
+  },
+  {
+    "symbol": "VYMI",
+    "name": "Vanguard Intl High Div ETF (VYMI)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "WCLD",
+    "name": "Cloud Computing (WCLD)",
+    "category": "ETF",
+    "inception": "2019/9/6"
+  },
+  {
+    "symbol": "XBI",
+    "name": "S&P Biotech (XBI)",
+    "category": "ETF",
+    "inception": "2006/2/6"
+  },
+  {
+    "symbol": "XBTUSD",
+    "name": "Bitcoin",
+    "category": "Crypto",
+    "inception": "2010/7/19"
+  },
+  {
+    "symbol": "XHB",
+    "name": "Homebuilders (XHB)",
+    "category": "ETF",
+    "inception": "2006/2/6"
+  },
+  {
+    "symbol": "XLB",
+    "name": "Basic Materials (XLB)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLC",
+    "name": "Communication Services (XLC)",
+    "category": "ETF",
+    "inception": "2018/6/19"
+  },
+  {
+    "symbol": "XLE",
+    "name": "Energy (XLE)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLF",
+    "name": "Financials (XLF)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLI",
+    "name": "Industrials (XLI)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLK",
+    "name": "Technology (XLK)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLP",
+    "name": "Consumer Staples (XLP)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLRE",
+    "name": "The Real Estate (XLRE)",
+    "category": "ETF",
+    "inception": "2015/10/8"
+  },
+  {
+    "symbol": "XLU",
+    "name": "Utilities (XLU)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLV",
+    "name": "Healthcare (XLV)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XLY",
+    "name": "Consumer Discretionary (XLY)",
+    "category": "ETF",
+    "inception": "1998/12/22"
+  },
+  {
+    "symbol": "XME",
+    "name": "Metals & Mining (XME)",
+    "category": "ETF",
+    "inception": "2006/6/22"
+  },
+  {
+    "symbol": "XOP",
+    "name": "Oil & Gas (XOP)",
+    "category": "ETF",
+    "inception": "2006/6/22"
+  },
+  {
+    "symbol": "XRT",
+    "name": "Retail (XRT)",
+    "category": "ETF",
+    "inception": "2006/6/22"
+  },
+  {
+    "symbol": "aussie",
+    "name": "Aussie Dollar",
+    "category": "Forex",
+    "inception": "1971/1/4"
+  },
+  {
+    "symbol": "cac",
+    "name": "CAC 40 (CAC)",
+    "category": "Index",
+    "inception": "1997/10/7"
+  },
+  {
+    "symbol": "canada",
+    "name": "Canadian Dollar",
+    "category": "Forex",
+    "inception": "1971/1/4"
+  },
+  {
+    "symbol": "cattle",
+    "name": "Cattle",
+    "category": "Commodity",
+    "inception": "1964/11/30"
+  },
+  {
+    "symbol": "cocoa",
+    "name": "Cocoa",
+    "category": "Commodity",
+    "inception": "1959/7/1"
+  },
+  {
+    "symbol": "coffee",
+    "name": "Coffee",
+    "category": "Commodity",
+    "inception": "1972/8/16"
+  },
+  {
+    "symbol": "copper",
+    "name": "Copper",
+    "category": "Commodity",
+    "inception": "1959/7/1"
+  },
+  {
+    "symbol": "corn",
+    "name": "Corn",
+    "category": "Commodity",
+    "inception": "1901/1/2"
+  },
+  {
+    "symbol": "cotton",
+    "name": "Cotton",
+    "category": "Commodity",
+    "inception": "1959/7/1"
+  },
+  {
+    "symbol": "crb",
+    "name": "CRB Index",
+    "category": "Index",
+    "inception": "1994/1/3"
+  },
+  {
+    "symbol": "crp_1INCH",
+    "name": "1inch",
+    "category": "Crypto",
+    "inception": "2020/12/25"
+  },
+  {
+    "symbol": "crp_AAVE",
+    "name": "Aave",
+    "category": "Crypto",
+    "inception": "2020/10/2"
+  },
+  {
+    "symbol": "crp_ADA",
+    "name": "Cardano",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_AKT",
+    "name": "Akash Network",
+    "category": "Crypto",
+    "inception": "2020/10/20"
+  },
+  {
+    "symbol": "crp_ALGO",
+    "name": "Algorand",
+    "category": "Crypto",
+    "inception": "2019/6/21"
+  },
+  {
+    "symbol": "crp_ANKR",
+    "name": "Ankr",
+    "category": "Crypto",
+    "inception": "2019/3/6"
+  },
+  {
+    "symbol": "crp_AVAX",
+    "name": "Avalanche",
+    "category": "Crypto",
+    "inception": "2020/7/13"
+  },
+  {
+    "symbol": "crp_BAT",
+    "name": "Basic Attention Token",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_BEL",
+    "name": "Bella Protocol",
+    "category": "Crypto",
+    "inception": "2020/9/15"
+  },
+  {
+    "symbol": "crp_BNB",
+    "name": "Binance Coin",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_BNT",
+    "name": "Bancor",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_CEL",
+    "name": "Celsius Network",
+    "category": "Crypto",
+    "inception": "2018/5/3"
+  },
+  {
+    "symbol": "crp_CELR",
+    "name": "Celer Network",
+    "category": "Crypto",
+    "inception": "2019/3/25"
+  },
+  {
+    "symbol": "crp_CHZ",
+    "name": "Chiliz",
+    "category": "Crypto",
+    "inception": "2019/7/1"
+  },
+  {
+    "symbol": "crp_COTI",
+    "name": "COTI",
+    "category": "Crypto",
+    "inception": "2019/6/4"
+  },
+  {
+    "symbol": "crp_CRO",
+    "name": "Cronos",
+    "category": "Crypto",
+    "inception": "2018/12/14"
+  },
+  {
+    "symbol": "crp_CRV",
+    "name": "Curve DAO Token",
+    "category": "Crypto",
+    "inception": "2020/8/14"
+  },
+  {
+    "symbol": "crp_CTC",
+    "name": "Creditcoin",
+    "category": "Crypto",
+    "inception": "2020/1/31"
+  },
+  {
+    "symbol": "crp_CTSI",
+    "name": "Cartesi",
+    "category": "Crypto",
+    "inception": "2020/4/23"
+  },
+  {
+    "symbol": "crp_DOGE",
+    "name": "Dogecoin",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_DOT",
+    "name": "Polkadot",
+    "category": "Crypto",
+    "inception": "2020/8/20"
+  },
+  {
+    "symbol": "crp_DYDX",
+    "name": "dYdX",
+    "category": "Crypto",
+    "inception": "2021/9/8"
+  },
+  {
+    "symbol": "crp_EGLD",
+    "name": "MultiversX (Elrond)",
+    "category": "Crypto",
+    "inception": "2020/9/4"
+  },
+  {
+    "symbol": "crp_ENJ",
+    "name": "Enjin Coin",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_EOS",
+    "name": "EOS",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_FIL",
+    "name": "Filecoin",
+    "category": "Crypto",
+    "inception": "2017/12/13"
+  },
+  {
+    "symbol": "crp_FLOW",
+    "name": "Flow",
+    "category": "Crypto",
+    "inception": "2021/1/27"
+  },
+  {
+    "symbol": "crp_GALA",
+    "name": "Gala",
+    "category": "Crypto",
+    "inception": "2020/9/18"
+  },
+  {
+    "symbol": "crp_GLMR",
+    "name": "Moonbeam",
+    "category": "Crypto",
+    "inception": "2022/1/11"
+  },
+  {
+    "symbol": "crp_HBAR",
+    "name": "Hedera",
+    "category": "Crypto",
+    "inception": "2019/9/17"
+  },
+  {
+    "symbol": "crp_HNT",
+    "name": "Helium",
+    "category": "Crypto",
+    "inception": "2020/6/8"
+  },
+  {
+    "symbol": "crp_HYPE32196",
+    "name": "Hyperliquid",
+    "category": "Crypto",
+    "inception": "2024/11/29"
+  },
+  {
+    "symbol": "crp_ICP",
+    "name": "Internet Computer",
+    "category": "Crypto",
+    "inception": "2021/5/10"
+  },
+  {
+    "symbol": "crp_ICX",
+    "name": "ICON",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_IMX10603",
+    "name": "Immutable X",
+    "category": "Crypto",
+    "inception": "2021/11/6"
+  },
+  {
+    "symbol": "crp_INJ",
+    "name": "Injective",
+    "category": "Crypto",
+    "inception": "2020/10/21"
+  },
+  {
+    "symbol": "crp_KAVA",
+    "name": "Kava",
+    "category": "Crypto",
+    "inception": "2019/10/25"
+  },
+  {
+    "symbol": "crp_KLAY",
+    "name": "Klaytn",
+    "category": "Crypto",
+    "inception": "2020/3/30"
+  },
+  {
+    "symbol": "crp_KSM",
+    "name": "Kusama",
+    "category": "Crypto",
+    "inception": "2019/12/12"
+  },
+  {
+    "symbol": "crp_LINK",
+    "name": "Chainlink",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_LRC",
+    "name": "Loopring",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_LTC",
+    "name": "Litecoin",
+    "category": "Crypto",
+    "inception": "2014/9/17"
+  },
+  {
+    "symbol": "crp_MANA",
+    "name": "Grayscale Decentraland",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_MINA",
+    "name": "Mina Protocol",
+    "category": "Crypto",
+    "inception": "2021/6/1"
+  },
+  {
+    "symbol": "crp_MOVR",
+    "name": "Moonriver",
+    "category": "Crypto",
+    "inception": "2021/8/27"
+  },
+  {
+    "symbol": "crp_NEAR",
+    "name": "Near Protocol",
+    "category": "Crypto",
+    "inception": "2020/10/14"
+  },
+  {
+    "symbol": "crp_OCEAN",
+    "name": "Ocean Protocol",
+    "category": "Crypto",
+    "inception": "2019/5/6"
+  },
+  {
+    "symbol": "crp_ONT",
+    "name": "Ontology",
+    "category": "Crypto",
+    "inception": "2018/3/8"
+  },
+  {
+    "symbol": "crp_PAXG",
+    "name": "PAX Gold",
+    "category": "Crypto",
+    "inception": "2019/9/26"
+  },
+  {
+    "symbol": "crp_PERP",
+    "name": "Perpetual Protocol",
+    "category": "Crypto",
+    "inception": "2020/9/13"
+  },
+  {
+    "symbol": "crp_QNT",
+    "name": "Quant",
+    "category": "Crypto",
+    "inception": "2018/8/10"
+  },
+  {
+    "symbol": "crp_REN",
+    "name": "Ren",
+    "category": "Crypto",
+    "inception": "2018/2/21"
+  },
+  {
+    "symbol": "crp_REQ",
+    "name": "Request",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_ROSE",
+    "name": "Oasis Network",
+    "category": "Crypto",
+    "inception": "2020/11/19"
+  },
+  {
+    "symbol": "crp_RSR",
+    "name": "Reserve Rights",
+    "category": "Crypto",
+    "inception": "2019/5/24"
+  },
+  {
+    "symbol": "crp_RUNE",
+    "name": "THORChain",
+    "category": "Crypto",
+    "inception": "2019/7/23"
+  },
+  {
+    "symbol": "crp_RVN",
+    "name": "Ravencoin",
+    "category": "Crypto",
+    "inception": "2018/3/10"
+  },
+  {
+    "symbol": "crp_SAND",
+    "name": "The Sandbox",
+    "category": "Crypto",
+    "inception": "2020/8/14"
+  },
+  {
+    "symbol": "crp_SCRT",
+    "name": "Secret Network",
+    "category": "Crypto",
+    "inception": "2020/9/30"
+  },
+  {
+    "symbol": "crp_SKL",
+    "name": "SKALE Network",
+    "category": "Crypto",
+    "inception": "2020/12/2"
+  },
+  {
+    "symbol": "crp_SOL",
+    "name": "Solana",
+    "category": "Crypto",
+    "inception": "2020/4/10"
+  },
+  {
+    "symbol": "crp_STORJ",
+    "name": "Storj",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_SUSHI",
+    "name": "SushiSwap",
+    "category": "Crypto",
+    "inception": "2020/8/28"
+  },
+  {
+    "symbol": "crp_SYS",
+    "name": "Syscoin",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_THETA",
+    "name": "Theta Network",
+    "category": "Crypto",
+    "inception": "2018/1/17"
+  },
+  {
+    "symbol": "crp_TRX",
+    "name": "TRON",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_TWT",
+    "name": "Trust Wallet Token",
+    "category": "Crypto",
+    "inception": "2020/7/30"
+  },
+  {
+    "symbol": "crp_UMA",
+    "name": "UMA",
+    "category": "Crypto",
+    "inception": "2020/5/25"
+  },
+  {
+    "symbol": "crp_UOS",
+    "name": "Ultra",
+    "category": "Crypto",
+    "inception": "2019/7/30"
+  },
+  {
+    "symbol": "crp_VET",
+    "name": "VeChain",
+    "category": "Crypto",
+    "inception": "2018/8/3"
+  },
+  {
+    "symbol": "crp_WAVES",
+    "name": "Waves",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_XLM",
+    "name": "Stellar",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_XMR",
+    "name": "Monero",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_XRP",
+    "name": "Ripple",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_XTZ",
+    "name": "Tezos",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_ZEC",
+    "name": "Zcash",
+    "category": "Crypto",
+    "inception": "2017/11/9"
+  },
+  {
+    "symbol": "crp_ZIL",
+    "name": "Zilliqa",
+    "category": "Crypto",
+    "inception": "2018/1/25"
+  },
+  {
+    "symbol": "crude",
+    "name": "Crude Oil",
+    "category": "Commodity",
+    "inception": "1983/3/30"
+  },
+  {
+    "symbol": "dax",
+    "name": "DAX (DAX)",
+    "category": "Index",
+    "inception": "1993/1/4"
+  },
+  {
+    "symbol": "dba",
+    "name": "PowerShares Agriculture (DBA)",
+    "category": "ETF",
+    "inception": "2007/1/5"
+  },
+  {
+    "symbol": "dollar",
+    "name": "US Dollar",
+    "category": "Forex",
+    "inception": "1967/1/31"
+  },
+  {
+    "symbol": "eido",
+    "name": "Indonesia (EIDO)",
+    "category": "ETF",
+    "inception": "2010/5/7"
+  },
+  {
+    "symbol": "epol",
+    "name": "Poland (EPOL)",
+    "category": "ETF",
+    "inception": "2010/5/26"
+  },
+  {
+    "symbol": "euro",
+    "name": "Euro",
+    "category": "Forex",
+    "inception": "1975/1/2"
+  },
+  {
+    "symbol": "eurodollar",
+    "name": "Eurodollar",
+    "category": "Forex",
+    "inception": "1986/4/1"
+  },
+  {
+    "symbol": "eurostoxx",
+    "name": "Euro Stocks 50 (EUROSTOXX)",
+    "category": "Index",
+    "inception": "1986/12/31"
+  },
+  {
+    "symbol": "ewa",
+    "name": "Australia (EWA)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewc",
+    "name": "Canada (EWC)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewg",
+    "name": "Germany (EWG)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewi",
+    "name": "Italy (EWI)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewj",
+    "name": "Japan (EWJ)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewp",
+    "name": "Spain (EWP)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewq",
+    "name": "France (EWQ)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewu",
+    "name": "United Kingdom (EWU)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "eww",
+    "name": "Mexico (EWW)",
+    "category": "ETF",
+    "inception": "1996/3/18"
+  },
+  {
+    "symbol": "ewz",
+    "name": "Brazil (EWZ)",
+    "category": "ETF",
+    "inception": "2000/7/14"
+  },
+  {
+    "symbol": "five",
+    "name": "5-Year Treasury",
+    "category": "Bond",
+    "inception": "2021/10/27"
+  },
+  {
+    "symbol": "franc",
+    "name": "Swiss Franc",
+    "category": "Forex",
+    "inception": "1971/1/4"
+  },
+  {
+    "symbol": "ftse",
+    "name": "FTSE 100 (FTSE)",
+    "category": "Index",
+    "inception": "1983/12/30"
+  },
+  {
+    "symbol": "fxi",
+    "name": "China (FXI)",
+    "category": "ETF",
+    "inception": "2004/10/8"
+  },
+  {
+    "symbol": "gold",
+    "name": "Gold",
+    "category": "Commodity",
+    "inception": "1992/8/3"
+  },
+  {
+    "symbol": "heating",
+    "name": "Heating Oil",
+    "category": "Commodity",
+    "inception": "1986/7/1"
+  },
+  {
+    "symbol": "hogs",
+    "name": "Hogs",
+    "category": "Commodity",
+    "inception": "1986/4/1"
+  },
+  {
+    "symbol": "hsi",
+    "name": "Hang Seng (HSI)",
+    "category": "Index",
+    "inception": "1964/7/31"
+  },
+  {
+    "symbol": "ibov",
+    "name": "Brazil Stock Index (IBOV)",
+    "category": "Index",
+    "inception": "1989/12/21"
+  },
+  {
+    "symbol": "ihe",
+    "name": "iShares Healthcare ETF (IHE)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "inda",
+    "name": "India (INDA)",
+    "category": "ETF",
+    "inception": "2012/2/3"
+  },
+  {
+    "symbol": "ive",
+    "name": "iShares S&P 500 Value ETF (IVE)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "ivw",
+    "name": "iShares S&P 500 Growth ETF (IVW)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "iyz",
+    "name": "iShares U.S. Telecommunications ETF (IYZ)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "kbwp",
+    "name": "Invesco KBW Property ETF (KBWP)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "lumber",
+    "name": "Lumber",
+    "category": "Commodity",
+    "inception": "1986/4/7"
+  },
+  {
+    "symbol": "lumber_future",
+    "name": "Lumber Future",
+    "category": "Commodity",
+    "inception": "2022/8/5"
+  },
+  {
+    "symbol": "mags",
+    "name": "Roundhill Magnificent Seven ETF (MAGS)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "mtum",
+    "name": "iShares Edge MSCI USA Momentum Factor ETF (MTUM)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "natural",
+    "name": "Natural Gas",
+    "category": "Commodity",
+    "inception": "1990/4/3"
+  },
+  {
+    "symbol": "nky",
+    "name": "Nikkei 225 (NKY)",
+    "category": "Index",
+    "inception": "1993/1/4"
+  },
+  {
+    "symbol": "nukz",
+    "name": "Range Nuclear Renaissance ETF (NUKZ)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "oats",
+    "name": "Oats",
+    "category": "Commodity",
+    "inception": "1959/7/1"
+  },
+  {
+    "symbol": "oj",
+    "name": "Orange Juice",
+    "category": "Commodity",
+    "inception": "1967/2/1"
+  },
+  {
+    "symbol": "pak",
+    "name": "Pakistan (PAK)",
+    "category": "ETF",
+    "inception": "2015/4/23"
+  },
+  {
+    "symbol": "palladium",
+    "name": "Palladium",
+    "category": "Commodity",
+    "inception": "1993/10/29"
+  },
+  {
+    "symbol": "peso",
+    "name": "Mexican Peso",
+    "category": "Forex",
+    "inception": "1971/1/4"
+  },
+  {
+    "symbol": "pin",
+    "name": "India (PIN)",
+    "category": "ETF",
+    "inception": "2008/3/5"
+  },
+  {
+    "symbol": "platinum",
+    "name": "Platinum",
+    "category": "Commodity",
+    "inception": "1987/1/6"
+  },
+  {
+    "symbol": "pound",
+    "name": "British Pound",
+    "category": "Forex",
+    "inception": "1971/1/4"
+  },
+  {
+    "symbol": "rsx",
+    "name": "Russia (RSX)",
+    "category": "ETF",
+    "inception": "2007/4/30"
+  },
+  {
+    "symbol": "sfyf",
+    "name": "SoFi Social 50 ETF (SFYF)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "shcomp",
+    "name": "Shanghai (SHCOMP)",
+    "category": "Index",
+    "inception": "1990/12/19"
+  },
+  {
+    "symbol": "silver",
+    "name": "Silver",
+    "category": "Commodity",
+    "inception": "1950/1/31"
+  },
+  {
+    "symbol": "soybeans",
+    "name": "Soybeans",
+    "category": "Commodity",
+    "inception": "1937/1/4"
+  },
+  {
+    "symbol": "sugar",
+    "name": "Sugar",
+    "category": "Commodity",
+    "inception": "1961/1/3"
+  },
+  {
+    "symbol": "ten",
+    "name": "10-Year Treasury",
+    "category": "Bond",
+    "inception": "1982/5/3"
+  },
+  {
+    "symbol": "thirty",
+    "name": "30-Year Treasury",
+    "category": "Bond",
+    "inception": "1977/8/22"
+  },
+  {
+    "symbol": "two",
+    "name": "2-Year Treasury",
+    "category": "Bond",
+    "inception": "2009/10/29"
+  },
+  {
+    "symbol": "unleaded",
+    "name": "Unleaded Gas",
+    "category": "Commodity",
+    "inception": "2005/10/3"
+  },
+  {
+    "symbol": "ura",
+    "name": "Global X Uranium ETF (URA)",
+    "category": "ETF",
+    "inception": "2025/1/13"
+  },
+  {
+    "symbol": "wheat",
+    "name": "Wheat",
+    "category": "Commodity",
+    "inception": "1901/1/2"
+  },
+  {
+    "symbol": "yen",
+    "name": "Japanese Yen",
+    "category": "Commodity",
+    "inception": "1971/1/4"
+  },
+  {
+    "symbol": "CPER",
+    "name": "Copper",
+    "category": "ETF",
+    "inception": "2011/11/15"
+  },
+  {
+    "symbol": "CQQQ",
+    "name": "Invesco China Technology ETF (CQQQ)",
+    "category": "ETF",
+    "inception": "2009/12/08"
+  },
+  {
+    "symbol": "JPY",
+    "name": "Japanese Yen",
+    "category": "Forex",
+    "inception": "1971/01/04"
+  },
+  {
+    "symbol": "PPLT",
+    "name": "Platinum",
+    "category": "ETF",
+    "inception": "2010/01/08"
+  },
+  {
+    "symbol": "XETUSD",
+    "name": "Ethereum",
+    "category": "Crypto",
+    "inception": "2018/02/08"
+  },
+  {
+    "symbol": "crp_BTC",
+    "name": "Bitcoin",
+    "category": "Crypto",
+    "inception": "2014/09/17"
+  },
+  {
+    "symbol": "crp_ETH",
+    "name": "Ethereum",
+    "category": "Crypto",
+    "inception": "2017/11/09"
+  },
+  {
+    "symbol": "SOXS",
+    "name": "Direxion Daily Semiconductor Bear 3X Shares (SOXS)",
+    "category": "ETF",
+    "inception": "2010/03/11"
+  },
+  {
+    "symbol": "USD",
+    "name": "ProShares Ultra Semiconductors (USD)",
+    "category": "ETF",
+    "inception": "2007/02/01"
+  },
+  {
+    "symbol": "UVXY",
+    "name": "ProShares Ultra VIX Short-Term Futures ETF (UVXY)",
+    "category": "ETF",
+    "inception": "2011/10/04"
+  },
+  {
+    "symbol": "VXX",
+    "name": "iPath Series B S&P 500 VIX Short-Term Futures ETN (VXX)",
+    "category": "ETF",
+    "inception": "2009/01/30"
+  },
+  {
+    "symbol": "SOXL",
+    "name": "Direxion Daily Semiconductor Bull 3X Shares (SOXL)",
+    "category": "ETF",
+    "inception": "2010/03/11"
+  },
+  {
+    "symbol": "SIL",
+    "name": "Global X Silver Miners ETF (SIL)",
+    "category": "ETF",
+    "inception": "2010/03/11"
+  },
+  {
+    "symbol": "SILJ",
+    "name": "Amplify Junior Silver Miners ETF (SILJ)",
+    "category": "ETF",
+    "inception": "2010/03/11"
+  },
+  {
+    "symbol": "IMVP",
+    "name": "Invesco India ETF (IMVP)",
+    "category": "ETF",
+    "inception": "2008/03/05"
+  },
+  {
+    "symbol": "DTCR",
+    "name": "Global X Data Center & Digital Infrastructure ETF (DTCR)",
+    "category": "ETF",
+    "inception": "2020/10/29"
+  },
+  {
+    "symbol": "IHI",
+    "name": "iShares U.S. Medical Devices ETF (IHI)",
+    "category": "ETF",
+    "inception": "2006/05/05"
+  },
+  {
+    "symbol": "STXF",
+    "name": "Strive 500 ETF (STXF)",
+    "category": "ETF",
+    "inception": "2022/09/15"
+  },
+  {
+      "symbol": "XSD",
+      "name": "SPDR S&P Semiconductor ETF (XSD)",
+      "category": "ETF",
+      "inception": "2006/02/06"
+  },
+  {
+      "symbol": "FTXL",
+      "name": "First Trust Nasdaq Semiconductor ETF (FTXL)",
+      "category": "ETF",
+      "inception": "2016/09/21"
+  },
+  {
+      "symbol": "PDBC",
+      "name": "Invesco Optimum Yield Diversified Commodity Strategy No K-1 ETF (PDBC)",
+      "category": "ETF",
+      "inception": "2014/11/07"
+  },
+  {
+    "symbol": "ITA",
+    "name": "iShares U.S. Aerospace & Defense ETF (ITA)",
+    "category": "ETF",
+    "inception": "2006/05/05"
+  },
+  {
+    "symbol": "PICK",
+    "name": "iShares MSCI Global Metals & Mining Producers ETF (PICK)",
+    "category": "ETF",
+    "inception": "2012/02/02"
+  },
+  {
+    "symbol": "SIL",
+    "name": "Global X Silver Miners ETF (SIL)",
+    "category": "ETF",
+    "inception": "2010/04/20"
+  },
+  {
+    "symbol": "VUG",
+    "name": "Vanguard Growth Index Fund ETF Shares (VUG)",
+    "category": "ETF",
+    "inception": "2004/01/30"
+  }
+]

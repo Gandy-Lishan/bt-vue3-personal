@@ -463,11 +463,11 @@ watch(
                 :indicators="table.pagedRows.value"
                 :loading="isLoading"
                 :columns="columns"
-                :show-favorite="false"
                 :sort-key="table.sortKey.value"
                 :sort-direction="table.sortDirection.value"
                 compact
                 @open="openIndicator"
+                @favorite="store.toggleFavorite"
                 @sort="handleSort"
               />
               <IndicatorCardGrid
@@ -475,7 +475,6 @@ watch(
                 :indicators="table.pagedRows.value"
                 :loading="isLoading"
                 :columns="columns"
-                :show-favorite="false"
                 :primary-metric-column="trendCardPrimaryColumn"
                 primary-metric-label="Trend Score"
                 :secondary-metric-column="trendCardSecondaryColumn"
@@ -485,6 +484,7 @@ watch(
                 :show-sentiment="false"
                 :show-updated="false"
                 @open="openIndicator"
+                @favorite="store.toggleFavorite"
               />
             </div>
 

@@ -15,6 +15,11 @@ const router = createRouter({
       component: () => import('@/pages/backtests/BacktestsPage.vue'),
     },
     {
+      path: '/search',
+      name: 'search',
+      component: () => import('@/pages/search/SearchPage.vue'),
+    },
+    {
       path: '/indicators',
       name: 'indicators',
       component: () => import('@/pages/indicators/IndicatorsPage.vue'),

@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw, type RouteLocationRaw } from 'vue-router'
 import { ArrowDown, ArrowUp, ChevronLeft, Search, Star } from '@lucide/vue'
 import { fetchIndicatorChartData, fetchIndicatorDownloadData } from '@/entities/indicator/api/indicator.api'
-import { isSeasonalityIndicatorType } from '@/entities/indicator/model/indicator.chart'
+import { isSeasonalityIndicatorType, pruneStandaloneDetailChartData } from '@/entities/indicator/model/indicator.chart'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
 import {
   indicatorFromRelatedChart,
@@ -259,7 +259,8 @@ const detailMeta = computed(() => {
     { label: 'Time Frame', value: detailTimeFrame(item) },
     { label: 'Update Schedule', value: detailUpdateSchedule(item) },
     { label: 'Source', value: detailSource(item) },
-    { label: 'Last Updated', value: detailLastUpdated(item) },
+    // Chart date wins; search info is the fallback for indicators with no rows.
+    { label: 'Last Updated', value: latestChartDate.value ? formatIndicatorDate(latestChartDate.value) : detailLastUpdated(item) },
   ]
 })
 
@@ -272,6 +273,15 @@ const latestStandardChartRow = computed(() => {
     .sort((left, right) => left.timestamp - right.timestamp)
 
   return datedRows.at(-1)?.row ?? chartRows.value.at(-1) ?? null
+})
+
+/** Date from the latest chart row, so "Last Updated" follows the chart when available. */
+const latestChartDate = computed(() => {
+  const row = latestStandardChartRow.value
+  if (!row) return ''
+
+  const value = rowValueForKey(row, 'date') ?? rowValueForKey(row, 'Date')
+  return String(value ?? '').trim()
 })
 
 const lastCloseValue = computed(() => {
@@ -310,9 +320,14 @@ const primarySummaryStats = computed<IndicatorSummaryStat[]>(() => {
   const lineStats = doubleLineSummaryStats(item)
   if (lineStats.length === 2) return lineStats
 
+  // Chart data is authoritative when present; search info is the fallback.
   return [
-    { label: 'Current', value: formatIndicatorNumber(item.currentValue) },
-    { label: 'Change', value: changeText(item), valueClass: changeClass(item.change) },
+    { label: 'Current', value: formatIndicatorNumber(chartSummaryValue(item)) },
+    {
+      label: 'Change',
+      value: chartSummaryChangeText(item),
+      valueClass: changeClass(chartSummaryChange(item)),
+    },
   ]
 })
 
@@ -372,6 +387,96 @@ function latestChartNumberForKey(key: string) {
     if (value !== null) return value
   }
   return null
+}
+
+/**
+ * The indicator's own value from a chart row. Unlike `indicatorChartValue` (which puts
+ * the market symbol first for the LAST CLOSE card), this keeps the ticker column as the
+ * last resort so Current never shows the Symbol's value instead of the indicator's.
+ */
+function chartIndicatorValue(item: IndicatorDetail, row: IndicatorChartDataRow) {
+  const candidateKeys = [
+    item.id,
+    String(item.raw?.url ?? ''),
+    String(item.raw?.chart_url ?? ''),
+    'last_value',
+    'last',
+    'value',
+    'reading',
+    'close',
+    'Close',
+    'last_close',
+    'lastClose',
+  ].filter(Boolean)
+
+  for (const key of Array.from(new Set(candidateKeys))) {
+    const value = rowNumberForKey(row, key)
+    if (value !== null) return value
+  }
+
+  const marketSymbol = String(item.marketSymbol ?? item.raw?.market_symbol ?? '').trim().toLowerCase()
+  const numericEntries = Object.entries(row).filter(
+    ([key, value]) => !isChartSummaryExcludedKey(key) && parseIndicatorNumber(value) !== null,
+  )
+  const nonMarketEntry = numericEntries.find(([key]) => !marketSymbol || key.toLowerCase() !== marketSymbol)
+  const fallbackValue = nonMarketEntry?.[1] ?? numericEntries[0]?.[1]
+
+  return parseIndicatorNumber(fallbackValue)
+}
+
+/** Current value from the latest chart row; falls back to the search-info value. */
+function chartSummaryValue(item: IndicatorDetail) {
+  const row = latestStandardChartRow.value
+  if (row) {
+    const value = chartIndicatorValue(item, row)
+    if (value !== null) return value
+  }
+  return item.currentValue
+}
+
+/**
+ * Change from chart data first: an explicit change column on the latest row, otherwise
+ * the delta between the last two rows of the charted value. Falls back to search info.
+ */
+function chartSummaryChange(item: IndicatorDetail): number {
+  const row = latestStandardChartRow.value
+  if (row) {
+    for (const key of ['change', 'last_change', 'Change']) {
+      const value = rowNumberForKey(row, key)
+      if (value !== null) return value
+    }
+
+    const rows = sortedStandardChartRows()
+    if (rows.length >= 2) {
+      const prev = chartIndicatorValue(item, rows[rows.length - 2])
+      const latest = chartIndicatorValue(item, rows[rows.length - 1])
+      if (prev !== null && latest !== null) return latest - prev
+    }
+  }
+  return item.change
+}
+
+function chartSummaryChangeText(item: IndicatorDetail) {
+  const row = latestStandardChartRow.value
+  if (row) {
+    for (const key of ['percent_change', 'pct_change', 'PercentChange']) {
+      const value = rowNumberForKey(row, key)
+      if (value !== null) return `${formatIndicatorNumber(value)}%`
+    }
+
+    for (const key of ['change', 'last_change', 'Change']) {
+      const value = rowNumberForKey(row, key)
+      if (value !== null) return formatIndicatorNumber(value)
+    }
+
+    const rows = sortedStandardChartRows()
+    if (rows.length >= 2) {
+      const prev = chartIndicatorValue(item, rows[rows.length - 2])
+      const latest = chartIndicatorValue(item, rows[rows.length - 1])
+      if (prev !== null && latest !== null) return formatIndicatorNumber(latest - prev)
+    }
+  }
+  return changeText(item)
 }
 
 function latestChartChangeForKey(key: string): Pick<IndicatorSummaryStat, 'direction' | 'directionValue'> {
@@ -477,8 +582,8 @@ function historicalVolatilityLineCandidates(item: IndicatorDetail): ChartLineCan
   if (!key20 || !key60) return []
 
   return [
-    { key: key20, label: 'Historical Volatility (20-Day)' },
-    { key: key60, label: 'Historical Volatility (60-Day)' },
+    { key: key20, label: 'Volatility (20-Day)' },
+    { key: key60, label: 'Volatility (60-Day)' },
   ]
 }
 
@@ -751,7 +856,7 @@ async function loadChartRows(id: string, requestId: number) {
   try {
     const rows = await fetchIndicatorChartData(id)
     if (requestId === chartRequestId) {
-      chartRows.value = rows
+      chartRows.value = pruneStandaloneDetailChartData(id, rows)
     }
   } catch {
     if (requestId === chartRequestId) {

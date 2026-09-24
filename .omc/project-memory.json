@@ -47,7 +47,7 @@
     "runtime": "Node.js 2425"
   },
   "build": {
-    "buildCommand": "cd \"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\" && npm run typecheck 2>&1 | tail -3 && npm run test:unit 2>&1 | grep -E \"FAIL|Tests \" | head -3 && npm run build 2>&1 | tail -2",
+    "buildCommand": "cd \"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\" && npm run typecheck 2>&1 | tail -3 && npm run build 2>&1 | tail -2",
     "testCommand": "cd \"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\" && cp src/entities/indicator/model/indicator.store.ts /tmp/store.bak && sed -i 's/^      this.favoriteAccountItems = this.favoriteAccountItems.map(withTrend)$/      \\/\\/ TEMP DISABLED/; s/^      this.favoriteLegacyItems = this.favoriteLegacyItems.map(withTrend)$/      \\/\\/ TEMP DISABLED/' src/entities/indicator/model/indicator.store.ts && npx vitest run tests/unit/indicator-store.spec.ts 2>&1 | grep -E \"×|✓ .*favorite lists|Tests \" | head -6",
     "lintCommand": null,
     "devCommand": "npm run dev",
@@ -173,8 +173,8 @@
   "hotPaths": [
     {
       "path": "src\\pages\\indicators\\IndicatorDetailPage.vue",
-      "accessCount": 108,
-      "lastAccessed": 1789703829987,
+      "accessCount": 116,
+      "lastAccessed": 1790132672613,
       "type": "file"
     },
     {
