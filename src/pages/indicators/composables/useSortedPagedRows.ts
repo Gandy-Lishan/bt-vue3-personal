@@ -73,6 +73,13 @@ export function useSortedPagedRows<T>(
     page.value = 1
   }
 
+  function setSort(column: SortableColumn, direction: IndicatorSortDirection) {
+    sortKey.value = column.key
+    sortKind.value = column.kind ?? 'text'
+    sortDirection.value = direction
+    page.value = 1
+  }
+
   function setPage(next: number) {
     page.value = Math.max(1, Math.min(next, pageCount.value))
   }
@@ -101,6 +108,7 @@ export function useSortedPagedRows<T>(
     resultStart,
     resultEnd,
     sort,
+    setSort,
     setPage,
     reset,
   }

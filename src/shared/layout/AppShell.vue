@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
 import AppToastStack from '@/shared/ui/AppToastStack.vue'
 import SentimentFooter from './SentimentFooter.vue'
 import SentimentHeader from './SentimentHeader.vue'
 
 const store = useIndicatorStore()
+const route = useRoute()
 
-// Favorites drive the star on both the list and detail pages, so load them once here.
-onMounted(() => {
-  void store.ensureFavorites()
-})
+watch(
+  () => route.meta.needsIndicatorFavorites,
+  (needsIndicatorFavorites) => {
+    if (needsIndicatorFavorites) void store.ensureFavorites()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

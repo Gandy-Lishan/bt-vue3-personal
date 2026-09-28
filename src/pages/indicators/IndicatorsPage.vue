@@ -21,6 +21,7 @@ import { indicatorCsvFilename, indicatorCsvTable } from '@/entities/indicator/mo
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
 import { getIndicatorTableMeta } from '@/entities/indicator/model/indicator.table'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
+import ListPagePanel from '@/shared/ui/ListPagePanel.vue'
 import type { IndicatorTableColumn, IndicatorTableColumnKind } from '@/entities/indicator/model/indicator.table'
 import type { Indicator, IndicatorGroup, IndicatorSection, IndicatorSortDirection } from '@/entities/indicator/model/indicator.types'
 import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
@@ -257,24 +258,19 @@ watch(
           </button>
         </aside>
 
-        <section class="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
-          <header class="flex flex-col gap-3 border-b border-[var(--app-border)] px-4 py-4 xl:flex-row xl:items-start xl:justify-between">
-            <div class="min-w-0">
-              <div class="flex min-w-0 flex-wrap items-center gap-2">
-                <h2 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">{{ currentTitle }}</h2>
-                <button
-                  class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-surface-muted)] px-2.5 text-xs font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]"
-                  type="button"
-                  @click="isDescriptionOpen = true"
-                >
-                  <Info :size="15" />
-                  {{ descriptionButtonLabel }}
-                </button>
-              </div>
-              <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ currentDescription }}</p>
-            </div>
+        <ListPagePanel :title="currentTitle" :description="currentDescription">
+          <template #title-actions>
+            <button
+              class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-surface-muted)] px-2.5 text-xs font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]"
+              type="button"
+              @click="isDescriptionOpen = true"
+            >
+              <Info :size="15" />
+              {{ descriptionButtonLabel }}
+            </button>
+          </template>
 
-            <div class="flex shrink-0 flex-wrap items-center gap-2 text-xs font-semibold">
+          <template #summary>
               <span class="indicator-summary-pill">
                 <span class="indicator-summary-pill__dot bg-rose-500" />
                 <span class="indicator-summary-pill__text">
@@ -301,92 +297,97 @@ watch(
                   <span class="indicator-summary-pill__label"> Indicators</span>
                 </span>
               </span>
-            </div>
-          </header>
+          </template>
 
           <!-- My Favorites and Most Popular are standalone lists, so they carry no subgroup tabs. -->
-          <nav v-if="showSubgroups" class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
-            <button
-              v-for="subgroup in store.activeSubgroups"
-              :key="subgroup.id"
-              class="flex h-14 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold transition"
-              :class="store.activeSubgroupId === subgroup.id ? 'border-[var(--app-primary)] text-[var(--app-text)]' : 'border-transparent text-[var(--app-text)] hover:text-[var(--app-primary)]'"
-              type="button"
-              @click="store.setSubgroup(subgroup.id)"
-            >
-              <component
-                :is="iconMap[subgroup.icon as keyof typeof iconMap]"
-                v-if="subgroup.icon && iconMap[subgroup.icon as keyof typeof iconMap]"
-                :size="17"
-                aria-hidden="true"
-              />
-              {{ subgroup.label }}
-            </button>
-          </nav>
+          <template #tabs>
+            <nav v-if="showSubgroups" class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
+              <button
+                v-for="subgroup in store.activeSubgroups"
+                :key="subgroup.id"
+                class="flex h-14 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold transition"
+                :class="store.activeSubgroupId === subgroup.id ? 'border-[var(--app-primary)] text-[var(--app-text)]' : 'border-transparent text-[var(--app-text)] hover:text-[var(--app-primary)]'"
+                type="button"
+                @click="store.setSubgroup(subgroup.id)"
+              >
+                <component
+                  :is="iconMap[subgroup.icon as keyof typeof iconMap]"
+                  v-if="subgroup.icon && iconMap[subgroup.icon as keyof typeof iconMap]"
+                  :size="17"
+                  aria-hidden="true"
+                />
+                {{ subgroup.label }}
+              </button>
+            </nav>
+          </template>
 
-          <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto]">
-            <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
-              <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
-              <input v-model="store.searchQuery" class="w-full bg-transparent text-[0.8125rem] outline-none" placeholder="Search indicators..." />
-            </label>
-            <select v-model="store.timeFrameFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
-              <option value="">All Time Frames</option>
-              <option>Short</option>
-              <option>Medium</option>
-              <option>Long</option>
-            </select>
-            <select v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
-              <option value="">All Sentiment Types</option>
-              <option value="pessimistic">Pessimistic</option>
-              <option value="neutral">Neutral</option>
-              <option value="optimistic">Optimistic</option>
-            </select>
-            <select
-              class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]"
-              :value="activeSortValue"
-              @change="handleSortSelect"
-            >
-              <option value="">Sort by: Default</option>
-              <template v-for="column in sortableColumns" :key="column.key">
-                <option :value="`${column.key}:asc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'asc') }}</option>
-                <option :value="`${column.key}:desc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'desc') }}</option>
-              </template>
-            </select>
-            <button
-              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]"
-              type="button"
-              @click="store.resetFilters"
-            >
-              <RotateCcw :size="16" />
-              Reset
-            </button>
-            <button
-              class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--app-border)] disabled:hover:text-[var(--app-text-secondary)]"
-              type="button"
-              :disabled="!store.totalIndicators"
-              title="Download this list as CSV"
-              @click="downloadListCsv"
-            >
-              <Download :size="16" />
-              CSV
-            </button>
-          </div>
+          <template #filters>
+            <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto]">
+              <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
+                <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
+                <input v-model="store.searchQuery" class="w-full bg-transparent text-[0.8125rem] outline-none" placeholder="Search indicators..." />
+              </label>
+              <select v-model="store.timeFrameFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
+                <option value="">All Time Frames</option>
+                <option>Short</option>
+                <option>Medium</option>
+                <option>Long</option>
+              </select>
+              <select v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
+                <option value="">All Sentiment Types</option>
+                <option value="pessimistic">Pessimistic</option>
+                <option value="neutral">Neutral</option>
+                <option value="optimistic">Optimistic</option>
+              </select>
+              <select
+                class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]"
+                :value="activeSortValue"
+                @change="handleSortSelect"
+              >
+                <option value="">Sort by: Default</option>
+                <template v-for="column in sortableColumns" :key="column.key">
+                  <option :value="`${column.key}:asc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'asc') }}</option>
+                  <option :value="`${column.key}:desc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'desc') }}</option>
+                </template>
+              </select>
+              <button
+                class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)]"
+                type="button"
+                @click="store.resetFilters"
+              >
+                <RotateCcw :size="16" />
+                Reset
+              </button>
+              <button
+                class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--app-border)] disabled:hover:text-[var(--app-text-secondary)]"
+                type="button"
+                :disabled="!store.totalIndicators"
+                title="Download this list as CSV"
+                @click="downloadListCsv"
+              >
+                <Download :size="16" />
+                CSV
+              </button>
+            </div>
+          </template>
 
-          <div
-            v-if="store.activeSection === 'favorites' && store.legacyFavoriteCount"
-            class="mx-4 mb-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-2 text-sm leading-6 text-[var(--app-text-secondary)]"
-          >
-            Some favorites come from your classic favorites folder and cannot be removed here.
-            Manage those favorites on the
-            <a
-              class="font-semibold text-[var(--app-primary)] hover:underline"
-              href="https://users.sentimentrader.com/users/favorites/"
-              target="_blank"
-              rel="noopener noreferrer"
+          <template #notice>
+            <div
+              v-if="store.activeSection === 'favorites' && store.legacyFavoriteCount"
+              class="mx-4 mb-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-2 text-sm leading-6 text-[var(--app-text-secondary)]"
             >
-              classic favorites page
-            </a>.
-          </div>
+              Some favorites come from your classic favorites folder and cannot be removed here.
+              Manage those favorites on the
+              <a
+                class="font-semibold text-[var(--app-primary)] hover:underline"
+                href="https://users.sentimentrader.com/users/favorites/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                classic favorites page
+              </a>.
+            </div>
+          </template>
 
           <div class="px-4 pb-4">
             <IndicatorListTable
@@ -412,7 +413,7 @@ watch(
             />
           </div>
 
-          <div class="border-t border-[var(--app-border)] px-4 py-3">
+          <template #footer>
             <IndicatorPagination
               :page="store.page"
               :page-count="store.pageCount"
@@ -420,8 +421,8 @@ watch(
               item-label="indicators"
               @change="setPage"
             />
-          </div>
-        </section>
+          </template>
+        </ListPagePanel>
       </div>
     </main>
 

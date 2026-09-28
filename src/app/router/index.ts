@@ -20,18 +20,58 @@ const router = createRouter({
       component: () => import('@/pages/search/SearchPage.vue'),
     },
     {
+      path: '/market',
+      redirect: '/market/predict',
+    },
+    {
+      path: '/market/predict',
+      name: 'market-prediction',
+      component: () => import('@/pages/market/MarketPredictionPage.vue'),
+    },
+    {
+      path: '/market/predict/:ticker',
+      name: 'market-prediction-detail',
+      component: () => import('@/pages/market/MarketPredictionDetailPage.vue'),
+    },
+    {
+      path: '/market/sec/:ticker/:tab?',
+      redirect: (to) => {
+        const tabMap: Record<string, string> = {
+          chart: 'chart',
+          analysts: 'analysts',
+          earnings: 'earnings',
+          financials: 'financials',
+          balancesheet: 'balanceSheet',
+          cashflow: 'cashFlow',
+          ownership: 'ownership',
+          news: 'news',
+          sec: 'sec',
+        }
+        const rawTab = typeof to.params.tab === 'string' ? to.params.tab.toLowerCase() : ''
+        const tab = tabMap[rawTab]
+        return {
+          name: 'market-prediction-detail',
+          params: { ticker: to.params.ticker },
+          query: tab ? { tab } : {},
+        }
+      },
+    },
+    {
       path: '/indicators',
       name: 'indicators',
+      meta: { needsIndicatorFavorites: true },
       component: () => import('@/pages/indicators/IndicatorsPage.vue'),
     },
     {
       path: '/indicators/:id',
       name: 'indicator-detail',
+      meta: { needsIndicatorFavorites: true },
       component: () => import('@/pages/indicators/IndicatorDetailPage.vue'),
     },
     {
       path: '/trend_score',
       name: 'trend-score',
+      meta: { needsIndicatorFavorites: true },
       component: () => import('@/pages/indicators/TrendPage.vue'),
     },
     {
@@ -45,6 +85,7 @@ const router = createRouter({
     {
       path: '/trend_score/:id',
       name: 'trend-score-detail',
+      meta: { needsIndicatorFavorites: true },
       component: () => import('@/pages/indicators/IndicatorDetailPage.vue'),
     },
     {

@@ -33,6 +33,7 @@ import { indicatorRawValue, indicatorSortValue } from '@/entities/indicator/mode
 import type { Indicator } from '@/entities/indicator/model/indicator.types'
 import type { IndicatorTableColumn } from '@/entities/indicator/model/indicator.table'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
+import ListPagePanel from '@/shared/ui/ListPagePanel.vue'
 import { useSortedPagedRows } from './composables/useSortedPagedRows'
 import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
 import IndicatorPageHeader from './ui/IndicatorPageHeader.vue'
@@ -357,24 +358,19 @@ watch(
           </button>
         </aside>
 
-        <section class="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
-          <header class="flex flex-col gap-3 border-b border-[var(--app-border)] px-4 py-4 xl:flex-row xl:items-start xl:justify-between">
-            <div class="min-w-0">
-              <div class="flex min-w-0 flex-wrap items-center gap-2">
-                <h2 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">{{ currentTitle }}</h2>
-                <button
-                  class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-surface-muted)] px-2.5 text-xs font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]"
-                  type="button"
-                  @click="descriptionOpen = true"
-                >
-                  <Info :size="15" />
-                  Description & Legend
-                </button>
-              </div>
-              <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ currentDescription }}</p>
-            </div>
+        <ListPagePanel :title="currentTitle" :description="currentDescription">
+          <template #title-actions>
+            <button
+              class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-surface-muted)] px-2.5 text-xs font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]"
+              type="button"
+              @click="descriptionOpen = true"
+            >
+              <Info :size="15" />
+              Description & Legend
+            </button>
+          </template>
 
-            <div class="flex shrink-0 flex-wrap items-center gap-2 text-xs font-semibold">
+          <template #summary>
               <template v-if="!isSummary">
                 <span class="indicator-summary-pill">
                   <span class="indicator-summary-pill__dot bg-emerald-500" />
@@ -403,14 +399,9 @@ watch(
                   <span class="indicator-summary-pill__label"> Sector Summary</span>
                 </span>
               </span>
-            </div>
-          </header>
+          </template>
 
-          <div v-if="isSummary" class="px-4 py-4">
-            <SectorTrendSummaryTable embedded />
-          </div>
-
-          <template v-else>
+          <template v-if="!isSummary" #filters>
             <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_auto_auto]">
               <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
                 <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
@@ -443,7 +434,9 @@ watch(
                 CSV
               </button>
             </div>
+          </template>
 
+          <template v-if="!isSummary" #notice>
             <div v-if="showConditionButtons" class="flex flex-wrap gap-2 border-b border-[var(--app-border)] px-4 pb-3">
               <button
                 v-for="item in conditionOptions"
@@ -456,49 +449,53 @@ watch(
                 {{ item.label }}
               </button>
             </div>
-
-            <div class="px-4 pb-4 pt-4">
-              <IndicatorListTable
-                v-if="store.viewMode === 'table'"
-                :indicators="table.pagedRows.value"
-                :loading="isLoading"
-                :columns="columns"
-                :sort-key="table.sortKey.value"
-                :sort-direction="table.sortDirection.value"
-                compact
-                @open="openIndicator"
-                @favorite="store.toggleFavorite"
-                @sort="handleSort"
-              />
-              <IndicatorCardGrid
-                v-else
-                :indicators="table.pagedRows.value"
-                :loading="isLoading"
-                :columns="columns"
-                :primary-metric-column="trendCardPrimaryColumn"
-                primary-metric-label="Trend Score"
-                :secondary-metric-column="trendCardSecondaryColumn"
-                secondary-metric-label="Relative Score"
-                :title-column="assetCardTitleColumn"
-                :subtitle-columns="assetCardSubtitleColumns"
-                :show-sentiment="false"
-                :show-updated="false"
-                @open="openIndicator"
-                @favorite="store.toggleFavorite"
-              />
-            </div>
-
-            <div class="border-t border-[var(--app-border)] px-4 py-3">
-              <IndicatorPagination
-                :page="table.page.value"
-                :page-count="table.pageCount.value"
-                :total="table.sortedRows.value.length"
-                item-label="trend scores"
-                @change="table.setPage"
-              />
-            </div>
           </template>
-        </section>
+
+          <div v-if="isSummary" class="px-4 py-4">
+            <SectorTrendSummaryTable embedded />
+          </div>
+
+          <div v-else class="px-4 pb-4 pt-4">
+            <IndicatorListTable
+              v-if="store.viewMode === 'table'"
+              :indicators="table.pagedRows.value"
+              :loading="isLoading"
+              :columns="columns"
+              :sort-key="table.sortKey.value"
+              :sort-direction="table.sortDirection.value"
+              compact
+              @open="openIndicator"
+              @favorite="store.toggleFavorite"
+              @sort="handleSort"
+            />
+            <IndicatorCardGrid
+              v-else
+              :indicators="table.pagedRows.value"
+              :loading="isLoading"
+              :columns="columns"
+              :primary-metric-column="trendCardPrimaryColumn"
+              primary-metric-label="Trend Score"
+              :secondary-metric-column="trendCardSecondaryColumn"
+              secondary-metric-label="Relative Score"
+              :title-column="assetCardTitleColumn"
+              :subtitle-columns="assetCardSubtitleColumns"
+              :show-sentiment="false"
+              :show-updated="false"
+              @open="openIndicator"
+              @favorite="store.toggleFavorite"
+            />
+          </div>
+
+          <template v-if="!isSummary" #footer>
+            <IndicatorPagination
+              :page="table.page.value"
+              :page-count="table.pageCount.value"
+              :total="table.sortedRows.value.length"
+              item-label="trend scores"
+              @change="table.setPage"
+            />
+          </template>
+        </ListPagePanel>
       </div>
 
       <Teleport to="body">

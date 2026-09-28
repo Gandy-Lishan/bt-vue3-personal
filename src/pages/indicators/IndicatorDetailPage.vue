@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw, type RouteLocationRaw } from 'vue-router'
-import { ArrowDown, ArrowUp, ChevronLeft, Search, Star } from '@lucide/vue'
+import { ArrowDown, ArrowUp, ChevronLeft, Star } from '@lucide/vue'
 import { fetchIndicatorChartData, fetchIndicatorDownloadData } from '@/entities/indicator/api/indicator.api'
 import { isSeasonalityIndicatorType, pruneStandaloneDetailChartData } from '@/entities/indicator/model/indicator.chart'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
@@ -29,6 +29,7 @@ import type {
 } from '@/entities/indicator/model/indicator.types'
 // Aliased: this page already has a local `downloadCsv` that fetches and prepares rows.
 import { downloadCsv as downloadCsvFile, toCsv } from '@/shared/utils/csv'
+import DetailSearchSidebar from '@/shared/ui/DetailSearchSidebar.vue'
 import { useSortedPagedRows } from './composables/useSortedPagedRows'
 import CftcDataNotice from './ui/CftcDataNotice.vue'
 import ConstituentConditionsTable from './ui/ConstituentConditionsTable.vue'
@@ -205,6 +206,15 @@ const sidebarItems = computed(() => {
     )
   })
 })
+
+const sidebarNavItems = computed(() =>
+  sidebarItems.value.map((item) => ({
+    ...item,
+    label: item.name,
+    to: detailRouteFor(item.id),
+    active: item.id === indicatorId.value,
+  })),
+)
 
 const activeIndicator = computed(() => detailListItems.value.find((item) => item.id === indicatorId.value))
 
@@ -1075,50 +1085,30 @@ watch(activeTab, (tab) => {
       </section>
 
       <section v-else-if="detail" class="grid items-start gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <aside
-          class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
-          :style="sidebarHeight ? { height: sidebarHeight } : undefined"
+        <DetailSearchSidebar
+          v-model="listSearchQuery"
+          :title="listLabel"
+          :placeholder="sidebarSearchPlaceholder"
+          :empty-message="emptySidebarMessage"
+          :items="sidebarNavItems"
+          :height="sidebarHeight"
+          @item-click="(item) => store.rememberIndicatorSource(item.id, String(item.sourceList ?? ''))"
         >
-          <label class="mb-10 flex h-10 shrink-0 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3">
-            <input v-model="listSearchQuery" class="w-full bg-transparent text-sm outline-none" :placeholder="sidebarSearchPlaceholder" />
-            <Search :size="18" class="ml-2 shrink-0 text-[var(--app-text-secondary)]" />
-          </label>
-
-          <h3 class="mb-2 shrink-0 text-sm font-semibold">{{ listLabel }}</h3>
-          <div class="min-h-0 flex-1 overflow-y-auto pr-1">
-            <!-- Split so the star can be its own control: a button nested in a link
-                 would be invalid, and clicking the star must not navigate. -->
-            <div
-              v-for="item in sidebarItems"
-              :key="item.id"
-              class="flex items-start gap-2 border-b border-[var(--app-border-muted)] px-2 py-2 text-sm leading-5"
-              :class="{ 'border-l-4 border-l-[var(--app-primary)] bg-[var(--app-primary-soft)] pl-2 font-semibold': item.id === indicatorId }"
+          <template #action="{ item }">
+            <span v-if="item.favoriteLocked" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <button
+              v-else
+              class="mt-0.5 shrink-0 transition"
+              :class="item.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-favorite)]'"
+              type="button"
+              :title="favoriteActionLabel(Boolean(item.favorite))"
+              :aria-label="favoriteActionLabel(Boolean(item.favorite))"
+              @click="toggleSidebarFavorite(item.id)"
             >
-              <RouterLink
-                class="line-clamp-2 min-w-0 flex-1 hover:text-[var(--app-primary)]"
-                :class="item.id === indicatorId ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"
-                :to="detailRouteFor(item.id)"
-                @click="store.rememberIndicatorSource(item.id, item.sourceList)"
-              >
-                {{ item.name }}
-              </RouterLink>
-
-              <span v-if="item.favoriteLocked" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <button
-                v-else
-                class="mt-0.5 shrink-0 transition"
-                :class="item.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-favorite)]'"
-                type="button"
-                :title="favoriteActionLabel(item.favorite)"
-                :aria-label="favoriteActionLabel(item.favorite)"
-                @click="toggleSidebarFavorite(item.id)"
-              >
-                <Star :size="16" :fill="item.favorite ? 'var(--app-favorite)' : 'transparent'" />
-              </button>
-            </div>
-            <p v-if="!sidebarItems.length" class="py-8 text-center text-sm text-[var(--app-text-muted)]">{{ emptySidebarMessage }}</p>
-          </div>
-        </aside>
+              <Star :size="16" :fill="item.favorite ? 'var(--app-favorite)' : 'transparent'" />
+            </button>
+          </template>
+        </DetailSearchSidebar>
 
         <section ref="detailContentElement" class="min-w-0 space-y-3">
           <section class="indicator-summary">
