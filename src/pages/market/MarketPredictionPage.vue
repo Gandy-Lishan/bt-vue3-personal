@@ -14,9 +14,9 @@ import {
   type MarketPredictionSortKey,
   type MarketPredictionViewMode,
 } from '@/entities/market/model/market-prediction.types'
+import { indicatorPageAds } from '@/entities/indicator/model/indicator.ads'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
-import ListPagePanel from '@/shared/ui/ListPagePanel.vue'
-import IndicatorPageHeader from '@/pages/indicators/ui/IndicatorPageHeader.vue'
+import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
 import { useSortedPagedRows } from '@/pages/indicators/composables/useSortedPagedRows'
 import MarketPredictionCardGrid from './ui/MarketPredictionCardGrid.vue'
@@ -169,19 +169,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
-    <main class="px-[var(--page-gutter)] pb-8 pt-8">
-      <IndicatorPageHeader
-        title="Market Prediction"
-        description="Three-month price targets compiled from leading analysts, with historical mean accuracy."
-        :view-mode="viewMode"
-        @update:view-mode="setViewMode"
-      />
-
-      <ListPagePanel
-        title="Market Prediction Summary"
-        description="Browse and analyze analyst price target predictions for the U.S. stock market."
-      >
+  <ListExplorerPage
+    title="Market Prediction"
+    description="Three-month price targets compiled from leading analysts, with historical mean accuracy."
+    panel-title="Market Prediction Summary"
+    panel-description="Browse and analyze analyst price target predictions for the U.S. stock market."
+    :view-mode="viewMode"
+    :ads="indicatorPageAds"
+    @update:view-mode="setViewMode"
+  >
         <template #title-actions>
           <button
             class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-surface-muted)] px-2.5 text-xs font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]"
@@ -306,8 +302,7 @@ onBeforeUnmount(() => {
             @change="table.setPage"
           />
         </template>
-      </ListPagePanel>
-
+    <template #overlays>
       <Teleport to="body">
         <div
           v-if="descriptionOpen"
@@ -357,6 +352,6 @@ onBeforeUnmount(() => {
           </section>
         </div>
       </Teleport>
-    </main>
-  </div>
+    </template>
+  </ListExplorerPage>
 </template>

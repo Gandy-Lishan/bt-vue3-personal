@@ -57,6 +57,25 @@ const router = createRouter({
       },
     },
     {
+      path: '/scannerai',
+      name: 'smart-stock-scanner',
+      component: () => import('@/pages/scanner/SmartScannerPage.vue'),
+    },
+    {
+      path: '/scannerai/option',
+      name: 'smart-option-scanner',
+      component: () => import('@/pages/scanner/SmartOptionScannerPage.vue'),
+    },
+    {
+      path: '/scannerai/scannerai_chart',
+      name: 'smart-stock-scanner-detail',
+      component: () => import('@/pages/scanner/SmartScannerDetailPage.vue'),
+    },
+    {
+      path: '/home/scannerai',
+      redirect: '/scannerai',
+    },
+    {
       path: '/indicators',
       name: 'indicators',
       meta: { needsIndicatorFavorites: true },
