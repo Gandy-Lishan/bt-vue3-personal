@@ -20,6 +20,11 @@ const router = createRouter({
       component: () => import('@/pages/search/SearchPage.vue'),
     },
     {
+      path: '/strategy',
+      name: 'strategy',
+      component: () => import('@/pages/strategy/StrategyPage.vue'),
+    },
+    {
       path: '/market',
       redirect: '/market/predict',
     },
