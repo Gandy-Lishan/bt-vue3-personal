@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Download, RotateCcw, Search } from '@lucide/vue'
 import {
@@ -9,19 +9,20 @@ import {
   removeStrategyFavorite,
 } from '@/entities/strategy/api/strategy.api'
 import {
+  mergeStrategyRows,
   matchesStrategyScope,
   strategyLastMonthEndLabel,
+  strategyRowSortValue,
   strategyScopeDescription,
   strategyScopeOptions,
   strategyScopeTitle,
   strategySearchScore,
   strategySignalCsvTable,
-  strategySignalSortValue,
   strategySummaryCsvTable,
-  strategySummarySortValue,
 } from '@/entities/strategy/model/strategy.adapter'
 import {
   STRATEGY_PAGE_SIZE,
+  type StrategyRow,
   type StrategyScopeKey,
   type StrategySignalRow,
   type StrategySignalSortKey,
@@ -57,12 +58,14 @@ const searchQuery = ref('')
 const timeFrameFilter = ref('')
 const frequencyFilter = ref('')
 const currentSignalFilter = ref('')
-const signalRows = ref<StrategySignalRow[]>([])
-const summaryRows = ref<StrategySummaryRow[]>([])
+const signalRows = shallowRef<StrategySignalRow[]>([])
+const summaryRows = shallowRef<StrategySummaryRow[]>([])
 const loading = ref(false)
 const favoriteLoadingUrls = ref(new Set<string>())
 const abortController = new AbortController()
 const ytdLabel = strategyLastMonthEndLabel()
+let persistStateHandle: number | null = null
+let persistStateHandleIsIdle = false
 
 const signalSortOptions: Array<StrategySortOption<StrategySignalSortKey>> = [
   { key: 'modelName', label: 'Model Name', kind: 'text' },
@@ -95,17 +98,29 @@ const activeScopeCount = computed(() => scopes.value.find((scope) => scope.key =
 const favoriteCount = computed(() => signalRows.value.filter((row) => row.favorite).length)
 const currentChangeCount = computed(() => signalRows.value.filter((row) => row.currentDay).length)
 const panelTitle = computed(() => strategyScopeTitle(activeScope.value))
-const panelDescription = computed(() => strategyScopeDescription(activeScope.value, activeScopeCount.value))
-const signalRowsByUrl = computed(() => new Map(signalRows.value.map((row) => [row.url, row])))
+const tabDescription = computed(() =>
+  activeTab.value === 'signals'
+    ? 'Latest model signals and update frequency for each strategy.'
+    : 'Historical performance statistics for the same strategies.',
+)
+const panelDescription = computed(() => {
+  const scopeDescription = strategyScopeDescription(activeScope.value, activeScopeCount.value)
+  if (activeScope.value === 'basket') return scopeDescription
+  return `${scopeDescription} · ${tabDescription.value}`
+})
 const timeFrameOptions = computed(() => uniqueSorted(signalRows.value.map((row) => row.timeFrame)))
 const frequencyOptions = computed(() => uniqueSorted(signalRows.value.map((row) => row.frequency)))
 const currentSignalOptions = computed(() => uniqueSorted(signalRows.value.map((row) => row.currentSignal)))
+const strategyRows = computed(() => mergeStrategyRows(signalRows.value, summaryRows.value))
 
-const filteredSignals = computed(() => {
+const filteredStrategies = computed(() => {
   const query = searchQuery.value.trim()
-  return signalRows.value
+  const scopedRows = strategyRows.value.filter((row) => matchesStrategyScope(row, activeScope.value) && matchesQuickFilters(row.signal))
+  if (!query) return scopedRows
+
+  return scopedRows
     .map((row, index) => ({ row, index, score: strategySearchScore(row, query) }))
-    .filter(({ row, score }) => matchesStrategyScope(row, activeScope.value) && matchesQuickFilters(row) && score !== null)
+    .filter(({ score }) => score !== null)
     .sort((left, right) => {
       if (!query) return left.index - right.index
       return (right.score ?? -Infinity) - (left.score ?? -Infinity) || left.index - right.index
@@ -113,48 +128,28 @@ const filteredSignals = computed(() => {
     .map(({ row }) => row)
 })
 
-const filteredSummaries = computed(() => {
-  const query = searchQuery.value.trim()
-  return summaryRows.value
-    .map((row, index) => ({ row, index, score: strategySearchScore(row, query) }))
-    .filter(({ row, score }) => {
-      const signal = signalRowsByUrl.value.get(row.url)
-      const quickFilterMatch = signal ? matchesQuickFilters(signal) : !hasQuickFilters()
-      return matchesStrategyScope(row, activeScope.value) && quickFilterMatch && score !== null
-    })
-    .sort((left, right) => {
-      if (!query) return left.index - right.index
-      return (right.score ?? -Infinity) - (left.score ?? -Infinity) || left.index - right.index
-    })
-    .map(({ row }) => row)
-})
-
-const signalTable = useSortedPagedRows(
-  filteredSignals,
-  (row, key) => strategySignalSortValue(row, key as StrategySignalSortKey),
+const strategyTable = useSortedPagedRows<StrategyRow>(
+  filteredStrategies,
+  (row, key) => strategyRowSortValue(row, key as StrategySortKey),
   STRATEGY_PAGE_SIZE,
 )
 
-const summaryTable = useSortedPagedRows(
-  filteredSummaries,
-  (row, key) => strategySummarySortValue(row, key as StrategySummarySortKey),
-  STRATEGY_PAGE_SIZE,
-)
+const sortedSignalRows = computed(() => strategyTable.sortedRows.value.map((row) => row.signal))
+const sortedSummaryRows = computed(() => strategyTable.sortedRows.value.map((row) => row.summary))
+const pagedSignalRows = computed(() => strategyTable.pagedRows.value.map((row) => row.signal))
+const pagedSummaryRows = computed(() => strategyTable.pagedRows.value.map((row) => row.summary))
 
 const activeSortValue = computed(() => {
-  const table = activeTab.value === 'signals' ? signalTable : summaryTable
-  if (!table.sortKey.value) return ''
-  return `${table.sortKey.value}:${table.sortDirection.value}`
+  if (!strategyTable.sortKey.value) return ''
+  const option = sortOptions.value.find((item) => item.key === strategyTable.sortKey.value)
+  if (!option) return ''
+  return `${strategyTable.sortKey.value}:${strategyTable.sortDirection.value}`
 })
 
-const activeRowsTotal = computed(() =>
-  activeTab.value === 'signals' ? signalTable.sortedRows.value.length : summaryTable.sortedRows.value.length,
-)
+const activeRowsTotal = computed(() => strategyTable.sortedRows.value.length)
 
-const activePage = computed(() => (activeTab.value === 'signals' ? signalTable.page.value : summaryTable.page.value))
-const activePageCount = computed(() =>
-  activeTab.value === 'signals' ? signalTable.pageCount.value : summaryTable.pageCount.value,
-)
+const activePage = computed(() => strategyTable.page.value)
+const activePageCount = computed(() => strategyTable.pageCount.value)
 
 function sortDirectionLabel(kind: IndicatorTableColumnKind, direction: StrategySortDirection) {
   if (kind === 'number' || kind === 'change' || kind === 'sentiment') {
@@ -170,10 +165,6 @@ function uniqueSorted(values: string[]) {
   )
 }
 
-function hasQuickFilters() {
-  return Boolean(timeFrameFilter.value || frequencyFilter.value || currentSignalFilter.value)
-}
-
 function matchesQuickFilters(row: Pick<StrategySignalRow, 'timeFrame' | 'frequency' | 'currentSignal'>) {
   return (
     (!timeFrameFilter.value || row.timeFrame === timeFrameFilter.value) &&
@@ -187,7 +178,9 @@ function setViewMode(mode: StrategyViewMode) {
 }
 
 function setScope(scope: StrategyScopeKey) {
+  if (activeScope.value === scope) return
   activeScope.value = scope
+  strategyTable.setPage(1)
 }
 
 function setTab(tab: StrategyTab) {
@@ -195,16 +188,14 @@ function setTab(tab: StrategyTab) {
 }
 
 function setActivePage(page: number) {
-  if (activeTab.value === 'signals') signalTable.setPage(page)
-  else summaryTable.setPage(page)
+  strategyTable.setPage(page)
 }
 
 function handleSortSelect(event: Event) {
   const value = (event.target as HTMLSelectElement).value
-  const table = activeTab.value === 'signals' ? signalTable : summaryTable
 
   if (!value) {
-    table.reset()
+    strategyTable.reset()
     return
   }
 
@@ -212,13 +203,12 @@ function handleSortSelect(event: Event) {
   const option = sortOptions.value.find((item) => item.key === key)
   if (!option || (direction !== 'asc' && direction !== 'desc')) return
 
-  table.setSort({ key: option.key, kind: option.kind }, direction)
+  strategyTable.setSort({ key: option.key, kind: option.kind }, direction)
 }
 
 function handleTableSort(key: StrategySortKey) {
   const option = sortOptions.value.find((item) => item.key === key)
-  if (activeTab.value === 'signals') signalTable.sort({ key, kind: option?.kind ?? 'text' })
-  else summaryTable.sort({ key, kind: option?.kind ?? 'text' })
+  strategyTable.sort({ key, kind: option?.kind ?? 'text' })
 }
 
 function resetFilters() {
@@ -227,15 +217,14 @@ function resetFilters() {
   timeFrameFilter.value = ''
   frequencyFilter.value = ''
   currentSignalFilter.value = ''
-  signalTable.reset()
-  summaryTable.reset()
+  strategyTable.reset()
 }
 
 function downloadStrategyCsv() {
   const table =
     activeTab.value === 'signals'
-      ? strategySignalCsvTable(signalTable.sortedRows.value, ytdLabel)
-      : strategySummaryCsvTable(summaryTable.sortedRows.value)
+      ? strategySignalCsvTable(sortedSignalRows.value, ytdLabel)
+      : strategySummaryCsvTable(sortedSummaryRows.value)
   if (!table.rows.length) return
 
   const suffix = activeTab.value === 'signals' ? 'current-signals' : 'summary-statistics'
@@ -245,7 +234,7 @@ function downloadStrategyCsv() {
 function openStrategy(row: StrategySignalRow | StrategySummaryRow) {
   const linkedSignal = signalRows.value.find((item) => item.url === row.url)
   void router.push({
-    path: '/strategy/descriptions',
+    name: 'strategy-detail-legacy',
     query: {
       url: row.url,
       name: row.modelName,
@@ -301,17 +290,21 @@ function restoreState() {
   }
 }
 
-watch(
-  () => [searchQuery.value, activeScope.value, timeFrameFilter.value, frequencyFilter.value, currentSignalFilter.value],
-  () => {
-    signalTable.setPage(1)
-    summaryTable.setPage(1)
-  },
-)
+function schedulePersistState() {
+  if (typeof window === 'undefined') return
 
-watch(
-  () => [activeScope.value, activeTab.value, viewMode.value],
-  () => {
+  const scheduler = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
+    cancelIdleCallback?: (handle: number) => void
+  }
+
+  if (persistStateHandle !== null) {
+    if (persistStateHandleIsIdle) scheduler.cancelIdleCallback?.(persistStateHandle)
+    else window.clearTimeout(persistStateHandle)
+  }
+
+  const persist = () => {
+    persistStateHandle = null
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -320,6 +313,37 @@ watch(
         viewMode: viewMode.value,
       }),
     )
+  }
+
+  if (scheduler.requestIdleCallback) {
+    persistStateHandleIsIdle = true
+    persistStateHandle = scheduler.requestIdleCallback(persist, { timeout: 500 })
+  } else {
+    persistStateHandleIsIdle = false
+    persistStateHandle = window.setTimeout(persist, 0)
+  }
+}
+
+function cancelScheduledPersistState() {
+  if (persistStateHandle === null || typeof window === 'undefined') return
+
+  const scheduler = window as Window & { cancelIdleCallback?: (handle: number) => void }
+  if (persistStateHandleIsIdle) scheduler.cancelIdleCallback?.(persistStateHandle)
+  else window.clearTimeout(persistStateHandle)
+  persistStateHandle = null
+}
+
+watch(
+  () => [searchQuery.value, timeFrameFilter.value, frequencyFilter.value, currentSignalFilter.value],
+  () => {
+    strategyTable.setPage(1)
+  },
+)
+
+watch(
+  () => [activeScope.value, activeTab.value, viewMode.value],
+  () => {
+    schedulePersistState()
   },
 )
 
@@ -329,6 +353,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelScheduledPersistState()
   abortController.abort()
 })
 </script>
@@ -454,11 +479,11 @@ onBeforeUnmount(() => {
       <StrategyTable
         v-if="viewMode === 'table'"
         :tab="activeTab"
-        :signals="signalTable.pagedRows.value"
-        :summaries="summaryTable.pagedRows.value"
+        :signals="pagedSignalRows"
+        :summaries="pagedSummaryRows"
         :loading="loading"
-        :sort-key="(activeTab === 'signals' ? signalTable.sortKey.value : summaryTable.sortKey.value) as StrategySortKey | ''"
-        :sort-direction="activeTab === 'signals' ? signalTable.sortDirection.value : summaryTable.sortDirection.value"
+        :sort-key="strategyTable.sortKey.value as StrategySortKey | ''"
+        :sort-direction="strategyTable.sortDirection.value"
         :ytd-label="ytdLabel"
         @sort="handleTableSort"
         @open="openStrategy"
@@ -467,8 +492,8 @@ onBeforeUnmount(() => {
       <StrategyCardGrid
         v-else
         :tab="activeTab"
-        :signals="signalTable.pagedRows.value"
-        :summaries="summaryTable.pagedRows.value"
+        :signals="pagedSignalRows"
+        :summaries="pagedSummaryRows"
         :loading="loading"
         :ytd-label="ytdLabel"
         @open="openStrategy"

@@ -7,8 +7,11 @@ import type { IndicatorChartData, IndicatorChartDataRow, IndicatorDetail } from 
 import IndicatorSeasonalityChart from './IndicatorSeasonalityChart.vue'
 import {
   baseHighchartsChartOptions,
+  chartFontSize,
+  chartSize,
   cssVar,
   disabledSeriesStates,
+  highchartsCrosshairOptions,
   indicatorChartTheme,
   monthLabels,
 } from './indicatorHighcharts'
@@ -88,19 +91,6 @@ const rangeOptions: Array<{ id: RangeId; label: string; unit?: 'month' | 'year' 
 const excludedKeys = new Set(['date', 'Date', 'dumb', 'Dumb', 'color', 'Color'])
 const thresholdKeys = new Set(['opt', 'pess'])
 const chartTheme = indicatorChartTheme
-
-function chartUiScale() {
-  const value = Number(cssVar('--chart-ui-scale', '1'))
-  return Number.isFinite(value) && value > 0 ? value : 1
-}
-
-function chartSize(value: number) {
-  return Number((value * chartUiScale()).toFixed(2))
-}
-
-function chartFontSize(value: number) {
-  return `${chartSize(value)}px`
-}
 
 const visibleRangeLabel = computed(() => {
   if (visibleMin.value === null || visibleMax.value === null) return 'No date range'
@@ -590,16 +580,6 @@ function toggleCompare() {
   )
 }
 
-function crosshairOptions() {
-  return {
-    width: 1,
-    color: cssVar('--app-text-muted', '#7383a7'),
-    dashStyle: 'ShortDash',
-    snap: false,
-    zIndex: 4,
-  } as Highcharts.AxisCrosshairOptions
-}
-
 function backtestMarketSymbol() {
   let symbol = marketSymbol() || 'Unknown'
   const subType = rawString('sub_type')
@@ -750,7 +730,7 @@ function renderChart() {
         format: "{value:%b '%y}",
         style: { color: textColor, fontSize: chartFontSize(11) },
       },
-      crosshair: crosshairOptions(),
+      crosshair: highchartsCrosshairOptions(),
       events: {
         afterSetExtremes(event) {
           updateVisibleRange(event.min, event.max)

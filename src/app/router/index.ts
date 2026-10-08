@@ -25,6 +25,16 @@ const router = createRouter({
       component: () => import('@/pages/strategy/StrategyPage.vue'),
     },
     {
+      path: '/strategy/descriptions',
+      name: 'strategy-detail-legacy',
+      component: () => import('@/pages/strategy/StrategyDetailPage.vue'),
+    },
+    {
+      path: '/strategy/:url',
+      name: 'strategy-detail',
+      component: () => import('@/pages/strategy/StrategyDetailPage.vue'),
+    },
+    {
       path: '/market',
       redirect: '/market/predict',
     },

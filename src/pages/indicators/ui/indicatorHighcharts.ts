@@ -83,6 +83,29 @@ export function axisTitleStyle(theme: IndicatorChartTheme, fontSize = '10px'): H
   }
 }
 
+export function chartUiScale() {
+  const value = Number(cssVar('--chart-ui-scale', '1'))
+  return Number.isFinite(value) && value > 0 ? value : 1
+}
+
+export function chartSize(value: number) {
+  return Number((value * chartUiScale()).toFixed(2))
+}
+
+export function chartFontSize(value: number) {
+  return `${chartSize(value)}px`
+}
+
+export function highchartsCrosshairOptions(): Highcharts.AxisCrosshairOptions {
+  return {
+    width: 1,
+    color: cssVar('--app-text-muted', '#7383a7'),
+    dashStyle: 'ShortDash',
+    snap: false,
+    zIndex: 4,
+  }
+}
+
 export function disabledSeriesStates(): Highcharts.SeriesStatesOptionsObject {
   return {
     hover: {

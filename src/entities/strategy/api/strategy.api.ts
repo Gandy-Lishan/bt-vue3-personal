@@ -1,8 +1,10 @@
 import {
+  normalizeStrategyDetail,
+  normalizeStrategyPairPriceRows,
   normalizeStrategySignalRows,
   normalizeStrategySummaryRows,
 } from '../model/strategy.adapter'
-import type { StrategySignalRow, StrategySummaryRow } from '../model/strategy.types'
+import type { StrategyDetail, StrategyPairPriceRow, StrategySignalRow, StrategySummaryRow } from '../model/strategy.types'
 
 class StrategyRequestError extends Error {
   constructor(status: number, path: string) {
@@ -70,6 +72,55 @@ export async function fetchStrategySummaries(
   const requestSignal = timeoutSignal(signal, 12000)
   try {
     return normalizeStrategySummaryRows(await fetchPayload('/dev/portfolio/strategy_statistic/', requestSignal.signal), signals)
+  } catch {
+    return []
+  } finally {
+    requestSignal.cleanup()
+  }
+}
+
+export async function fetchStrategyDetail(
+  url: string,
+  options: {
+    name?: string
+    signals?: StrategySignalRow[]
+    summaries?: StrategySummaryRow[]
+  } = {},
+  signal?: AbortSignal,
+): Promise<StrategyDetail> {
+  const requestSignal = timeoutSignal(signal, 12000)
+  try {
+    const payload = await fetchPayload(
+      `/dev/portfolio/strategy_performance?model_url=${encodeURIComponent(url)}`,
+      requestSignal.signal,
+    )
+    return normalizeStrategyDetail(payload, { url, ...options })
+  } catch {
+    return normalizeStrategyDetail([], { url, ...options })
+  } finally {
+    requestSignal.cleanup()
+  }
+}
+
+export async function fetchStrategyPairPrices(
+  symbol: string,
+  startDate: string,
+  endDate: string,
+  frequency: string,
+  signal?: AbortSignal,
+): Promise<StrategyPairPriceRow[]> {
+  if (!symbol || !startDate || !endDate) return []
+
+  const requestSignal = timeoutSignal(signal, 12000)
+  const query = new URLSearchParams({
+    symbol,
+    start: startDate,
+    end: endDate,
+    freq: frequency || 'Daily',
+  })
+
+  try {
+    return normalizeStrategyPairPriceRows(await fetchPayload(`/dev/st_data/pair_data?${query.toString()}`, requestSignal.signal))
   } catch {
     return []
   } finally {

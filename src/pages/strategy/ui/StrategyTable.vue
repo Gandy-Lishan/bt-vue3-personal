@@ -62,7 +62,7 @@ const signalColumns: StrategySignalTableColumn[] = [
   { key: 'frequency', label: 'Frequency', minWidth: 82, width: 9, sortable: true, tooltip: 'Model Update  Frequency' },
   { key: 'ytdReturn', label: 'YTD Return (%)', minWidth: 108, width: 10, align: 'right', sortable: true, tooltip: 'YTD until  08/31/26  Return(%)' },
   { key: 'cagr', label: 'CAGR (%)', minWidth: 94, width: 8, align: 'right', sortable: true, tooltip: 'Compound Annual Growth Return (%)    Since 07/01/06' },
-  { key: 'backtest', label: 'Actions', minWidth: 54, width: 6, align: 'center' },
+  { key: 'backtest', label: 'Backtest', minWidth: 54, width: 6, align: 'center' },
 ]
 
 const summaryColumns: Array<StrategyColumn<StrategySummarySortKey>> = [
