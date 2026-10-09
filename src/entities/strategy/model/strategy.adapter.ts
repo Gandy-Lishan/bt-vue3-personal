@@ -390,7 +390,7 @@ export function strategyScopeTitle(scope: StrategyScopeKey) {
 
 export function strategyScopeDescription(scope: StrategyScopeKey, count: number) {
   if (scope === 'favorites') return `${count} strategies in your favorites`
-  if (scope === 'basket') return 'Strategies selected for your basket.'
+  if (scope === 'basket') return 'Build and backtest a basket of trading strategies.'
   return `${count} strategies in this scope`
 }
 

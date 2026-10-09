@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
-  CalendarDays,
   ChevronLeft,
   FileText,
   Image as ImageIcon,
@@ -26,6 +25,7 @@ import {
   strategySearchScore,
   strategyChartSeriesFromPrices,
 } from '@/entities/strategy/model/strategy.adapter'
+import { findStrategyBacktestInfoByName } from '@/entities/strategy/model/strategy.backtest-info'
 import type {
   StrategyChartSeries,
   StrategyDetail,
@@ -35,6 +35,7 @@ import type {
   StrategySummaryRow,
 } from '@/entities/strategy/model/strategy.types'
 import DetailSearchSidebar from '@/shared/ui/DetailSearchSidebar.vue'
+import ImageLightboxGrid from '@/shared/ui/ImageLightboxGrid.vue'
 import StrategySignalChart from './ui/StrategySignalChart.vue'
 
 type StrategyMetric = {
@@ -44,7 +45,7 @@ type StrategyMetric = {
 }
 
 type StrategyImagePanel = {
-  key: keyof Pick<StrategyPerformanceRow, 'returnsUrl' | 'drawdownUrl' | 'heatmapUrl' | 'annualReturnsUrl'>
+  key: string
   label: string
   description: string
   url: string
@@ -79,6 +80,7 @@ const activePerformance = computed(
 const descriptionHtml = computed(
   () => detail.value?.descriptionHtml || normalizeStrategyDescriptionHtml(signal.value?.raw.description),
 )
+const backtestInfo = computed(() => findStrategyBacktestInfoByName(strategyName.value))
 const annualReturnRows = computed(() =>
   (detail.value?.performances ?? []).map((row) => ({
     id: row.id,
@@ -192,6 +194,20 @@ const performanceImages = computed<StrategyImagePanel[]>(() => {
   ]
 
   return panels.filter((item) => item.url)
+})
+
+const transactionImages = computed<StrategyImagePanel[]>(() => {
+  const row = activePerformance.value
+  if (!row?.tradeTableUrl) return []
+
+  return [
+    {
+      key: 'tradeTableUrl',
+      label: 'Recent Transactions',
+      description: 'The 10 most recent transactions for the selected model variant.',
+      url: row.tradeTableUrl,
+    },
+  ]
 })
 
 function queryText(value: unknown) {
@@ -470,7 +486,7 @@ onBeforeUnmount(() => {
             <template v-else>
               <StrategySignalChart :series="signalChartSeries" :loading="chartLoading" />
 
-              <section class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <section class="grid gap-3">
                 <article class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                   <div class="mb-3 flex items-center gap-2">
                     <FileText :size="19" class="text-[var(--app-primary)]" />
@@ -478,6 +494,75 @@ onBeforeUnmount(() => {
                   </div>
                   <div v-if="descriptionHtml" class="strategy-description text-sm leading-6 text-[var(--app-text-secondary)]" v-html="descriptionHtml" />
                   <p v-else class="py-10 text-center text-sm text-[var(--app-text-muted)]">No description found.</p>
+
+                  <section v-if="activePerformance" class="mt-5 border-t border-[var(--app-border-muted)] pt-4">
+                    <h3 class="text-base font-extrabold text-[var(--app-text)]">
+                      Use BacktestEdge 2.0 to see more details of this strategy,
+                      <RouterLink to="/backtests" class="text-[var(--app-primary)] hover:underline">click here</RouterLink>.
+                    </h3>
+                    <details open class="mt-3 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]">
+                      <summary class="cursor-pointer select-none px-4 py-3 text-sm font-bold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]">
+                        Backtest details
+                      </summary>
+                      <div class="space-y-4 px-4 pb-4">
+                        <dl v-if="backtestInfo" class="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                          <div>
+                            <dt class="text-xs font-semibold text-[var(--app-text-muted)]">Strategy Type</dt>
+                            <dd class="mt-1 font-bold text-[var(--app-text-secondary)]">{{ backtestInfo.strategy }}</dd>
+                          </div>
+                          <div>
+                            <dt class="text-xs font-semibold text-[var(--app-text-muted)]">Symbols</dt>
+                            <dd class="mt-1 font-bold text-[var(--app-text-secondary)]">{{ backtestInfo.symbols }}</dd>
+                          </div>
+                          <div>
+                            <dt class="text-xs font-semibold text-[var(--app-text-muted)]">Benchmark</dt>
+                            <dd class="mt-1 font-bold text-[var(--app-text-secondary)]">{{ backtestInfo.benchmark }}</dd>
+                          </div>
+                          <div>
+                            <dt class="text-xs font-semibold text-[var(--app-text-muted)]">Frequency</dt>
+                            <dd class="mt-1 font-bold text-[var(--app-text-secondary)]">{{ backtestInfo.frequency }}</dd>
+                          </div>
+                          <div>
+                            <dt class="text-xs font-semibold text-[var(--app-text-muted)]">Capital</dt>
+                            <dd class="mt-1 font-bold text-[var(--app-text-secondary)]">{{ backtestInfo.capital }}</dd>
+                          </div>
+                        </dl>
+
+                        <div v-if="backtestInfo?.groups.length" class="grid gap-3 lg:grid-cols-2">
+                          <article
+                            v-for="group in backtestInfo.groups"
+                            :key="group.label"
+                            class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] p-3"
+                          >
+                            <div class="mb-3 flex flex-wrap items-center gap-2">
+                              <h4 class="text-sm font-extrabold text-[var(--app-text)]">{{ group.label }}</h4>
+                              <span class="rounded border border-[var(--app-border-muted)] px-2 py-0.5 text-xs font-bold text-[var(--app-text-secondary)]">{{ group.symbol }}</span>
+                              <span class="rounded border border-[var(--app-border-muted)] px-2 py-0.5 text-xs font-bold text-[var(--app-text-secondary)]">{{ group.direction }}</span>
+                            </div>
+
+                            <div class="grid gap-3 md:grid-cols-2">
+                              <section>
+                                <h5 class="text-xs font-extrabold uppercase tracking-wide text-[var(--app-positive)]">Entry</h5>
+                                <ul class="mt-2 list-disc space-y-1.5 pl-4 text-xs leading-5 text-[var(--app-text-secondary)]">
+                                  <li v-for="line in group.entries" :key="line">{{ line }}</li>
+                                </ul>
+                              </section>
+                              <section>
+                                <h5 class="text-xs font-extrabold uppercase tracking-wide text-[var(--app-negative)]">Exit</h5>
+                                <ul class="mt-2 list-disc space-y-1.5 pl-4 text-xs leading-5 text-[var(--app-text-secondary)]">
+                                  <li v-for="line in group.exits" :key="line">{{ line }}</li>
+                                </ul>
+                              </section>
+                            </div>
+                          </article>
+                        </div>
+
+                        <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-primary-soft)] p-3 text-xs leading-5 text-[var(--app-text-secondary)]">
+                          Historical returns include transaction fees in the source backtests and do not include slippage. Past performance is not indicative of future results.
+                        </div>
+                      </div>
+                    </details>
+                  </section>
 
                   <section v-if="activePerformance" class="mt-5 border-t border-[var(--app-border-muted)] pt-4">
                     <h3 class="text-base font-extrabold text-[var(--app-text)]">Performance</h3>
@@ -511,35 +596,23 @@ onBeforeUnmount(() => {
                   </section>
                 </article>
 
-                <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
-                  <div class="flex items-center gap-2">
-                    <CalendarDays :size="19" class="text-[var(--app-primary)]" />
-                    <h2 class="text-lg font-extrabold">Backtest Window</h2>
-                  </div>
-                  <div class="mt-4 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-4">
-                    <p class="text-xs font-semibold text-[var(--app-text-muted)]">Last Updated</p>
-                    <p class="mt-1 text-xl font-extrabold text-[var(--app-text)]">{{ displayMonthYear(activePerformance) }}</p>
-                    <p class="mt-3 text-xs font-semibold text-[var(--app-text-muted)]">Timeframe</p>
-                    <p class="mt-1 text-sm font-bold text-[var(--app-text-secondary)]">{{ performanceDateRange(activePerformance) }}</p>
-                  </div>
-                  <div class="mt-4 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-primary-soft)] p-4 text-sm leading-5 text-[var(--app-text-secondary)]">
-                    Historical returns include transaction fees in the source backtests and do not include slippage. Past performance is not indicative of future results.
-                  </div>
-                </aside>
-              </section>
+                </section>
 
               <section v-if="detail?.performances.length" class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
-                <div class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
-                  <button
-                    v-for="row in detail.performances"
-                    :key="row.id"
-                    class="h-12 shrink-0 border-b-2 px-3 text-sm font-extrabold"
-                    :class="activePerformance?.id === row.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
-                    type="button"
-                    @click="setActivePerformance(row.id)"
-                  >
-                    {{ performanceLabel(row) }}
-                  </button>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--app-border)] px-4 py-3">
+                  <h2 class="text-base font-extrabold text-[var(--app-text)]">Performance Statistics</h2>
+                  <div class="flex min-w-0 flex-wrap gap-2">
+                    <button
+                      v-for="row in detail.performances"
+                      :key="row.id"
+                      class="inline-flex h-8 shrink-0 items-center justify-center rounded-md border px-3 text-xs font-extrabold transition"
+                      :class="activePerformance?.id === row.id ? 'border-[var(--app-primary)] bg-[var(--app-primary)] text-white' : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text-secondary)] hover:border-[var(--app-primary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]'"
+                      type="button"
+                      @click="setActivePerformance(row.id)"
+                    >
+                      {{ performanceLabel(row) }}
+                    </button>
+                  </div>
                 </div>
 
                 <div class="space-y-4 p-4">
@@ -561,13 +634,25 @@ onBeforeUnmount(() => {
                     </article>
                   </section>
 
-                  <section v-if="activePerformance?.tradeTableUrl" class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] p-4">
-                    <div class="mb-3 flex items-center gap-2">
+                  <section v-if="transactionImages.length" class="space-y-3">
+                    <div class="flex items-center gap-2">
                       <LineChart :size="18" class="text-[var(--app-primary)]" />
                       <h3 class="text-base font-extrabold">10 Most Recent Transactions</h3>
                     </div>
-                    <div class="overflow-x-auto">
-                      <img class="mx-auto max-w-full rounded-md border border-[var(--app-border-muted)] bg-white" :src="activePerformance.tradeTableUrl" alt="Recent transactions table" loading="lazy" />
+
+                    <div class="transaction-preview-column space-y-2">
+                      <dl class="grid gap-x-3 gap-y-1.5 text-[0.6875rem] sm:grid-cols-2">
+                        <div>
+                          <dt class="font-semibold text-[var(--app-text-muted)]">Update Schedule</dt>
+                          <dd class="mt-0.5 font-bold leading-4 text-[var(--app-text)]">{{ strategyFrequency }}</dd>
+                        </div>
+                        <div>
+                          <dt class="font-semibold text-[var(--app-text-muted)]">Current Signal</dt>
+                          <dd class="mt-0.5 font-bold leading-4 text-[var(--app-text)]">{{ signal?.currentSignal || '—' }}</dd>
+                        </div>
+                      </dl>
+
+                      <ImageLightboxGrid :items="transactionImages" :columns="1" :show-meta="false" />
                     </div>
                   </section>
 
@@ -576,19 +661,7 @@ onBeforeUnmount(() => {
                       <ImageIcon :size="18" class="text-[var(--app-primary)]" />
                       <h3 class="text-base font-extrabold">Performance Charts</h3>
                     </div>
-                    <article
-                      v-for="image in performanceImages"
-                      :key="image.key"
-                      class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] p-4"
-                    >
-                      <div class="mb-3">
-                        <h4 class="font-extrabold text-[var(--app-text)]">{{ image.label }}</h4>
-                        <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ image.description }}</p>
-                      </div>
-                      <div class="overflow-x-auto">
-                        <img class="mx-auto max-w-full rounded-md border border-[var(--app-border-muted)] bg-white" :src="image.url" :alt="`${image.label} chart`" loading="lazy" />
-                      </div>
-                    </article>
+                    <ImageLightboxGrid :items="performanceImages" :columns="2" />
                   </section>
                 </div>
               </section>
@@ -771,6 +844,14 @@ onBeforeUnmount(() => {
   padding-left: 1.4rem;
 }
 
+.strategy-description :deep(ol) {
+  list-style: decimal;
+}
+
+.strategy-description :deep(ul) {
+  list-style: disc;
+}
+
 .strategy-description :deep(li) {
   margin: 0.35rem 0;
 }
@@ -779,6 +860,17 @@ onBeforeUnmount(() => {
   color: var(--app-primary);
   font-weight: 700;
   text-decoration: underline;
+}
+
+.transaction-preview-column {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .transaction-preview-column {
+    max-width: calc((100% - 12px) / 2);
+  }
 }
 
 @media (max-width: 1024px) {

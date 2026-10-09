@@ -38,6 +38,7 @@ import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
 import { useSortedPagedRows } from '@/pages/indicators/composables/useSortedPagedRows'
+import StrategyBasketWorkspace from './ui/StrategyBasketWorkspace.vue'
 import StrategyCardGrid from './ui/StrategyCardGrid.vue'
 import StrategyScopeSidebar from './ui/StrategyScopeSidebar.vue'
 import StrategyTable from './ui/StrategyTable.vue'
@@ -147,6 +148,7 @@ const activeSortValue = computed(() => {
 })
 
 const activeRowsTotal = computed(() => strategyTable.sortedRows.value.length)
+const isBasketScope = computed(() => activeScope.value === 'basket')
 
 const activePage = computed(() => strategyTable.page.value)
 const activePageCount = computed(() => strategyTable.pageCount.value)
@@ -365,6 +367,7 @@ onBeforeUnmount(() => {
     :panel-title="panelTitle"
     :panel-description="panelDescription"
     :view-mode="viewMode"
+    :show-view-mode-toggle="!isBasketScope"
     sidebar-width="220px"
     @update:view-mode="setViewMode"
   >
@@ -372,7 +375,7 @@ onBeforeUnmount(() => {
       <StrategyScopeSidebar :scopes="scopes" :active-scope="activeScope" @select="setScope" />
     </template>
 
-    <template #summary>
+    <template v-if="!isBasketScope" #summary>
       <span class="indicator-summary-pill">
         <span class="indicator-summary-pill__text">
           <span class="indicator-summary-pill__value">{{ activeRowsTotal }}</span>
@@ -395,7 +398,7 @@ onBeforeUnmount(() => {
       </span>
     </template>
 
-    <template #tabs>
+    <template v-if="!isBasketScope" #tabs>
       <div class="flex flex-wrap gap-5 border-b border-[var(--app-border)] px-4 pt-2">
         <button
           class="border-b-2 px-1 pb-2 text-sm font-extrabold transition"
@@ -416,7 +419,7 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
-    <template #filters>
+    <template v-if="!isBasketScope" #filters>
       <div class="grid gap-2 px-4 py-3 md:grid-cols-2 xl:grid-cols-[minmax(160px,1fr)_minmax(106px,0.42fr)_minmax(106px,0.42fr)_minmax(145px,0.6fr)_minmax(155px,0.65fr)_auto_auto]">
         <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
           <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
@@ -475,7 +478,9 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
-    <div class="px-4 pb-4">
+    <StrategyBasketWorkspace v-if="isBasketScope" :signals="signalRows" />
+
+    <div v-else class="px-4 pb-4">
       <StrategyTable
         v-if="viewMode === 'table'"
         :tab="activeTab"
@@ -501,7 +506,7 @@ onBeforeUnmount(() => {
       />
     </div>
 
-    <template #footer>
+    <template v-if="!isBasketScope" #footer>
       <IndicatorPagination
         :page="activePage"
         :page-count="activePageCount"
