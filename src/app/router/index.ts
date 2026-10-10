@@ -138,6 +138,11 @@ const router = createRouter({
       component: () => import('@/pages/indicators/TrendPage.vue'),
     },
     {
+      path: '/seasonality',
+      name: 'seasonality',
+      component: () => import('@/pages/seasonality/SeasonalityPage.vue'),
+    },
+    {
       path: '/404',
       name: 'unauthorized',
       component: () => import('@/pages/system/UnauthorizedPage.vue'),

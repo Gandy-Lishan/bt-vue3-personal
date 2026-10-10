@@ -1,0 +1,247 @@
+<script setup lang="ts">
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import Highcharts from 'highcharts/highstock'
+import {
+  axisLabelStyle,
+  axisTitleStyle,
+  baseHighchartsChartOptions,
+  disabledSeriesStates,
+  indicatorChartTheme,
+} from '@/pages/indicators/ui/indicatorHighcharts'
+
+export interface SeasonalityGrowthPoint {
+  timestamp: number
+  value: number
+  rawDate: string
+}
+
+const props = defineProps<{
+  points: SeasonalityGrowthPoint[]
+  loading: boolean
+}>()
+
+const chartElement = ref<HTMLDivElement | null>(null)
+
+let chart: Highcharts.Chart | null = null
+let themeObserver: MutationObserver | null = null
+
+function destroyChart() {
+  chart?.destroy()
+  chart = null
+}
+
+function renderChart() {
+  destroyChart()
+  if (!chartElement.value || !props.points.length || typeof Highcharts.stockChart !== 'function') return
+
+  const theme = indicatorChartTheme()
+  const title = 'The growth of one U.S. dollar'
+
+  chart = Highcharts.stockChart(chartElement.value, {
+    chart: {
+      ...baseHighchartsChartOptions(theme),
+      height: 430,
+      spacingLeft: 8,
+      spacingRight: 48,
+    },
+    title: {
+      text: title,
+      style: {
+        color: theme.text,
+        fontSize: '16px',
+        fontWeight: '800',
+      },
+    },
+    // Attribution lives in the card header instead: the credits block rendered
+    // on the same baseline as the axis labels and collided with them.
+    credits: {
+      enabled: false,
+    },
+    accessibility: {
+      enabled: false,
+    },
+    exporting: {
+      enabled: true,
+      buttons: {
+        contextButton: {
+          menuItems: ['printChart', 'downloadPNG', 'downloadJPEG', 'downloadPDF'],
+        },
+      },
+    },
+    rangeSelector: {
+      selected: 7,
+      inputEnabled: true,
+      inputDateFormat: '%Y-%m-%d',
+      inputEditDateFormat: '%Y-%m-%d',
+      buttons: [
+        { type: 'ytd', text: 'YTD' },
+        { type: 'year', count: 1, text: '1y' },
+        { type: 'year', count: 3, text: '3y' },
+        { type: 'year', count: 5, text: '5y' },
+        { type: 'year', count: 10, text: '10y' },
+        { type: 'year', count: 15, text: '15y' },
+        { type: 'year', count: 20, text: '20y' },
+        { type: 'all', text: 'All' },
+      ],
+      buttonTheme: {
+        fill: theme.surfaceMuted,
+        stroke: theme.border,
+        style: {
+          color: theme.textSecondary,
+        },
+        states: {
+          select: {
+            fill: theme.primary,
+            style: {
+              color: '#ffffff',
+            },
+          },
+        },
+      },
+      inputStyle: {
+        color: theme.textSecondary,
+      },
+      labelStyle: {
+        color: theme.textMuted,
+      },
+    },
+    navigator: {
+      enabled: true,
+      maskFill: theme.navigatorMask,
+      outlineColor: theme.border,
+    },
+    scrollbar: {
+      enabled: true,
+      barBackgroundColor: theme.scrollbarBar,
+      buttonBackgroundColor: theme.scrollbarButton,
+      rifleColor: theme.textMuted,
+      trackBackgroundColor: theme.navigatorTrack,
+      trackBorderColor: theme.border,
+    },
+    xAxis: {
+      type: 'datetime',
+      lineColor: theme.border,
+      tickColor: theme.border,
+      labels: {
+        style: axisLabelStyle(theme),
+      },
+    },
+    yAxis: {
+      opposite: true,
+      gridLineDashStyle: 'Dash',
+      gridLineColor: theme.grid,
+      title: {
+        text: title,
+        style: axisTitleStyle(theme),
+      },
+      labels: {
+        formatter() {
+          return Highcharts.numberFormat(Number(this.value), 2).replace(/\.?0+$/, '')
+        },
+        style: axisLabelStyle(theme),
+      },
+    },
+    tooltip: {
+      backgroundColor: theme.tooltipBg,
+      borderColor: theme.border,
+      borderRadius: 8,
+      style: {
+        color: theme.textSecondary,
+        fontSize: '12px',
+      },
+      formatter() {
+        const point = this.points?.[0] ?? this
+        const rawDate = typeof point.options === 'object' && 'rawDate' in point.options ? String(point.options.rawDate) : ''
+        return `<b>Date: ${rawDate}</b><br/>${point.series.name}: $${Highcharts.numberFormat(Number(point.y), 2)}`
+      },
+    },
+    legend: {
+      enabled: false,
+    },
+    plotOptions: {
+      series: {
+        animation: false,
+        dataGrouping: {
+          enabled: false,
+        },
+        states: disabledSeriesStates(),
+      },
+    },
+    series: [
+      {
+        type: 'line',
+        name: title,
+        color: theme.primary,
+        lineWidth: 2,
+        marker: {
+          enabled: false,
+        },
+        data: props.points.map((point) => ({
+          x: point.timestamp,
+          y: point.value,
+          rawDate: point.rawDate,
+        })),
+      },
+    ] as Highcharts.SeriesOptionsType[],
+  } as Highcharts.Options)
+}
+
+function observeThemeChanges() {
+  if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return
+
+  themeObserver?.disconnect()
+  themeObserver = new MutationObserver((mutations) => {
+    if (mutations.some((mutation) => mutation.attributeName === 'data-theme')) void nextTick(renderChart)
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  })
+}
+
+watch(
+  () => props.points,
+  () => {
+    void nextTick(renderChart)
+  },
+  { deep: true },
+)
+
+onMounted(() => {
+  observeThemeChanges()
+  void nextTick(renderChart)
+})
+
+onBeforeUnmount(() => {
+  themeObserver?.disconnect()
+  destroyChart()
+})
+</script>
+
+<template>
+  <div class="seasonality-growth-chart">
+    <div v-if="loading" class="seasonality-growth-chart__empty">Loading chart...</div>
+    <div v-else-if="!points.length" class="seasonality-growth-chart__empty">No chart data</div>
+    <div v-show="!loading && points.length" ref="chartElement" class="seasonality-growth-chart__canvas" />
+  </div>
+</template>
+
+<style scoped>
+.seasonality-growth-chart {
+  min-height: 430px;
+}
+
+.seasonality-growth-chart__canvas {
+  min-height: 430px;
+  width: 100%;
+}
+
+.seasonality-growth-chart__empty {
+  display: flex;
+  min-height: 430px;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-text-muted);
+  font-size: 0.875rem;
+}
+</style>
