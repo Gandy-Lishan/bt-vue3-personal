@@ -18,6 +18,9 @@ export interface SeasonalityGrowthPoint {
 const props = defineProps<{
   points: SeasonalityGrowthPoint[]
   loading: boolean
+  height?: number
+  showChartTitle?: boolean
+  transparentBackground?: boolean
 }>()
 
 const chartElement = ref<HTMLDivElement | null>(null)
@@ -36,16 +39,18 @@ function renderChart() {
 
   const theme = indicatorChartTheme()
   const title = 'The growth of one U.S. dollar'
+  const chartHeight = props.height ?? 430
 
   chart = Highcharts.stockChart(chartElement.value, {
     chart: {
       ...baseHighchartsChartOptions(theme),
-      height: 430,
+      ...(props.transparentBackground ? { backgroundColor: 'transparent' } : {}),
+      height: chartHeight,
       spacingLeft: 8,
       spacingRight: 48,
     },
     title: {
-      text: title,
+      text: props.showChartTitle === false ? '' : title,
       style: {
         color: theme.text,
         fontSize: '16px',
@@ -200,7 +205,7 @@ function observeThemeChanges() {
 }
 
 watch(
-  () => props.points,
+  () => [props.points, props.height, props.showChartTitle, props.transparentBackground],
   () => {
     void nextTick(renderChart)
   },
@@ -219,26 +224,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="seasonality-growth-chart">
-    <div v-if="loading" class="seasonality-growth-chart__empty">Loading chart...</div>
-    <div v-else-if="!points.length" class="seasonality-growth-chart__empty">No chart data</div>
-    <div v-show="!loading && points.length" ref="chartElement" class="seasonality-growth-chart__canvas" />
+  <div class="seasonality-growth-chart" :style="{ minHeight: `${height ?? 430}px` }">
+    <div v-if="loading" class="seasonality-growth-chart__empty" :style="{ minHeight: `${height ?? 430}px` }">Loading chart...</div>
+    <div v-else-if="!points.length" class="seasonality-growth-chart__empty" :style="{ minHeight: `${height ?? 430}px` }">No chart data</div>
+    <div
+      v-show="!loading && points.length"
+      ref="chartElement"
+      class="seasonality-growth-chart__canvas"
+      :style="{ minHeight: `${height ?? 430}px` }"
+    />
   </div>
 </template>
 
 <style scoped>
 .seasonality-growth-chart {
-  min-height: 430px;
+  width: 100%;
 }
 
 .seasonality-growth-chart__canvas {
-  min-height: 430px;
   width: 100%;
 }
 
 .seasonality-growth-chart__empty {
   display: flex;
-  min-height: 430px;
   align-items: center;
   justify-content: center;
   color: var(--app-text-muted);

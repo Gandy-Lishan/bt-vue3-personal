@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"E:/working folder(lishan)/backtestUINew/backtestedge-ui-vue3\\\" && python - <<'PY'\\nimport re, io\\np = 'tests/unit/indicator-trends.spec.ts'\\ns = io.open(p, encoding='utf-8').read()\\n\\...",
-  "error": "Exit code 49",
-  "timestamp": "2026-09-17T06:54:42.223Z",
-  "retry_count": 1
-}

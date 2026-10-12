@@ -11,7 +11,6 @@ import {
   Clock3,
   Info,
   Percent,
-  RotateCcw,
   Table2,
   TriangleAlert,
 } from '@lucide/vue'
@@ -24,12 +23,16 @@ import ListPagePanel from '@/shared/ui/ListPagePanel.vue'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
 import SeasonalityGrowthChart from './ui/SeasonalityGrowthChart.vue'
 import SeasonalityReturnChart from './ui/SeasonalityReturnChart.vue'
+import SeasonalityYearReturnChart from './ui/SeasonalityYearReturnChart.vue'
 
 type SeasonalityView = 'dayOfMonth' | 'specificDays' | 'otherCharts' | 'growthDollar'
 type DayCategory = 'calendar_day' | 'trading_day'
 type OtherCategory = 'weekday' | 'month' | 'dayOfMonth' | 'dayOfYear'
 type TableColumnKey = 'month' | 'day' | 'averageReturn' | 'percentPositive' | 'max' | 'min'
 type DayResultColumnKey = 'day' | 'averageReturn' | 'percentPositive'
+type SpecificBreakdownColumnKey = 'day' | 'averageReturn' | 'percentPositive'
+type OtherReturnColumnKey = 'label' | 'averageReturn' | 'percentPositive'
+type GrowthYearColumnKey = 'year' | 'startDate' | 'endDate' | 'windowReturn'
 type SortDirection = 'asc' | 'desc'
 type NoticeKind = 'info' | 'error'
 
@@ -84,6 +87,20 @@ interface DayResultRow {
   percentPositive: number | null
 }
 
+interface SpecificDayBreakdownRow {
+  dayKey: number | null
+  dayLabel: string
+  averageReturn: number | null
+  percentPositive: number | null
+}
+
+interface OtherReturnRow {
+  sequence: number
+  label: string
+  averageReturn: number | null
+  percentPositive: number | null
+}
+
 interface SeasonalityTableRow {
   month: string | number | null
   day: string | number | null
@@ -97,6 +114,15 @@ interface GrowthPoint {
   timestamp: number
   value: number
   rawDate: string
+}
+
+interface GrowthYearRow {
+  year: number
+  startDate: string
+  endDate: string
+  startTimestamp: number
+  endTimestamp: number
+  windowReturn: number | null
 }
 
 const defaultSymbol = 'SPX'
@@ -231,6 +257,18 @@ const dayResultSort = reactive<{ key: DayResultColumnKey; direction: SortDirecti
   key: 'day',
   direction: 'asc',
 })
+const specificBreakdownSort = reactive<{ key: SpecificBreakdownColumnKey; direction: SortDirection }>({
+  key: 'day',
+  direction: 'asc',
+})
+const otherReturnSort = reactive<{ key: OtherReturnColumnKey; direction: SortDirection }>({
+  key: 'label',
+  direction: 'asc',
+})
+const growthYearSort = reactive<{ key: GrowthYearColumnKey; direction: SortDirection }>({
+  key: 'year',
+  direction: 'asc',
+})
 
 const filters = reactive({
   symbol: defaultSymbol,
@@ -337,6 +375,7 @@ const yearRangeLabel = computed(() => `${filters.startYear} - ${filters.endYear}
 const isCurrentYearOnly = computed(() => Number(filters.startYear) === currentYear && Number(filters.endYear) === currentYear)
 const activeOtherCategory = computed(() => filters.otherCategory)
 const isOtherTable = computed(() => activeView.value === 'otherCharts' && ['dayOfMonth', 'dayOfYear'].includes(activeOtherCategory.value))
+const isOtherReturnChart = computed(() => activeView.value === 'otherCharts' && ['weekday', 'month'].includes(activeOtherCategory.value))
 const activeReturnTitle = computed(() => {
   if (activeView.value === 'dayOfMonth') return `Seasonality in the ${normalizedSymbol.value}`
   if (activeView.value === 'specificDays') return `Performance Surrounding ${specificDayTitle.value}`
@@ -375,6 +414,29 @@ const activeXPointLabel = computed(() => {
 const specificDayTitle = computed(() => (filters.holiday === 'Custom Date' ? customDateLabel.value : filters.holiday))
 const customDateLabel = computed(() => `${monthOptions[filters.customMonth - 1]?.label ?? 'Month'} ${filters.customDay}`)
 const otherCategoryAxis = computed(() => (filters.otherCategory === 'month' ? 'Month' : 'Weekday'))
+const specificDaySampleSize = computed(() => dayOfMonthSampleSize.value)
+const specificPerformanceTitle = computed(() => `${normalizedSymbol.value} Performance Around ${specificDayTitle.value}`)
+const specificBreakdownTitle = computed(() => `Daily breakdown - ${specificDayTitle.value} (${normalizedSymbol.value})`)
+const specificBreakdownDescription = computed(
+  () => `Average return and percentage of positive days around ${specificDayTitle.value}, ${filters.startYear} - ${filters.endYear}.`,
+)
+const otherReturnGroupLabel = computed(() => (activeOtherCategory.value === 'month' ? 'Month' : 'Weekday'))
+const otherReturnUnitLabel = computed(() => otherReturnGroupLabel.value.toLowerCase())
+const otherReturnTitle = computed(() =>
+  activeOtherCategory.value === 'month' ? `${normalizedSymbol.value} Seasonality — Month` : `${normalizedSymbol.value} Seasonality — Day of Week`,
+)
+const otherReturnResultsTitle = computed(() => `Results — ${activeOtherCategory.value === 'month' ? 'Month' : 'Day of Week'} (${normalizedSymbol.value})`)
+const otherReturnResultsDescription = computed(() => {
+  const group = activeOtherCategory.value === 'month' ? 'month' : 'weekday'
+  return `Average return and percentage of positive periods by ${group}, ${filters.startYear} - ${filters.endYear}.`
+})
+const growthWindowLabel = computed(() => `TDY ${filters.entryDay}-${filters.exitDay}`)
+const growthStatusText = computed(
+  () => `${normalizedSymbol.value} · ${growthWindowLabel.value} · ${filters.startYear} - ${filters.endYear} · Initial value ${moneyText(growthInitialValue.value)}`,
+)
+const growthChartSubtitle = computed(
+  () => `Cumulative value of an initial $1 invested only during ${growthWindowLabel.value} each year.`,
+)
 
 const symbolSearchOptions = computed(() => {
   const defaults = ['SPX', 'NDX', 'AAPL', 'QQQ', 'MSFT']
@@ -463,6 +525,86 @@ const sortedDayResultRows = computed(() =>
   }),
 )
 
+const specificBreakdownColumns: Array<{ key: SpecificBreakdownColumnKey; label: string }> = [
+  { key: 'day', label: 'Day' },
+  { key: 'averageReturn', label: 'Average return (%)' },
+  { key: 'percentPositive', label: 'Percent positive (%)' },
+]
+
+const otherReturnColumns = computed<Array<{ key: OtherReturnColumnKey; label: string }>>(() => [
+  { key: 'label', label: otherReturnGroupLabel.value },
+  { key: 'averageReturn', label: 'Average return (%)' },
+  { key: 'percentPositive', label: 'Percent positive (%)' },
+])
+
+const growthYearColumns: Array<{ key: GrowthYearColumnKey; label: string }> = [
+  { key: 'year', label: 'Year' },
+  { key: 'startDate', label: 'Start Date' },
+  { key: 'endDate', label: 'End Date' },
+  { key: 'windowReturn', label: 'Window Return' },
+]
+
+const specificBreakdownRows = computed<SpecificDayBreakdownRow[]>(() =>
+  returnPoints.value
+    .map((point) => ({
+      dayKey: periodNumber(point.label),
+      dayLabel: specificPeriodLabel(point.label),
+      averageReturn: point.averageReturn,
+      percentPositive: point.percentPositive,
+    }))
+    .sort((left, right) => {
+      if (left.dayKey === null && right.dayKey === null) return left.dayLabel.localeCompare(right.dayLabel)
+      if (left.dayKey === null) return 1
+      if (right.dayKey === null) return -1
+      return left.dayKey - right.dayKey
+    }),
+)
+
+// Rows without a value sink to the bottom in both directions, matching the
+// other seasonality tables.
+const sortedSpecificBreakdownRows = computed(() =>
+  [...specificBreakdownRows.value].sort((left, right) => {
+    const result = compareTableValue(
+      specificBreakdownSortValue(left, specificBreakdownSort.key),
+      specificBreakdownSortValue(right, specificBreakdownSort.key),
+    )
+    return specificBreakdownSort.direction === 'asc' ? result : -result
+  }),
+)
+
+const otherReturnRows = computed<OtherReturnRow[]>(() =>
+  returnPoints.value.map((point, index) => ({
+    sequence: index,
+    label: String(point.label),
+    averageReturn: point.averageReturn,
+    percentPositive: point.percentPositive,
+  })),
+)
+
+const sortedOtherReturnRows = computed(() =>
+  [...otherReturnRows.value].sort((left, right) => {
+    const result = compareTableValue(otherReturnSortValue(left, otherReturnSort.key), otherReturnSortValue(right, otherReturnSort.key))
+    return otherReturnSort.direction === 'asc' ? result : -result
+  }),
+)
+
+const growthYearRows = computed(() => buildGrowthYearRows(growthPoints.value))
+
+const sortedGrowthYearRows = computed(() =>
+  [...growthYearRows.value].sort((left, right) => {
+    const result = compareTableValue(growthYearSortValue(left, growthYearSort.key), growthYearSortValue(right, growthYearSort.key))
+    return growthYearSort.direction === 'asc' ? result : -result
+  }),
+)
+
+const growthInitialValue = computed(() => 1)
+const growthEndingPoint = computed(() => growthPoints.value.at(-1) ?? null)
+const growthHighestPoint = computed(() => maxBy(growthPoints.value, (point) => point.value))
+const growthLowestPoint = computed(() => minBy(growthPoints.value, (point) => point.value))
+const growthPositiveYearCount = computed(() => growthYearRows.value.filter((row) => row.windowReturn !== null && row.windowReturn > 0).length)
+const growthNegativeYearCount = computed(() => growthYearRows.value.filter((row) => row.windowReturn !== null && row.windowReturn < 0).length)
+const growthAnalyzedYearCount = computed(() => growthYearRows.value.filter((row) => row.windowReturn !== null).length)
+
 const dayObservationStats = computed(() => {
   const rows = dayResultRows.value.filter(
     (row): row is DayResultRow & { averageReturn: number; percentPositive: number } =>
@@ -475,6 +617,46 @@ const dayObservationStats = computed(() => {
   const highestPositive = maxBy(rows, (row) => row.percentPositive)
   const lowestPositive = minBy(rows, (row) => row.percentPositive)
 
+  if (!strongest || !weakest || !highestPositive || !lowestPositive) return null
+
+  return {
+    strongest,
+    weakest,
+    highestPositive,
+    lowestPositive,
+  }
+})
+
+const specificEventSummary = computed(() => {
+  const rows = specificBreakdownRows.value.filter(
+    (row): row is SpecificDayBreakdownRow & { averageReturn: number; percentPositive: number } =>
+      row.averageReturn !== null && row.percentPositive !== null,
+  )
+  if (!rows.length) return null
+
+  const best = maxBy(rows, (row) => row.averageReturn)
+  const weakest = minBy(rows, (row) => row.averageReturn)
+  const eventDay = rows.find((row) => row.dayKey === 0)
+  if (!best || !weakest) return null
+
+  return {
+    best,
+    weakest,
+    eventPositive: eventDay?.percentPositive ?? null,
+  }
+})
+
+const otherReturnStats = computed(() => {
+  const rows = otherReturnRows.value.filter(
+    (row): row is OtherReturnRow & { averageReturn: number; percentPositive: number } =>
+      row.averageReturn !== null && row.percentPositive !== null,
+  )
+  if (!rows.length) return null
+
+  const strongest = maxBy(rows, (row) => row.averageReturn)
+  const weakest = minBy(rows, (row) => row.averageReturn)
+  const highestPositive = maxBy(rows, (row) => row.percentPositive)
+  const lowestPositive = minBy(rows, (row) => row.percentPositive)
   if (!strongest || !weakest || !highestPositive || !lowestPositive) return null
 
   return {
@@ -532,25 +714,6 @@ onMounted(() => {
 
 function selectView(view: SeasonalityView) {
   activeView.value = view
-}
-
-function resetFilters() {
-  Object.assign(filters, {
-    symbol: defaultSymbol,
-    startYear: String(currentYear - 20),
-    endYear: String(currentYear - 1),
-    dayCategory: 'calendar_day',
-    month: monthOptions[currentMonth - 1]?.label ?? 'January',
-    otherCategory: 'weekday',
-    holiday: holidayOptions[0]?.label ?? "New Year's Day",
-    customMonth: currentMonth,
-    customDay: currentDay,
-    shift: '5',
-    entryDay: '10',
-    exitDay: '50',
-  })
-  dayResultSort.key = 'day'
-  dayResultSort.direction = 'asc'
 }
 
 async function loadSeasonality() {
@@ -644,6 +807,8 @@ async function loadSpecificDays(signal: AbortSignal) {
   returnPoints.value = normalizeReturnRows(extractSeasonalityRows(payload), ['period'])
   tableRows.value = []
   growthPoints.value = []
+  specificBreakdownSort.key = 'day'
+  specificBreakdownSort.direction = 'asc'
 }
 
 async function loadOtherCharts(signal: AbortSignal) {
@@ -669,6 +834,8 @@ async function loadOtherCharts(signal: AbortSignal) {
   if (category === 'weekday' || category === 'month') {
     returnPoints.value = normalizeReturnRows(rows, category === 'month' ? ['Month', 'Date'] : ['Date', 'Weekday'])
     tableRows.value = []
+    otherReturnSort.key = 'label'
+    otherReturnSort.direction = 'asc'
   } else {
     returnPoints.value = []
     tableRows.value = normalizeTableRows(rows)
@@ -861,7 +1028,7 @@ function normalizeGrowthRow(row: unknown): GrowthPoint | null {
 
   return {
     timestamp,
-    value: roundNumber(value),
+    value: Number(value.toFixed(6)),
     rawDate: typeof dateValue === 'string' ? dateValue.trim() : new Date(timestamp).toISOString().slice(0, 10),
   }
 }
@@ -880,6 +1047,12 @@ function growthValueKeys() {
     'Value',
     'values',
     'Values',
+    'close',
+    'Close',
+    'adj_close',
+    'Adj Close',
+    'adjusted_close',
+    'adjustedClose',
     'growth',
     'Growth',
     'The growth of one U.S. dollar',
@@ -998,6 +1171,47 @@ function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
+function buildGrowthYearRows(points: GrowthPoint[]): GrowthYearRow[] {
+  const byYear = new Map<number, number[]>()
+
+  points.forEach((point, index) => {
+    const year = new Date(point.timestamp).getUTCFullYear()
+    if (!byYear.has(year)) byYear.set(year, [])
+    byYear.get(year)?.push(index)
+  })
+
+  return [...byYear.entries()]
+    .sort(([leftYear], [rightYear]) => leftYear - rightYear)
+    .map(([year, indexes]) => {
+      const fallbackStartIndex = indexes[0]
+      const fallbackEndIndex = indexes[indexes.length - 1]
+      if (fallbackStartIndex === undefined || fallbackEndIndex === undefined) return null
+
+      const activeIndexes = indexes.filter((index) => {
+        const previousPoint = points[index - 1]
+        if (!previousPoint) return Math.abs(points[index].value - 1) > 0.00001
+        return Math.abs(points[index].value - previousPoint.value) > 0.00001
+      })
+      const startIndex = activeIndexes[0] ?? fallbackStartIndex
+      const activeEndIndex = activeIndexes[activeIndexes.length - 1]
+      const endIndex = activeEndIndex === undefined || indexes.length <= 2 ? fallbackEndIndex : activeEndIndex
+      const startPoint = points[startIndex]
+      const endPoint = points[endIndex]
+      const startValue = points[startIndex - 1]?.value ?? 1
+      const windowReturn = startValue ? roundNumber((endPoint.value / startValue - 1) * 100) : null
+
+      return {
+        year,
+        startDate: startPoint.rawDate,
+        endDate: endPoint.rawDate,
+        startTimestamp: startPoint.timestamp,
+        endTimestamp: endPoint.timestamp,
+        windowReturn,
+      }
+    })
+    .filter((row): row is GrowthYearRow => row !== null)
+}
+
 function setTableSort(key: TableColumnKey) {
   if (tableSort.key === key) {
     tableSort.direction = tableSort.direction === 'asc' ? 'desc' : 'asc'
@@ -1016,6 +1230,96 @@ function setDayResultSort(key: DayResultColumnKey) {
 
   dayResultSort.key = key
   dayResultSort.direction = key === 'day' ? 'asc' : 'desc'
+}
+
+function setSpecificBreakdownSort(key: SpecificBreakdownColumnKey) {
+  if (specificBreakdownSort.key === key) {
+    specificBreakdownSort.direction = specificBreakdownSort.direction === 'asc' ? 'desc' : 'asc'
+    return
+  }
+
+  specificBreakdownSort.key = key
+  specificBreakdownSort.direction = key === 'day' ? 'asc' : 'desc'
+}
+
+function setOtherReturnSort(key: OtherReturnColumnKey) {
+  if (otherReturnSort.key === key) {
+    otherReturnSort.direction = otherReturnSort.direction === 'asc' ? 'desc' : 'asc'
+    return
+  }
+
+  otherReturnSort.key = key
+  otherReturnSort.direction = key === 'label' ? 'asc' : 'desc'
+}
+
+function setGrowthYearSort(key: GrowthYearColumnKey) {
+  if (growthYearSort.key === key) {
+    growthYearSort.direction = growthYearSort.direction === 'asc' ? 'desc' : 'asc'
+    return
+  }
+
+  growthYearSort.key = key
+  growthYearSort.direction = key === 'windowReturn' ? 'desc' : 'asc'
+}
+
+function specificBreakdownSortValue(row: SpecificDayBreakdownRow, key: SpecificBreakdownColumnKey) {
+  if (key === 'day') return row.dayKey
+  return row[key]
+}
+
+function otherReturnSortValue(row: OtherReturnRow, key: OtherReturnColumnKey) {
+  if (key === 'label') return row.sequence
+  return row[key]
+}
+
+function growthYearSortValue(row: GrowthYearRow, key: GrowthYearColumnKey) {
+  if (key === 'startDate') return row.startTimestamp
+  if (key === 'endDate') return row.endTimestamp
+  return row[key]
+}
+
+function specificBreakdownCellText(row: SpecificDayBreakdownRow, key: SpecificBreakdownColumnKey) {
+  if (key === 'day') return row.dayLabel
+  return nullableNumberText(row[key])
+}
+
+function otherReturnCellText(row: OtherReturnRow, key: OtherReturnColumnKey) {
+  if (key === 'label') return row.label
+  return nullableNumberText(row[key])
+}
+
+function growthYearCellText(row: GrowthYearRow, key: GrowthYearColumnKey) {
+  if (key === 'year') return String(row.year)
+  if (key === 'startDate') return shortDateText(row.startTimestamp)
+  if (key === 'endDate') return shortDateText(row.endTimestamp)
+  return row.windowReturn === null ? '' : `${trimTrailingZeros(formatNumber(row.windowReturn))}%`
+}
+
+function specificBreakdownCellClass(row: SpecificDayBreakdownRow, key: SpecificBreakdownColumnKey) {
+  return key === 'averageReturn' ? signedValueClass(row.averageReturn) : ''
+}
+
+function otherReturnCellClass(row: OtherReturnRow, key: OtherReturnColumnKey) {
+  return key === 'averageReturn' ? signedValueClass(row.averageReturn) : ''
+}
+
+function growthYearCellClass(row: GrowthYearRow, key: GrowthYearColumnKey) {
+  return key === 'windowReturn' ? signedValueClass(row.windowReturn) : ''
+}
+
+function specificBreakdownAriaSort(key: SpecificBreakdownColumnKey) {
+  if (specificBreakdownSort.key !== key) return 'none'
+  return specificBreakdownSort.direction === 'asc' ? 'ascending' : 'descending'
+}
+
+function otherReturnAriaSort(key: OtherReturnColumnKey) {
+  if (otherReturnSort.key !== key) return 'none'
+  return otherReturnSort.direction === 'asc' ? 'ascending' : 'descending'
+}
+
+function growthYearAriaSort(key: GrowthYearColumnKey) {
+  if (growthYearSort.key !== key) return 'none'
+  return growthYearSort.direction === 'asc' ? 'ascending' : 'descending'
 }
 
 function dayCellText(row: DayResultRow, key: DayResultColumnKey) {
@@ -1059,6 +1363,48 @@ function cellText(row: SeasonalityTableRow, key: TableColumnKey) {
   if (value === null || value === undefined) return ''
   if (key === 'month' || key === 'day') return String(value)
   return `${formatNumber(value)}%`
+}
+
+function periodNumber(label: string | number) {
+  if (typeof label === 'number' && Number.isFinite(label)) return label
+  const text = String(label).trim()
+  const direct = Number(text)
+  if (Number.isFinite(direct)) return direct
+  const match = text.match(/-?\d+/)
+  if (!match) return null
+  const parsed = Number(match[0])
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function specificPeriodLabel(label: string | number) {
+  const day = periodNumber(label)
+  if (day === 0) return 'Day 0 (Event)'
+  if (day !== null) return `Day ${day}`
+  return String(label)
+}
+
+function nullableNumberText(value: number | null) {
+  return value === null ? '' : formatNumber(value)
+}
+
+function moneyText(value: number | null | undefined) {
+  return value === null || value === undefined ? '—' : `$${formatNumber(value)}`
+}
+
+function growthPointYearText(point: GrowthPoint | null) {
+  if (!point) return ''
+  return String(new Date(point.timestamp).getUTCFullYear())
+}
+
+function shortDateText(timestamp: number) {
+  const date = new Date(timestamp)
+  const month = date.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
+  return `${month} ${date.getUTCDate()}`
+}
+
+function countShareText(count: number, total: number) {
+  if (!total) return '0%'
+  return `${Math.round((count / total) * 100)}%`
 }
 
 function formatNumber(value: string | number) {
@@ -1223,7 +1569,7 @@ function signedValueClass(value: number | null) {
                 </label>
               </div>
 
-              <div class="day-month-status">
+              <div class="day-month-status day-month-status--inset">
                 <Info :size="16" />
                 <span>{{ dayOfMonthStatusText }}</span>
               </div>
@@ -1245,24 +1591,24 @@ function signedValueClass(value: number | null) {
                 />
               </div>
 
-              <label class="seasonality-control">
+              <label class="seasonality-control seasonality-control--range">
                 <span class="seasonality-label">
-                  Start Year
+                  Date Range
                   <span class="seasonality-tooltip" :data-tooltip="tooltipText.dateRange" tabindex="0" :aria-label="tooltipText.dateRange">
                     <Info :size="13" />
                   </span>
                 </span>
-                <input v-model="filters.startYear" class="seasonality-input" type="number" :min="earliestYear" :max="currentYear" />
-              </label>
-
-              <label class="seasonality-control">
-                <span class="seasonality-label">
-                  End Year
-                  <span class="seasonality-tooltip" :data-tooltip="tooltipText.dateRange" tabindex="0" :aria-label="tooltipText.dateRange">
-                    <Info :size="13" />
+                <span class="day-month-range">
+                  <span class="day-month-field">
+                    <Calendar :size="16" class="shrink-0 text-[var(--app-primary)]" />
+                    <input v-model="filters.startYear" class="day-month-input day-month-input--bare" type="number" :min="earliestYear" :max="currentYear" />
+                  </span>
+                  <span class="day-month-range__to">to</span>
+                  <span class="day-month-field">
+                    <Calendar :size="16" class="shrink-0 text-[var(--app-primary)]" />
+                    <input v-model="filters.endYear" class="day-month-input day-month-input--bare" type="number" :min="earliestYear" :max="currentYear" />
                   </span>
                 </span>
-                <input v-model="filters.endYear" class="seasonality-input" type="number" :min="earliestYear" :max="currentYear" />
               </label>
 
               <template v-if="activeView === 'specificDays'">
@@ -1337,16 +1683,6 @@ function signedValueClass(value: number | null) {
                   <input v-model="filters.exitDay" class="seasonality-input" type="number" min="1" />
                 </label>
               </template>
-
-              <button
-                class="seasonality-reset"
-                type="button"
-                title="Reset filters"
-                @click="resetFilters"
-              >
-                <RotateCcw :size="16" />
-                Reset
-              </button>
             </div>
           </template>
 
@@ -1478,6 +1814,239 @@ function signedValueClass(value: number | null) {
               </section>
             </div>
 
+            <div v-else-if="activeView === 'specificDays'" class="specific-day-workspace">
+              <div class="specific-day-main-grid">
+                <section class="specific-day-chart-card">
+                  <header class="specific-day-card-header">
+                    <div>
+                      <h3>{{ specificPerformanceTitle }}</h3>
+                      <p>Number of years: {{ specificDaySampleSize }} | {{ filters.startYear }} - {{ filters.endYear }}</p>
+                    </div>
+                  </header>
+                  <SeasonalityReturnChart
+                    :title="activeReturnTitle"
+                    :subtitle="activeReturnSubtitle"
+                    :x-axis-title="activeXAxisTitle"
+                    :x-point-label="activeXPointLabel"
+                    :points="returnPoints"
+                    :loading="loading"
+                    :height="360"
+                    :show-chart-title="false"
+                    transparent-background
+                  />
+                </section>
+
+                <section class="specific-day-summary">
+                  <header class="specific-day-summary__header">
+                    <ChartColumn :size="22" />
+                    <h3>Event summary</h3>
+                  </header>
+
+                  <template v-if="specificEventSummary">
+                    <div class="specific-day-summary-years">
+                      <span>Years analyzed</span>
+                      <strong>{{ specificDaySampleSize }}</strong>
+                    </div>
+                    <div class="specific-day-summary-row">
+                      <ArrowUp :size="24" class="specific-day-summary-icon day-month-value--positive" />
+                      <span>Best day</span>
+                      <strong>{{ specificEventSummary.best.dayLabel }}</strong>
+                      <b class="specific-day-value" :class="signedValueClass(specificEventSummary.best.averageReturn)">
+                        {{ signedPercent(specificEventSummary.best.averageReturn) }}
+                      </b>
+                    </div>
+                    <div class="specific-day-summary-row">
+                      <ArrowDown :size="24" class="specific-day-summary-icon day-month-value--negative" />
+                      <span>Weakest day</span>
+                      <strong>{{ specificEventSummary.weakest.dayLabel }}</strong>
+                      <b class="specific-day-value" :class="signedValueClass(specificEventSummary.weakest.averageReturn)">
+                        {{ signedPercent(specificEventSummary.weakest.averageReturn) }}
+                      </b>
+                    </div>
+                    <div class="specific-day-summary-row specific-day-summary-row--single-value">
+                      <Percent :size="24" class="specific-day-summary-icon day-month-value--primary" />
+                      <span>Percent positive on event day</span>
+                      <b class="specific-day-value day-month-value--primary">
+                        {{ specificEventSummary.eventPositive === null ? '—' : fixedPercent(specificEventSummary.eventPositive) }}
+                      </b>
+                    </div>
+                  </template>
+                  <div v-else class="specific-day-summary__empty">
+                    {{ loading ? 'Loading event summary...' : 'No event summary available.' }}
+                  </div>
+
+                  <div class="specific-day-summary-note">
+                    <Info :size="18" class="shrink-0" />
+                    <span>These statistics are calculated from {{ filters.startYear }}-{{ filters.endYear }} and are for informational purposes only.</span>
+                  </div>
+                </section>
+              </div>
+
+              <section class="specific-day-results">
+                <header class="specific-day-results__header">
+                  <div>
+                    <h3>{{ specificBreakdownTitle }}</h3>
+                    <p>{{ specificBreakdownDescription }}</p>
+                  </div>
+                </header>
+                <div class="specific-day-results__table-wrap">
+                  <table class="specific-day-results-table">
+                    <thead>
+                      <tr>
+                        <th
+                          v-for="column in specificBreakdownColumns"
+                          :key="column.key"
+                          scope="col"
+                          :aria-sort="specificBreakdownAriaSort(column.key)"
+                        >
+                          <button type="button" @click="setSpecificBreakdownSort(column.key)">
+                            {{ column.label }}
+                            <span v-if="specificBreakdownSort.key === column.key">{{ specificBreakdownSort.direction === 'asc' ? '↑' : '↓' }}</span>
+                          </button>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-if="loading">
+                        <td :colspan="specificBreakdownColumns.length" class="specific-day-results__empty">Loading daily breakdown...</td>
+                      </tr>
+                      <tr v-else-if="!sortedSpecificBreakdownRows.length">
+                        <td :colspan="specificBreakdownColumns.length" class="specific-day-results__empty">No daily breakdown</td>
+                      </tr>
+                      <template v-else>
+                        <tr v-for="row in sortedSpecificBreakdownRows" :key="row.dayLabel">
+                          <td
+                            v-for="column in specificBreakdownColumns"
+                            :key="column.key"
+                            :class="specificBreakdownCellClass(row, column.key)"
+                          >
+                            {{ specificBreakdownCellText(row, column.key) }}
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+
+            <div v-else-if="isOtherReturnChart" class="day-month-workspace">
+              <div class="day-month-main-grid">
+                <section class="day-month-chart-card">
+                  <header class="day-month-card-header">
+                    <div>
+                      <h3>{{ otherReturnTitle }}</h3>
+                      <p>Number of years: {{ dayOfMonthSampleSize }} | {{ filters.startYear }} - {{ filters.endYear }}</p>
+                    </div>
+                  </header>
+                  <SeasonalityReturnChart
+                    :title="activeReturnTitle"
+                    :subtitle="activeReturnSubtitle"
+                    :x-axis-title="activeXAxisTitle"
+                    :x-point-label="activeXPointLabel"
+                    :points="returnPoints"
+                    :loading="loading"
+                    :height="360"
+                    :show-chart-title="false"
+                    show-every-category-label
+                    transparent-background
+                  />
+                </section>
+
+                <section class="day-month-observations">
+                  <header class="day-month-observations__header">
+                    <ChartColumn :size="20" />
+                    <div>
+                      <h3>Key observations</h3>
+                      <p>{{ otherReturnGroupLabel }}</p>
+                    </div>
+                  </header>
+
+                  <template v-if="otherReturnStats">
+                    <div class="day-month-observation-row">
+                      <ArrowUp :size="22" class="day-month-observation-icon" :class="signedValueClass(otherReturnStats.strongest.averageReturn)" />
+                      <span>Strongest average {{ otherReturnUnitLabel }}</span>
+                      <strong>{{ otherReturnStats.strongest.label }}</strong>
+                      <b class="day-month-value" :class="signedValueClass(otherReturnStats.strongest.averageReturn)">{{ signedPercent(otherReturnStats.strongest.averageReturn) }}</b>
+                    </div>
+                    <div class="day-month-observation-row">
+                      <ArrowDown :size="22" class="day-month-observation-icon" :class="signedValueClass(otherReturnStats.weakest.averageReturn)" />
+                      <span>Weakest average {{ otherReturnUnitLabel }}</span>
+                      <strong>{{ otherReturnStats.weakest.label }}</strong>
+                      <b class="day-month-value" :class="signedValueClass(otherReturnStats.weakest.averageReturn)">{{ signedPercent(otherReturnStats.weakest.averageReturn) }}</b>
+                    </div>
+                    <div class="day-month-observation-row">
+                      <Percent :size="22" class="day-month-observation-icon day-month-observation-icon--primary" />
+                      <span>Highest positive frequency</span>
+                      <strong>{{ otherReturnStats.highestPositive.label }}</strong>
+                      <b class="day-month-value day-month-value--primary">{{ fixedPercent(otherReturnStats.highestPositive.percentPositive) }}</b>
+                    </div>
+                    <div class="day-month-observation-row">
+                      <CalendarDays :size="22" class="day-month-observation-icon day-month-observation-icon--primary" />
+                      <span>Lowest positive frequency</span>
+                      <strong>{{ otherReturnStats.lowestPositive.label }}</strong>
+                      <b class="day-month-value day-month-value--primary">{{ fixedPercent(otherReturnStats.lowestPositive.percentPositive) }}</b>
+                    </div>
+                  </template>
+                  <div v-else class="day-month-observations__empty">
+                    {{ loading ? 'Loading observations...' : 'No observations available.' }}
+                  </div>
+
+                  <div class="day-month-observation-note">
+                    <Info :size="18" class="shrink-0" />
+                    <span>These statistics are calculated from {{ filters.startYear }}-{{ filters.endYear }} and are for informational purposes only.</span>
+                  </div>
+                </section>
+              </div>
+
+              <section class="day-month-results">
+                <header class="day-month-results__header">
+                  <div>
+                    <h3>{{ otherReturnResultsTitle }}</h3>
+                    <p>{{ otherReturnResultsDescription }}</p>
+                  </div>
+                </header>
+                <div class="day-month-results__table-wrap">
+                  <table class="day-month-results-table">
+                    <thead>
+                      <tr>
+                        <th
+                          v-for="column in otherReturnColumns"
+                          :key="column.key"
+                          scope="col"
+                          :aria-sort="otherReturnAriaSort(column.key)"
+                        >
+                          <button type="button" @click="setOtherReturnSort(column.key)">
+                            {{ column.label }}
+                            <span v-if="otherReturnSort.key === column.key">{{ otherReturnSort.direction === 'asc' ? '↑' : '↓' }}</span>
+                          </button>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-if="loading">
+                        <td :colspan="otherReturnColumns.length" class="day-month-results__empty">Loading results...</td>
+                      </tr>
+                      <tr v-else-if="!sortedOtherReturnRows.length">
+                        <td :colspan="otherReturnColumns.length" class="day-month-results__empty">No results</td>
+                      </tr>
+                      <template v-else>
+                        <tr v-for="row in sortedOtherReturnRows" :key="row.label">
+                          <td
+                            v-for="column in otherReturnColumns"
+                            :key="column.key"
+                            :class="otherReturnCellClass(row, column.key)"
+                          >
+                            {{ otherReturnCellText(row, column.key) }}
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+
             <div v-else-if="isOtherTable" class="seasonality-table-layout">
               <section class="seasonality-table-note">
                 <Table2 :size="19" class="text-[var(--app-primary)]" />
@@ -1526,11 +2095,151 @@ function signedValueClass(value: number | null) {
               </div>
             </div>
 
-            <SeasonalityGrowthChart
-              v-else-if="activeView === 'growthDollar'"
-              :points="growthPoints"
-              :loading="loading"
-            />
+            <div v-else-if="activeView === 'growthDollar'" class="growth-dollar-workspace">
+              <div class="day-month-status">
+                <Info :size="16" />
+                <span>{{ growthStatusText }}</span>
+              </div>
+
+              <div class="growth-dollar-main-grid">
+                <section class="day-month-chart-card">
+                  <header class="day-month-card-header">
+                    <div>
+                      <h3>The Growth of One U.S. Dollar</h3>
+                      <p>{{ growthChartSubtitle }}</p>
+                    </div>
+                  </header>
+                  <SeasonalityGrowthChart
+                    :points="growthPoints"
+                    :loading="loading"
+                    :height="430"
+                    :show-chart-title="false"
+                    transparent-background
+                  />
+                </section>
+
+                <section class="growth-dollar-glance">
+                  <header class="growth-dollar-glance__header">
+                    <ChartColumn :size="22" />
+                    <h3>Result at a glance</h3>
+                  </header>
+
+                  <div class="growth-dollar-glance__grid">
+                    <div class="growth-dollar-metric">
+                      <CircleDollarSign :size="24" class="growth-dollar-metric__icon day-month-value--primary" />
+                      <div>
+                        <span>Initial Value</span>
+                        <strong>{{ moneyText(growthInitialValue) }}</strong>
+                      </div>
+                    </div>
+                    <div class="growth-dollar-metric">
+                      <ChartColumn :size="24" class="growth-dollar-metric__icon day-month-value--primary" />
+                      <div>
+                        <span>Ending Value</span>
+                        <strong>{{ moneyText(growthEndingPoint?.value) }}</strong>
+                        <small v-if="growthEndingPoint">(as of {{ growthPointYearText(growthEndingPoint) }})</small>
+                      </div>
+                    </div>
+                    <div class="growth-dollar-metric">
+                      <ArrowUp :size="24" class="growth-dollar-metric__icon day-month-value--positive" />
+                      <div>
+                        <span>Highest Value</span>
+                        <strong>{{ moneyText(growthHighestPoint?.value) }}</strong>
+                        <small v-if="growthHighestPoint">({{ growthPointYearText(growthHighestPoint) }})</small>
+                      </div>
+                    </div>
+                    <div class="growth-dollar-metric">
+                      <ArrowDown :size="24" class="growth-dollar-metric__icon day-month-value--negative" />
+                      <div>
+                        <span>Lowest Value</span>
+                        <strong>{{ moneyText(growthLowestPoint?.value) }}</strong>
+                        <small v-if="growthLowestPoint">({{ growthPointYearText(growthLowestPoint) }})</small>
+                      </div>
+                    </div>
+                    <div class="growth-dollar-metric">
+                      <ArrowUp :size="24" class="growth-dollar-metric__icon day-month-value--positive" />
+                      <div>
+                        <span>Positive Years</span>
+                        <strong>{{ growthPositiveYearCount }}</strong>
+                        <small>({{ countShareText(growthPositiveYearCount, growthAnalyzedYearCount) }})</small>
+                      </div>
+                    </div>
+                    <div class="growth-dollar-metric">
+                      <ArrowDown :size="24" class="growth-dollar-metric__icon day-month-value--negative" />
+                      <div>
+                        <span>Negative Years</span>
+                        <strong>{{ growthNegativeYearCount }}</strong>
+                        <small>({{ countShareText(growthNegativeYearCount, growthAnalyzedYearCount) }})</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="growth-dollar-note">
+                    <Info :size="18" class="shrink-0" />
+                    <div>
+                      <strong>How to read this chart</strong>
+                      <span>The line changes only during {{ growthWindowLabel }} each year and remains flat outside that window.</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <section class="growth-year-results">
+                <header class="growth-year-results__header">
+                  <div>
+                    <h3>Year-by-Year Window Performance</h3>
+                    <p>Annual return from holding only during trading days {{ filters.entryDay }}-{{ filters.exitDay }} each year.</p>
+                  </div>
+                </header>
+                <div class="growth-year-results__body">
+                  <div class="growth-year-results__chart">
+                    <SeasonalityYearReturnChart
+                      :points="growthYearRows"
+                      :loading="loading"
+                      :height="245"
+                    />
+                  </div>
+                  <div class="growth-year-results__table-wrap">
+                    <table class="growth-year-results-table">
+                      <thead>
+                        <tr>
+                          <th
+                            v-for="column in growthYearColumns"
+                            :key="column.key"
+                            scope="col"
+                            :aria-sort="growthYearAriaSort(column.key)"
+                          >
+                            <button type="button" @click="setGrowthYearSort(column.key)">
+                              {{ column.label }}
+                              <span v-if="growthYearSort.key === column.key">{{ growthYearSort.direction === 'asc' ? '↑' : '↓' }}</span>
+                            </button>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-if="loading">
+                          <td :colspan="growthYearColumns.length" class="growth-year-results__empty">Loading yearly results...</td>
+                        </tr>
+                        <tr v-else-if="!sortedGrowthYearRows.length">
+                          <td :colspan="growthYearColumns.length" class="growth-year-results__empty">No yearly results</td>
+                        </tr>
+                        <template v-else>
+                          <tr v-for="row in sortedGrowthYearRows" :key="row.year">
+                            <td
+                              v-for="column in growthYearColumns"
+                              :key="column.key"
+                              :class="growthYearCellClass(row, column.key)"
+                            >
+                              {{ growthYearCellText(row, column.key) }}
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+            </div>
 
             <SeasonalityReturnChart
               v-else
@@ -1712,6 +2421,13 @@ function signedValueClass(value: number | null) {
   color: var(--app-text-secondary);
   font-size: 0.9rem;
   font-weight: 400;
+}
+
+/* The filter-slot status sits directly in the panel, so it needs the same
+   horizontal inset as `.seasonality-content` to line up with the cards below
+   it. The growth-dollar status is already nested inside that padding. */
+.day-month-status--inset {
+  margin: 10px 16px 0;
 }
 
 .seasonality-notice {
@@ -1992,6 +2708,452 @@ function signedValueClass(value: number | null) {
   color: var(--app-text-muted) !important;
 }
 
+.specific-day-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.specific-day-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 0.42fr);
+  gap: 16px;
+  /* Stretched so the Event summary card matches the chart card's height; the
+     slack is shared out across its rows rather than left as a gap. */
+  align-items: stretch;
+}
+
+.specific-day-chart-card,
+.specific-day-summary,
+.specific-day-results {
+  border: 1px solid var(--app-border-muted);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 10px 26px rgba(9, 33, 76, 0.045);
+}
+
+.specific-day-card-header {
+  padding: 17px 18px 0;
+}
+
+.specific-day-card-header h3,
+.specific-day-summary__header h3,
+.specific-day-results__header h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 1.15rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.specific-day-card-header p {
+  margin: 4px 0 0;
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.specific-day-summary {
+  display: flex;
+  flex-direction: column;
+  padding: 17px 18px 14px;
+}
+
+.specific-day-summary__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--app-primary);
+}
+
+.specific-day-summary__header h3 {
+  font-size: 1.12rem;
+}
+
+.specific-day-summary-years,
+.specific-day-summary-row {
+  border-bottom: 1px solid var(--app-border-muted);
+  color: var(--app-text-secondary);
+}
+
+.specific-day-summary-years {
+  display: flex;
+  /* Grows with the rows below so the four bands fill the stretched card. */
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  font-size: 0.86rem;
+  font-weight: 400;
+}
+
+.specific-day-summary-years strong {
+  color: var(--app-text);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.specific-day-summary-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  /* See .specific-day-summary-years. */
+  flex: 1 1 auto;
+  padding: 14px 0;
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.specific-day-summary-row--single-value {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+}
+
+.specific-day-summary-row strong,
+.specific-day-summary-row b {
+  color: var(--app-text);
+  font-size: 0.9rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.specific-day-summary-icon {
+  justify-self: center;
+}
+
+.specific-day-value {
+  text-align: right;
+}
+
+.specific-day-summary__empty {
+  display: flex;
+  /* Takes the space the rows would have filled while data is loading. */
+  flex: 1;
+  min-height: 160px;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-text-muted);
+  font-size: 0.9rem;
+}
+
+.specific-day-summary-note {
+  display: flex;
+  gap: 10px;
+  margin-top: 13px;
+  border-radius: 6px;
+  background: var(--app-surface-soft);
+  padding: 10px;
+  color: var(--app-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.specific-day-results {
+  overflow: hidden;
+}
+
+.specific-day-results__header {
+  padding: 17px 18px 12px;
+}
+
+.specific-day-results__header p {
+  margin: 4px 0 0;
+  color: var(--app-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.specific-day-results__table-wrap {
+  overflow-x: auto;
+  padding: 0 18px 14px;
+}
+
+.specific-day-results-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.specific-day-results-table th,
+.specific-day-results-table td {
+  border-bottom: 0;
+  padding: 7px 14px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.specific-day-results-table th:first-child,
+.specific-day-results-table td:first-child {
+  width: 150px;
+  text-align: left;
+  padding-left: 18px;
+}
+
+.specific-day-results-table th {
+  background: var(--app-surface);
+  color: var(--app-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.specific-day-results-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  font-weight: 650;
+}
+
+.specific-day-results-table tbody tr:nth-child(even) {
+  background: var(--app-row-even);
+}
+
+.specific-day-results-table tbody tr:hover {
+  background: var(--app-surface-hover);
+}
+
+.specific-day-results-table td {
+  color: var(--app-text-secondary);
+  font-weight: 650;
+}
+
+.specific-day-results__empty {
+  height: 150px;
+  color: var(--app-text-muted) !important;
+  text-align: center !important;
+}
+
+.growth-dollar-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.growth-dollar-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.44fr);
+  gap: 16px;
+  /* Stretched so the glance panel matches the chart card's height; the metric
+     rows share the slack instead of leaving a gap above the note. */
+  align-items: stretch;
+}
+
+.growth-dollar-glance,
+.growth-year-results {
+  border: 1px solid var(--app-border-muted);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 10px 26px rgba(9, 33, 76, 0.045);
+}
+
+.growth-dollar-glance {
+  display: flex;
+  flex-direction: column;
+  padding: 17px 18px 14px;
+}
+
+.growth-dollar-glance__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--app-primary);
+}
+
+.growth-dollar-glance__header h3,
+.growth-year-results__header h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 1.15rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.growth-dollar-glance__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid var(--app-border-muted);
+  /* Share the slack when the panel is stretched to the chart card's height,
+     so the three metric rows fill the column evenly. */
+  flex: 1 1 auto;
+  grid-auto-rows: 1fr;
+}
+
+.growth-dollar-metric {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 78px;
+  padding: 12px 0;
+}
+
+.growth-dollar-metric:nth-child(odd) {
+  padding-right: 14px;
+  border-right: 1px solid var(--app-border-muted);
+}
+
+.growth-dollar-metric:nth-child(even) {
+  padding-left: 14px;
+}
+
+.growth-dollar-metric:nth-child(n + 3) {
+  border-top: 1px solid var(--app-border-muted);
+}
+
+.growth-dollar-metric__icon {
+  justify-self: center;
+}
+
+.growth-dollar-metric span {
+  display: block;
+  color: var(--app-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.growth-dollar-metric strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--app-text);
+  font-size: 1.05rem;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
+.growth-dollar-metric small {
+  display: block;
+  margin-top: 2px;
+  color: var(--app-text-secondary);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.growth-dollar-note {
+  display: flex;
+  gap: 10px;
+  margin-top: 13px;
+  border-radius: 6px;
+  background: var(--app-surface-soft);
+  padding: 10px;
+  color: var(--app-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.growth-dollar-note strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--app-text);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.growth-dollar-note span {
+  display: block;
+}
+
+.growth-year-results {
+  overflow: hidden;
+}
+
+.growth-year-results__header {
+  padding: 17px 18px 12px;
+}
+
+.growth-year-results__header p {
+  margin: 4px 0 0;
+  color: var(--app-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.growth-year-results__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.58fr);
+  gap: 16px;
+  padding: 0 18px 14px;
+}
+
+.growth-year-results__chart,
+.growth-year-results__table-wrap {
+  min-width: 0;
+}
+
+.growth-year-results__table-wrap {
+  max-height: 268px;
+  overflow: auto;
+}
+
+.growth-year-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.growth-year-results-table th,
+.growth-year-results-table td {
+  border-bottom: 0;
+  padding: 7px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.growth-year-results-table th:first-child,
+.growth-year-results-table td:first-child {
+  width: 54px;
+  text-align: left;
+}
+
+.growth-year-results-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--app-surface);
+  color: var(--app-text-secondary);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.growth-year-results-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  font-weight: 650;
+}
+
+.growth-year-results-table tbody tr:nth-child(even) {
+  background: var(--app-row-even);
+}
+
+.growth-year-results-table tbody tr:hover {
+  background: var(--app-surface-hover);
+}
+
+.growth-year-results-table td {
+  color: var(--app-text-secondary);
+  font-weight: 650;
+}
+
+.growth-year-results__empty {
+  height: 150px;
+  color: var(--app-text-muted) !important;
+  text-align: center !important;
+}
+
 .seasonality-filters {
   display: grid;
   grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(120px, 1fr)) auto;
@@ -2008,6 +3170,10 @@ function signedValueClass(value: number | null) {
 }
 
 .seasonality-control--wide {
+  grid-column: span 2;
+}
+
+.seasonality-control--range {
   grid-column: span 2;
 }
 
@@ -2041,33 +3207,6 @@ function signedValueClass(value: number | null) {
 .seasonality-input:focus {
   border-color: var(--app-primary);
   box-shadow: 0 0 0 3px var(--app-primary-shadow);
-}
-
-.seasonality-reset {
-  display: inline-flex;
-  height: 38px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--app-border);
-  border-radius: 6px;
-  background: var(--app-surface);
-  padding: 0 14px;
-  color: var(--app-primary);
-  font-size: 0.875rem;
-  font-weight: 800;
-  transition:
-    border-color 160ms ease,
-    color 160ms ease,
-    background-color 160ms ease;
-}
-
-.seasonality-reset:hover,
-.seasonality-reset:focus-visible {
-  border-color: var(--app-primary);
-  background: var(--app-primary-soft);
-  color: var(--app-primary);
-  outline: none;
 }
 
 .seasonality-content {
@@ -2204,7 +3343,10 @@ function signedValueClass(value: number | null) {
 
   /* Without this the 300px observations column wins and the chart card
      collapses to a sliver (8px wide at a 390px viewport). */
-  .day-month-main-grid {
+  .day-month-main-grid,
+  .specific-day-main-grid,
+  .growth-dollar-main-grid,
+  .growth-year-results__body {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -2213,6 +3355,7 @@ function signedValueClass(value: number | null) {
   }
 
   .seasonality-control--symbol,
+  .seasonality-control--range,
   .seasonality-control--wide {
     grid-column: span 2;
   }
@@ -2232,8 +3375,38 @@ function signedValueClass(value: number | null) {
   }
 
   .seasonality-control--symbol,
+  .seasonality-control--range,
   .seasonality-control--wide {
     grid-column: auto;
+  }
+
+  .specific-day-summary-row {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .specific-day-summary-row strong,
+  .specific-day-summary-row b {
+    grid-column: 2;
+  }
+
+  .specific-day-summary-row--single-value {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .growth-dollar-glance__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .growth-dollar-metric,
+  .growth-dollar-metric:nth-child(odd),
+  .growth-dollar-metric:nth-child(even) {
+    padding-left: 0;
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .growth-dollar-metric:nth-child(n + 2) {
+    border-top: 1px solid var(--app-border-muted);
   }
 }
 </style>

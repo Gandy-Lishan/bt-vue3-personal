@@ -255,8 +255,10 @@ function renderChart() {
     chart: {
       ...baseHighchartsChartOptions(theme),
       height: chartSize(560),
-      spacingLeft: twoAxis ? chartSize(72) : chartSize(8),
-      spacingRight: chartSize(72),
+      // Equal gutters so both symbol titles sit the same distance from the
+      // container edge. Highcharts reserves the rest of each margin itself.
+      spacingLeft: chartSize(8),
+      spacingRight: chartSize(8),
       spacingTop: chartSize(8),
       spacingBottom: chartSize(10),
       zooming: {
@@ -364,12 +366,15 @@ function renderChart() {
         },
       },
     },
+    // The two axes mirror each other: same tick label gap from the axis, same
+    // title placement, so both symbol titles sit the same distance from their
+    // axis and from the container edge. Keep the `labels`/`title` pairs in sync
+    // when touching either axis.
     yAxis: [
       {
         title: {
           text: props.series[0]?.symbol,
           style: { color: textColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
-          x: chartSize(44),
         },
         opposite: true,
         offset: 0,
@@ -381,7 +386,11 @@ function renderChart() {
         maxPadding: 0.1,
         tickPixelInterval: chartSize(44),
         labels: {
-          x: chartSize(25),
+          // Mirror of the left axis' `x: -8`. Highcharts only auto-reserves room
+          // for labels on non-opposite axes, so this axis needs it spelled out.
+          align: 'left',
+          reserveSpace: true,
+          x: chartSize(8),
           style: { color: textColor, fontSize: chartFontSize(10) },
         },
       },
@@ -389,7 +398,6 @@ function renderChart() {
         title: {
           text: twoAxis ? props.series[1]?.symbol : '',
           style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
-          x: chartSize(-36),
         },
         opposite: false,
         visible: twoAxis,
