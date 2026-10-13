@@ -10,6 +10,7 @@ import {
   Flame,
   Info,
   LayoutDashboard,
+  Menu,
   Network,
   RotateCcw,
   Scale,
@@ -34,6 +35,8 @@ const store = useIndicatorStore()
 const router = useRouter()
 const route = useRoute()
 const isDescriptionOpen = ref(false)
+const isMobileSidebarOpen = ref(false)
+const isMobileFiltersOpen = ref(false)
 
 const iconMap = {
   candlestick: ChartCandlestick,
@@ -71,7 +74,6 @@ const currentDescription = computed(() => {
 })
 
 const visibleGroups = computed(() => store.groups.filter((group) => group.id !== 'all'))
-// Only the grouped indicator section has subgroups; the standalone lists do not.
 const showSubgroups = computed(() => store.activeSection === 'indicators')
 const summaryGroupCount = computed(() => visibleGroups.value.filter((group) => group.id !== 'overview').length)
 const tableMeta = computed(() => getIndicatorTableMeta(store.activeSource))
@@ -108,17 +110,17 @@ const featuredSections: Array<{ id: Exclude<IndicatorSection, 'indicators'>; lab
 
 function selectSection(section: IndicatorSection) {
   store.setSection(section)
+  isMobileSidebarOpen.value = false
 }
 
 function selectGroup(group: IndicatorGroup) {
   store.setSection('indicators')
   store.setGroup(group.id)
+  isMobileSidebarOpen.value = false
 }
 
 function openIndicator(indicator: Indicator) {
   store.rememberIndicatorSource(indicator.id, indicator.sourceList)
-  // Carry the list in the URL so the detail page can restore it, and so returning here
-  // lands back on the same list even after a reload.
   router.push({ name: 'indicator-detail', params: { id: indicator.id }, query: { list: store.listKey } })
 }
 
@@ -130,9 +132,6 @@ watch(
   { immediate: true },
 )
 
-/**
- * Exports the whole list as currently filtered and sorted, not just the visible page.
- */
 function downloadListCsv() {
   const { headers, rows } = indicatorCsvTable(store.sortedItems, tableMeta.value.columns)
   if (!rows.length) return
@@ -215,7 +214,8 @@ watch(
       />
 
       <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
-        <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
+        <!-- Desktop Sidebar (xl and above) -->
+        <aside class="hidden xl:block rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
           <button
             v-for="section in featuredSections"
             :key="section.id"
@@ -258,6 +258,22 @@ watch(
           </button>
         </aside>
 
+        <!-- Mobile: Show sidebar button -->
+        <div class="xl:hidden mb-3">
+          <button
+            @click="isMobileSidebarOpen = true"
+            class="flex w-full items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-left transition hover:border-[var(--app-primary)]"
+            type="button"
+          >
+            <Menu :size="20" class="text-[var(--app-text-secondary)]" />
+            <span class="flex-1 text-sm font-medium text-[var(--app-text)]">
+              {{ store.activeSection === 'favorites' ? 'My Favorites' : store.activeSection === 'popular' ? 'Most Popular' : store.activeGroup.label }}
+            </span>
+            <span class="text-xs text-[var(--app-text-muted)]">切换分类</span>
+          </button>
+        </div>
+
+        <!-- Content Panel -->
         <ListPagePanel :title="currentTitle" :description="currentDescription">
           <template #title-actions>
             <button
@@ -299,7 +315,6 @@ watch(
               </span>
           </template>
 
-          <!-- My Favorites and Most Popular are standalone lists, so they carry no subgroup tabs. -->
           <template #tabs>
             <nav v-if="showSubgroups" class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
               <button
@@ -321,8 +336,9 @@ watch(
             </nav>
           </template>
 
+          <!-- Desktop Filters (xl and above) -->
           <template #filters>
-            <div class="grid gap-2 px-4 py-3 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto]">
+            <div class="hidden xl:grid gap-2 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto] px-4 py-3">
               <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
                 <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
                 <input v-model="store.searchQuery" class="w-full bg-transparent text-[0.8125rem] outline-none" placeholder="Search indicators..." />
@@ -368,6 +384,73 @@ watch(
                 <Download :size="16" />
                 CSV
               </button>
+            </div>
+
+            <!-- Mobile Filters (< xl) -->
+            <div class="xl:hidden space-y-2 px-4 py-3">
+              <!-- Search always visible -->
+              <label class="flex h-10 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3">
+                <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
+                <input v-model="store.searchQuery" class="w-full bg-transparent text-sm outline-none placeholder:text-[var(--app-text-muted)]" placeholder="搜索指标..." />
+              </label>
+
+              <!-- Filters toggle -->
+              <button
+                @click="isMobileFiltersOpen = !isMobileFiltersOpen"
+                class="flex w-full h-10 items-center justify-center gap-2 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-sm text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary)] hover:text-[var(--app-primary)]"
+                type="button"
+              >
+                <svg :class="{ 'rotate-180': isMobileFiltersOpen }" class="transition-transform" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                筛选和排序
+              </button>
+
+              <!-- Expanded filters -->
+              <div v-if="isMobileFiltersOpen" class="space-y-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
+                <select v-model="store.timeFrameFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
+                  <option value="">所有时间框架</option>
+                  <option>Short</option>
+                  <option>Medium</option>
+                  <option>Long</option>
+                </select>
+                <select v-model="store.sentimentFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
+                  <option value="">所有情绪类型</option>
+                  <option value="pessimistic">Pessimistic</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="optimistic">Optimistic</option>
+                </select>
+                <select
+                  class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]"
+                  :value="activeSortValue"
+                  @change="handleSortSelect"
+                >
+                  <option value="">排序：默认</option>
+                  <template v-for="column in sortableColumns" :key="column.key">
+                    <option :value="`${column.key}:asc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'asc') }}</option>
+                    <option :value="`${column.key}:desc`">{{ column.label }}: {{ sortDirectionLabel(column.kind, 'desc') }}</option>
+                  </template>
+                </select>
+                <div class="flex gap-2 pt-1">
+                  <button
+                    @click="store.resetFilters"
+                    class="flex flex-1 h-10 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-sm text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary)] hover:text-[var(--app-primary)]"
+                    type="button"
+                  >
+                    <RotateCcw :size="16" />
+                    重置
+                  </button>
+                  <button
+                    @click="downloadListCsv"
+                    class="flex flex-1 h-10 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-sm text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                    type="button"
+                    :disabled="!store.totalIndicators"
+                  >
+                    <Download :size="16" />
+                    CSV
+                  </button>
+                </div>
+              </div>
             </div>
           </template>
 
@@ -426,6 +509,103 @@ watch(
       </div>
     </main>
 
+    <!-- Mobile Sidebar Drawer -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-300"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="isMobileSidebarOpen" class="xl:hidden fixed inset-0 z-50">
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="isMobileSidebarOpen = false" />
+          <Transition
+            enter-active-class="transition duration-300 transform"
+            enter-from-class="-translate-x-full"
+            enter-to-class="translate-x-0"
+            leave-active-class="transition duration-200 transform"
+            leave-from-class="translate-x-0"
+            leave-to-class="-translate-x-full"
+          >
+            <div class="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--app-surface)] shadow-xl overflow-y-auto">
+              <div class="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-[var(--app-text)]">指标分类</h2>
+                <button
+                  @click="isMobileSidebarOpen = false"
+                  class="p-2 rounded-md text-[var(--app-text)] hover:bg-[var(--app-surface-muted)]"
+                  aria-label="关闭分类"
+                >
+                  <X :size="20" />
+                </button>
+              </div>
+
+              <nav class="py-2">
+                <div class="px-3 py-2 text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wide">精选</div>
+
+                <button
+                  v-for="section in featuredSections"
+                  :key="section.id"
+                  class="flex w-full items-center gap-3 px-4 py-3 text-left transition"
+                  :class="store.activeSection === section.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
+                  type="button"
+                  @click="selectSection(section.id)"
+                >
+                  <span
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                    :class="section.id === 'favorites' ? 'text-[var(--app-favorite)]' : 'text-[var(--app-primary)]'"
+                  >
+                    <component :is="section.icon" :size="21" :fill="section.id === 'favorites' ? 'var(--app-favorite)' : 'var(--app-primary)'" />
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-semibold leading-5">{{ section.label }}</span>
+                  </span>
+                </button>
+
+                <div class="my-3 border-t border-[var(--app-border-muted)]" />
+                <div class="px-3 py-2 text-xs font-semibold text-[var(--app-text-muted)] uppercase tracking-wide">指标分组</div>
+
+                <button
+                  v-for="group in visibleGroups"
+                  :key="group.id"
+                  class="flex w-full items-center gap-3 px-4 py-3 text-left transition"
+                  :class="store.activeSection === 'indicators' && store.activeGroupId === group.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text-secondary)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
+                  type="button"
+                  @click="selectGroup(group)"
+                >
+                  <span
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                    :class="store.activeSection === 'indicators' && store.activeGroupId === group.id ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"
+                  >
+                    <component :is="iconMap[group.icon as keyof typeof iconMap]" :size="21" />
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-semibold leading-5">{{ group.label }}</span>
+                    <span class="block text-xs text-[var(--app-text-muted)]">
+                      {{ group.views }} {{ group.views === 1 ? 'view' : 'views' }}
+                    </span>
+                  </span>
+                </button>
+              </nav>
+
+              <!-- App Download CTA -->
+              <div class="sticky bottom-0 border-t border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
+                  <p class="text-sm font-semibold">在 App 中体验完整功能</p>
+                  <p class="mt-1 text-xs opacity-90">实时信号 · 策略管理</p>
+                  <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
+                    立即下载
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Description Dialog -->
     <Teleport to="body">
       <div
         v-if="isDescriptionOpen"
@@ -493,10 +673,3 @@ watch(
     </Teleport>
   </div>
 </template>
-
-<style scoped>
-.selected-fill-button {
-  color: #ffffff !important;
-}
-
-</style>

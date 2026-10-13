@@ -1,0 +1,318 @@
+/**
+ * Mobile Responsive Adaptations
+ *
+ * This file contains all mobile-specific CSS overrides and adaptations.
+ * Strategy: Minimal changes for browseability + App download CTAs
+ *
+ * Breakpoints:
+ * - < 640px (sm): Phones
+ * - 640px - 768px (md): Tablets portrait
+ * - 768px - 1024px (lg): Tablets landscape
+ * - >= 1024px: Desktop (unchanged)
+ */
+
+/* ============================================
+   1. Global Mobile Adjustments
+   ============================================ */
+
+/* Reduce gutter on mobile */
+@media (max-width: 640px) {
+  :root {
+    --page-gutter: 12px;
+  }
+
+  /* Ensure touch targets are at least 44x44px */
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent horizontal scroll on small screens */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Reduce font size slightly for better fit */
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 768px) {
+  :root {
+    --page-gutter: 16px;
+  }
+}
+
+/* ============================================
+   2. Header Mobile Adaptations
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Hide desktop header */
+  .sentiment-header-desktop {
+    display: none !important;
+  }
+
+  /* Mobile header fixed positioning */
+  .mobile-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+  }
+
+  /* Add top padding to content to account for fixed header */
+  .mobile-content-wrapper {
+    padding-top: 56px; /* h-14 = 56px */
+  }
+}
+
+/* ============================================
+   3. Data Table Mobile Adaptations
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Tables should scroll horizontally by default */
+  .data-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide less important columns on mobile */
+  .table-col-optional {
+    display: none;
+  }
+
+  /* Make table cards instead of rows */
+  .table-to-cards {
+    display: block;
+  }
+
+  .table-to-cards thead {
+    display: none;
+  }
+
+  .table-to-cards tbody,
+  .table-to-cards tr,
+  .table-to-cards td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-to-cards tr {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--chrome-border);
+    border-radius: 8px;
+    background: var(--chrome-bg);
+  }
+
+  .table-to-cards td {
+    padding: 8px 0;
+    text-align: right;
+    position: relative;
+  }
+
+  .table-to-cards td::before {
+    content: attr(data-label);
+    float: left;
+    font-weight: 600;
+    color: var(--chrome-text-muted);
+  }
+}
+
+/* ============================================
+   4. Sidebar Mobile Adaptations
+   ============================================ */
+
+@media (max-width: 1280px) {
+  /* Sidebars should become drawers */
+  .sidebar-desktop-only {
+    display: none;
+  }
+
+  .sidebar-mobile-drawer {
+    display: block;
+  }
+}
+
+/* ============================================
+   5. Chart Mobile Adaptations
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Reduce chart height on mobile */
+  :root {
+    --indicator-chart-height: 350px !important;
+  }
+
+  /* Hide chart navigator on mobile */
+  .chart-navigator-mobile-hide {
+    display: none;
+  }
+
+  /* Simplify chart toolbar */
+  .chart-toolbar-mobile .toolbar-btn-optional {
+    display: none;
+  }
+}
+
+/* ============================================
+   6. Filter Mobile Adaptations
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Collapse filters into accordion */
+  .filters-collapsed {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .filters-collapsed.expanded {
+    max-height: 2000px;
+  }
+
+  /* Show "Show Filters" button */
+  .filter-toggle-button {
+    display: flex;
+  }
+
+  /* Reduce filter grid to single column */
+  .filter-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ============================================
+   7. Footer Mobile Adaptations
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Stack footer columns */
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Reduce footer padding */
+  .footer-section {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-left: none !important;
+    border-top: 1px solid var(--chrome-border-muted);
+  }
+
+  /* Ensure social icons are touch-friendly */
+  .footer-social-icon {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ============================================
+   8. App Download CTA Components
+   ============================================ */
+
+/* MobileAppBanner - already uses Tailwind md:hidden */
+/* MobileAppModal - already uses Tailwind md:hidden */
+
+/* Feature limitation hint */
+@media (max-width: 768px) {
+  .feature-mobile-hint {
+    display: block;
+    text-align: center;
+    padding: 16px;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    color: white;
+    border-radius: 12px;
+    margin: 12px 0;
+  }
+
+  .feature-mobile-hint button {
+    margin-top: 12px;
+    background: white;
+    color: #3b82f6;
+    padding: 10px 24px;
+    border-radius: 9999px;
+    font-weight: 600;
+  }
+}
+
+/* ============================================
+   9. Page-Specific Mobile Adaptations
+   ============================================ */
+
+/* Dashboard metric cards */
+@media (max-width: 640px) {
+  .dashboard-metric-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Strategy page */
+@media (max-width: 768px) {
+  .strategy-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .strategy-sidebar-filters {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Market Prediction page */
+@media (max-width: 768px) {
+  .market-prediction-filters {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ============================================
+   10. Utility Classes for Mobile
+   ============================================ */
+
+/* Hide on mobile */
+.hide-on-mobile {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .hide-on-mobile {
+    display: block !important;
+  }
+}
+
+/* Show only on mobile */
+.show-on-mobile {
+  display: block !important;
+}
+
+@media (min-width: 768px) {
+  .show-on-mobile {
+    display: none !important;
+  }
+}
+
+/* Mobile-safe bottom padding (for bottom banner) */
+.mobile-safe-bottom {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Mobile touch feedback */
+@media (hover: none) {
+  .mobile-tap-feedback:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}

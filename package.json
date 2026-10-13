@@ -38,5 +38,8 @@
     "vite": "^8.3.0",
     "vitest": "^5.0.0",
     "vue-tsc": "^3.3.11"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-darwin-arm64": "^1.2.13"
   }
 }
