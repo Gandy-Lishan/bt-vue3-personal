@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { Menu, X } from '@lucide/vue'
 import ListPageHeader from './ListPageHeader.vue'
 import ListPagePanel from './ListPagePanel.vue'
 import type { IndicatorAd } from '@/entities/indicator/model/indicator.ads'
@@ -31,6 +32,8 @@ const emit = defineEmits<{
 }>()
 
 const layoutStyle = computed(() => ({ '--list-explorer-sidebar': props.sidebarWidth }))
+const isMobileSidebarOpen = ref(false)
+const isMobileFiltersOpen = ref(false)
 </script>
 
 <template>
@@ -45,12 +48,27 @@ const layoutStyle = computed(() => ({ '--list-explorer-sidebar': props.sidebarWi
         @update:view-mode="emit('update:viewMode', $event)"
       />
 
+      <!-- Mobile: Sidebar toggle button -->
+      <div v-if="$slots.sidebar" class="xl:hidden mb-3">
+        <button
+          @click="isMobileSidebarOpen = true"
+          class="flex w-full items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-left transition hover:border-[var(--app-primary)]"
+          type="button"
+        >
+          <Menu :size="20" class="text-[var(--app-text-secondary)]" />
+          <span class="flex-1 text-sm font-medium text-[var(--app-text)]">筛选分类</span>
+        </button>
+      </div>
+
       <div
         class="grid gap-4"
         :class="$slots.sidebar ? 'xl:grid-cols-[var(--list-explorer-sidebar)_minmax(0,1fr)]' : ''"
         :style="layoutStyle"
       >
-        <slot name="sidebar" />
+        <!-- Desktop Sidebar (xl and above) -->
+        <div class="hidden xl:block">
+          <slot name="sidebar" />
+        </div>
 
         <ListPagePanel :title="props.panelTitle" :description="props.panelDescription" :class="props.contentClass">
           <template v-if="$slots['title-actions']" #title-actions>
@@ -62,9 +80,34 @@ const layoutStyle = computed(() => ({ '--list-explorer-sidebar': props.sidebarWi
           <template v-if="$slots.tabs" #tabs>
             <slot name="tabs" />
           </template>
+
+          <!-- Filters with mobile toggle -->
           <template v-if="$slots.filters" #filters>
-            <slot name="filters" />
+            <!-- Desktop filters (xl and above) -->
+            <div class="hidden xl:block">
+              <slot name="filters" />
+            </div>
+
+            <!-- Mobile filters toggle -->
+            <div class="xl:hidden px-4 py-3">
+              <button
+                @click="isMobileFiltersOpen = !isMobileFiltersOpen"
+                class="flex w-full h-10 items-center justify-center gap-2 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-sm text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary)] hover:text-[var(--app-primary)]"
+                type="button"
+              >
+                <svg :class="{ 'rotate-180': isMobileFiltersOpen }" class="transition-transform" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                筛选和排序
+              </button>
+
+              <!-- Expanded filters -->
+              <div v-if="isMobileFiltersOpen" class="mt-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
+                <slot name="filters" />
+              </div>
+            </div>
           </template>
+
           <template v-if="$slots.notice" #notice>
             <slot name="notice" />
           </template>
@@ -77,6 +120,57 @@ const layoutStyle = computed(() => ({ '--list-explorer-sidebar': props.sidebarWi
         </ListPagePanel>
       </div>
     </main>
+
+    <!-- Mobile Sidebar Drawer -->
+    <Teleport v-if="$slots.sidebar" to="body">
+      <Transition
+        enter-active-class="transition duration-300"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="isMobileSidebarOpen" class="xl:hidden fixed inset-0 z-50">
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="isMobileSidebarOpen = false" />
+          <Transition
+            enter-active-class="transition duration-300 transform"
+            enter-from-class="-translate-x-full"
+            enter-to-class="translate-x-0"
+            leave-active-class="transition duration-200 transform"
+            leave-from-class="translate-x-0"
+            leave-to-class="-translate-x-full"
+          >
+            <div class="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--app-surface)] shadow-xl overflow-y-auto">
+              <div class="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-[var(--app-text)]">筛选分类</h2>
+                <button
+                  @click="isMobileSidebarOpen = false"
+                  class="p-2 rounded-md text-[var(--app-text)] hover:bg-[var(--app-surface-muted)]"
+                  aria-label="关闭筛选"
+                >
+                  <X :size="20" />
+                </button>
+              </div>
+              <div class="p-2">
+                <slot name="sidebar" />
+              </div>
+
+              <!-- App Download CTA -->
+              <div class="sticky bottom-0 border-t border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
+                  <p class="text-sm font-semibold">在 App 中体验完整功能</p>
+                  <p class="mt-1 text-xs opacity-90">实时信号 · 策略管理</p>
+                  <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
+                    立即下载
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
 
     <slot name="overlays" />
   </div>
