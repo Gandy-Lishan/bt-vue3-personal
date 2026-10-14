@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Download, RotateCcw, Search } from '@lucide/vue'
 import {
@@ -53,6 +53,24 @@ const STORAGE_KEY = 'strategy_page_state'
 
 const router = useRouter()
 const viewMode = ref<StrategyViewMode>('table')
+const isMobile = ref(false)
+let mobileQuery: MediaQueryList | null = null
+
+function updateMobileState() {
+  isMobile.value = mobileQuery?.matches ?? false
+}
+
+onMounted(() => {
+  mobileQuery = window.matchMedia('(max-width: 767px)')
+  updateMobileState()
+  mobileQuery.addEventListener('change', updateMobileState)
+  restoreState()
+  void loadStrategies()
+})
+
+onUnmounted(() => {
+  mobileQuery?.removeEventListener('change', updateMobileState)
+})
 const activeTab = ref<StrategyTab>('signals')
 const activeScope = ref<StrategyScopeKey>('all')
 const searchQuery = ref('')
@@ -349,9 +367,13 @@ watch(
   },
 )
 
-onMounted(() => {
-  restoreState()
-  void loadStrategies()
+// Auto-switch to cards view on mobile, restore saved viewMode on desktop
+watch(isMobile, (mobile) => {
+  if (mobile) {
+    viewMode.value = 'cards'
+  } else {
+    restoreState()
+  }
 })
 
 onBeforeUnmount(() => {
