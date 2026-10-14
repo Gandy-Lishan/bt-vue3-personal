@@ -69,18 +69,18 @@ const downloadApp = () => {
           leave-to-class="translate-y-full sm:translate-y-10 sm:scale-95 opacity-0"
         >
           <div class="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
-            <!-- 关闭按钮 -->
+            <!-- Close button -->
             <button
               @click="closeModal"
               class="absolute right-4 top-4 z-10 p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-              aria-label="关闭弹窗"
+              aria-label="Close modal"
             >
               <X :size="18" />
             </button>
 
-            <!-- 头部装饰 -->
+            <!-- Header decoration -->
             <div class="bg-gradient-to-br from-blue-600 to-purple-600 px-6 pt-8 pb-12 text-white relative overflow-hidden">
-              <!-- 装饰圆形 -->
+              <!-- Decorative circles -->
               <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
               <div class="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-white/10" />
 
@@ -89,15 +89,15 @@ const downloadApp = () => {
                   <Smartphone :size="40" />
                 </div>
                 <h2 class="text-2xl font-bold">
-                  下载 SentimenTrader App
+                  Download SentimenTrader App
                 </h2>
                 <p class="mt-2 text-sm opacity-90">
-                  在手机上获得更好的投资体验
+                  A better investing experience on your phone
                 </p>
               </div>
             </div>
 
-            <!-- 功能列表 -->
+            <!-- Feature list -->
             <div class="px-6 py-6 -mt-6 relative z-10">
               <div class="rounded-2xl bg-white dark:bg-gray-800 p-4 shadow-lg border border-gray-100 dark:border-gray-700">
                 <div class="space-y-4">
@@ -108,9 +108,9 @@ const downloadApp = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 class="font-semibold text-gray-900 dark:text-white">实时信号推送</h3>
+                      <h3 class="font-semibold text-gray-900 dark:text-white">Real-time Signal Push</h3>
                       <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        第一时间获取市场信号，不错过任何投资机会
+                        Get market signals instantly, never miss an opportunity
                       </p>
                     </div>
                   </div>
@@ -122,9 +122,9 @@ const downloadApp = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 class="font-semibold text-gray-900 dark:text-white">交互式图表分析</h3>
+                      <h3 class="font-semibold text-gray-900 dark:text-white">Interactive Chart Analysis</h3>
                       <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        触摸友好的图表设计，缩放、滑动查看历史数据
+                        Touch-friendly charts, zoom and swipe through historical data
                       </p>
                     </div>
                   </div>
@@ -137,9 +137,9 @@ const downloadApp = () => {
                       </svg>
                     </div>
                     <div>
-                      <h3 class="font-semibold text-gray-900 dark:text-white">策略管理</h3>
+                      <h3 class="font-semibold text-gray-900 dark:text-white">Strategy Management</h3>
                       <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        随时随地管理你的交易策略，查看回测结果
+                        Manage your trading strategies anywhere, view backtest results
                       </p>
                     </div>
                   </div>
@@ -147,19 +147,19 @@ const downloadApp = () => {
               </div>
             </div>
 
-            <!-- 下载按钮区域 -->
+            <!-- Download button area -->
             <div class="px-6 pb-6 space-y-3">
               <button
                 @click="downloadApp"
                 class="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:from-blue-700 hover:to-purple-700 active:scale-[0.98]"
               >
                 <Download :size="20" />
-                立即下载 App
+                Download App Now
               </button>
 
-              <!-- App Store 按钮 -->
+              <!-- App Store badge -->
               <div class="flex items-center justify-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <span>已在 App Store 和 Google Play 上架</span>
+                <span>Available on App Store and Google Play</span>
               </div>
             </div>
           </div>

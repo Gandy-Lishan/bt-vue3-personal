@@ -56,7 +56,7 @@ const isMobileFiltersOpen = ref(false)
           type="button"
         >
           <Menu :size="20" class="text-[var(--app-text-secondary)]" />
-          <span class="flex-1 text-sm font-medium text-[var(--app-text)]">筛选分类</span>
+          <span class="flex-1 text-sm font-medium text-[var(--app-text)]">Filters & Categories</span>
         </button>
       </div>
 
@@ -98,7 +98,7 @@ const isMobileFiltersOpen = ref(false)
                 <svg :class="{ 'rotate-180': isMobileFiltersOpen }" class="transition-transform" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
-                筛选和排序
+                Filters & Sort
               </button>
 
               <!-- Expanded filters -->
@@ -143,11 +143,11 @@ const isMobileFiltersOpen = ref(false)
           >
             <div class="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--app-surface)] shadow-xl overflow-y-auto">
               <div class="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 flex items-center justify-between">
-                <h2 class="text-base font-semibold text-[var(--app-text)]">筛选分类</h2>
+                <h2 class="text-base font-semibold text-[var(--app-text)]">Filters & Categories</h2>
                 <button
                   @click="isMobileSidebarOpen = false"
                   class="p-2 rounded-md text-[var(--app-text)] hover:bg-[var(--app-surface-muted)]"
-                  aria-label="关闭筛选"
+                  aria-label="Close filters"
                 >
                   <X :size="20" />
                 </button>
@@ -159,10 +159,10 @@ const isMobileFiltersOpen = ref(false)
               <!-- App Download CTA -->
               <div class="sticky bottom-0 border-t border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                 <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
-                  <p class="text-sm font-semibold">在 App 中体验完整功能</p>
-                  <p class="mt-1 text-xs opacity-90">实时信号 · 策略管理</p>
+                  <p class="text-sm font-semibold">Get the full experience in our app</p>
+                  <p class="mt-1 text-xs opacity-90">Real-time signals · Strategy management</p>
                   <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
-                    立即下载
+                    Download Now
                   </button>
                 </div>
               </div>

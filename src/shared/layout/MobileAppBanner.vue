@@ -74,10 +74,10 @@ const downloadApp = () => {
             <!-- 文字说明 -->
             <div class="min-w-0 flex-1">
               <h3 class="text-base font-semibold leading-tight">
-                在 App 中体验完整功能
+                Get the full experience in our app
               </h3>
               <p class="mt-1 text-sm opacity-90">
-                实时信号 · 策略管理 · 图表分析
+                Real-time signals · Strategy management · Charts
               </p>
             </div>
 
@@ -86,7 +86,7 @@ const downloadApp = () => {
               @click="downloadApp"
               class="shrink-0 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-blue-600 shadow-lg transition hover:bg-blue-50 active:scale-95"
             >
-              立即下载
+              Download Now
             </button>
           </div>
 
@@ -96,19 +96,19 @@ const downloadApp = () => {
               <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
               </svg>
-              实时推送
+              Push Notifications
             </span>
             <span class="flex items-center gap-1">
               <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
               </svg>
-              原生体验
+              Native Experience
             </span>
             <span class="flex items-center gap-1">
               <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
               </svg>
-              离线访问
+              Offline Access
             </span>
           </div>
         </div>

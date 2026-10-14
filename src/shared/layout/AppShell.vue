@@ -28,7 +28,8 @@ watch(
     <!-- Mobile Header -->
     <MobileHeader class="md:hidden" />
 
-    <div class="flex-1 mt-14 md:mt-0">
+    <!-- Content area with proper spacing for mobile header -->
+    <div class="flex-1 md:mt-0 mt-[66px]">
       <slot />
     </div>
     <SentimentFooter />

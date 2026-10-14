@@ -28,19 +28,19 @@ const toggleSearch = () => {
   isSearchOpen.value = !isSearchOpen.value
 }
 
-// 通知数量（可以从 store 获取）
+// Notification count (can be fetched from store)
 const notificationCount = 8
 </script>
 
 <template>
   <header class="md:hidden fixed top-0 left-0 right-0 z-40 border-b border-[var(--chrome-border)] bg-[var(--chrome-bg)] shadow-sm">
-    <div class="flex h-14 items-center justify-between px-4">
-      <!-- 左侧：Logo + 汉堡菜单 -->
+    <div class="flex h-[66px] items-center justify-between px-[var(--page-gutter)]">
+      <!-- Left: Logo + hamburger menu -->
       <div class="flex items-center gap-3">
         <button
           @click="toggleDrawer"
           class="p-2 rounded-md text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
-          aria-label="打开导航菜单"
+          aria-label="Open navigation menu"
         >
           <Menu v-if="!isDrawerOpen" :size="22" />
           <X v-else :size="22" />
@@ -51,22 +51,22 @@ const notificationCount = 8
         </RouterLink>
       </div>
 
-      <!-- 右侧：操作按钮 -->
+      <!-- Right: Action buttons -->
       <div class="flex items-center gap-1">
-        <!-- 搜索按钮 -->
+        <!-- Search button -->
         <button
           @click="toggleSearch"
           class="p-2 rounded-md text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
-          aria-label="搜索"
+          aria-label="Search"
         >
           <Search :size="20" />
         </button>
 
-        <!-- 通知 -->
+        <!-- Notifications -->
         <a
           href="/notifications"
           class="relative p-2 rounded-md text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
-          aria-label="通知"
+          aria-label="Notifications"
         >
           <Bell :size="20" />
           <span
@@ -77,7 +77,7 @@ const notificationCount = 8
           </span>
         </a>
 
-        <!-- 主题切换 -->
+        <!-- Theme toggle -->
         <button
           class="p-2 rounded-md text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
           type="button"
@@ -89,7 +89,7 @@ const notificationCount = 8
           <Moon v-else :size="18" />
         </button>
 
-        <!-- 返回经典站点 -->
+        <!-- Back to classic site -->
         <a
           href="https://users.sentimentrader.com/users/"
           class="p-2 rounded-md text-[var(--chrome-accent)] hover:bg-[var(--chrome-hover)] transition"
@@ -100,7 +100,7 @@ const notificationCount = 8
       </div>
     </div>
 
-    <!-- 搜索框展开 -->
+    <!-- Search box expand -->
     <Transition
       enter-active-class="transition duration-200"
       enter-from-class="opacity-0 -translate-y-2"
@@ -113,7 +113,7 @@ const notificationCount = 8
         <div class="relative">
           <input
             type="text"
-            placeholder="搜索指标、策略..."
+            placeholder="Search indicators, strategies..."
             class="w-full rounded-lg border border-[var(--chrome-field-border)] bg-[var(--chrome-input-bg)] px-4 py-2.5 text-sm text-[var(--chrome-text)] placeholder:text-[var(--chrome-text-muted)] focus:border-[var(--chrome-accent)] focus:outline-none"
           />
         </div>
@@ -121,7 +121,7 @@ const notificationCount = 8
     </Transition>
   </header>
 
-  <!-- 抽屉式导航 -->
+  <!-- Drawer navigation -->
   <Teleport to="body">
     <Transition
       enter-active-class="transition duration-300"
@@ -135,13 +135,13 @@ const notificationCount = 8
         v-if="isDrawerOpen"
         class="md:hidden fixed inset-0 z-50"
       >
-        <!-- 遮罩层 -->
+        <!-- Overlay -->
         <div
           class="absolute inset-0 bg-black/50 backdrop-blur-sm"
           @click="toggleDrawer"
         />
 
-        <!-- 抽屉内容 -->
+        <!-- Drawer content -->
         <Transition
           enter-active-class="transition duration-300 transform"
           enter-from-class="-translate-x-full"
@@ -151,26 +151,26 @@ const notificationCount = 8
           leave-to-class="-translate-x-full"
         >
           <div class="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-[var(--chrome-bg)] shadow-xl overflow-y-auto">
-            <!-- 抽屉头部 -->
+            <!-- Drawer header -->
             <div class="sticky top-0 z-10 border-b border-[var(--chrome-border)] bg-[var(--chrome-bg)] px-4 py-3 flex items-center justify-between">
               <img :src="logoUrl" alt="Logo" class="h-7 w-auto" />
               <button
                 @click="toggleDrawer"
                 class="p-2 rounded-md text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)]"
-                aria-label="关闭导航"
+                aria-label="Close navigation"
               >
                 <X :size="20" />
               </button>
             </div>
 
-            <!-- 导航列表 -->
+            <!-- Navigation list -->
             <nav class="py-2">
-              <!-- 这里将复用 SentimentHeader 的 navItems -->
+              <!-- Main features -->
               <div class="px-3 py-2 text-xs font-semibold text-[var(--chrome-text-muted)] uppercase tracking-wide">
-                主要功能
+                Main Features
               </div>
 
-              <!-- 示例导航项（后续会从 store 或 props 传入） -->
+              <!-- Sample nav items (will be populated from store or props later) -->
               <RouterLink
                 to="/"
                 class="flex items-center gap-3 px-4 py-3 text-sm text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
@@ -198,11 +198,11 @@ const notificationCount = 8
                 <span class="font-medium">Strategies</span>
               </RouterLink>
 
-              <!-- 分割线 -->
+              <!-- Divider -->
               <div class="my-2 border-t border-[var(--chrome-border)]" />
 
               <div class="px-3 py-2 text-xs font-semibold text-[var(--chrome-text-muted)] uppercase tracking-wide">
-                工具
+                Tools
               </div>
 
               <RouterLink
@@ -230,14 +230,14 @@ const notificationCount = 8
               </RouterLink>
             </nav>
 
-            <!-- 抽屉底部 -->
+            <!-- Drawer bottom -->
             <div class="sticky bottom-0 border-t border-[var(--chrome-border)] bg-[var(--chrome-bg)] p-4 space-y-3">
-              <!-- App 下载提示 -->
+              <!-- App download CTA -->
               <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
-                <p class="text-sm font-semibold">在 App 中体验完整功能</p>
-                <p class="mt-1 text-xs opacity-90">实时信号 · 策略管理 · 图表分析</p>
+                <p class="text-sm font-semibold">Get the full experience in our app</p>
+                <p class="mt-1 text-xs opacity-90">Real-time signals · Strategy management · Charts</p>
                 <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
-                  立即下载
+                  Download Now
                 </button>
               </div>
             </div>

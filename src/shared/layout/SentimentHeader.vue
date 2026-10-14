@@ -285,8 +285,8 @@ function firstPath(item: NavItem) {
       </div>
     </div>
 
-    <nav class="relative flex h-11 items-stretch overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
-      <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0">
+    <nav class="relative flex h-11 items-stretch overflow-x-auto border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)] scrollbar-hide">
+      <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex shrink-0">
         <component
           :is="item.external ? 'a' : 'RouterLink'"
           :href="item.external ? item.path : undefined"
