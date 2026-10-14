@@ -113,8 +113,11 @@ function renderChart() {
       // the card colour anyway.
       ...(props.transparentBackground ? { backgroundColor: 'transparent' } : {}),
       height: chartHeight.value,
+      // Equal gutters: the two y-axes already reserve the same width for their
+      // labels, so this keeps both axis titles the same distance from their
+      // axis and from the container edge.
       spacingLeft: 8,
-      spacingRight: 48,
+      spacingRight: 8,
       spacingBottom: 12,
     },
     title: {
@@ -176,10 +179,15 @@ function renderChart() {
         style: axisLabelStyle(theme),
       },
     },
+    // Both titles share an explicit `offset` so they sit the same distance from
+    // their axis. Left to itself Highcharts sizes each side from its own widest
+    // tick label, and the return axis labels ("-0.9%") are wider than the
+    // percentage axis ones ("100%"), which pushed the two titles apart.
     yAxis: [
       {
         title: {
           text: 'Average Return',
+          offset: 60,
           style: axisTitleStyle(theme),
         },
         labels: {
@@ -199,6 +207,7 @@ function renderChart() {
       {
         title: {
           text: '% of Time Positive',
+          offset: 60,
           style: axisTitleStyle(theme),
         },
         labels: {

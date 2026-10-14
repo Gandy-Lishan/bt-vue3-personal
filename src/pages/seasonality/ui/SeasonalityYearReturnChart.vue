@@ -84,8 +84,9 @@ function renderChart() {
       ...baseHighchartsChartOptions(theme),
       backgroundColor: 'transparent',
       height: props.height,
+      // Only a left axis, so the right side is just the container edge gap.
       spacingLeft: 8,
-      spacingRight: 24,
+      spacingRight: 8,
       spacingBottom: 12,
     },
     title: {

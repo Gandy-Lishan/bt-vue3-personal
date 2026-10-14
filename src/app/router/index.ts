@@ -143,6 +143,15 @@ const router = createRouter({
       component: () => import('@/pages/seasonality/SeasonalityPage.vue'),
     },
     {
+      path: '/cpm',
+      redirect: '/cpm/list',
+    },
+    {
+      path: '/cpm/:section?',
+      name: 'cpm',
+      component: () => import('@/pages/cpm/CPMPage.vue'),
+    },
+    {
       path: '/404',
       name: 'unauthorized',
       component: () => import('@/pages/system/UnauthorizedPage.vue'),

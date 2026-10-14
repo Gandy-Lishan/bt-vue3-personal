@@ -116,3 +116,54 @@ export function disabledSeriesStates(): Highcharts.SeriesStatesOptionsObject {
     },
   }
 }
+
+/**
+ * The overview strip under every stock chart. Shared so the navigator reads the
+ * same wherever it appears, and labelled by year only — at overview scale the
+ * month is noise, and the slider is too short to fit it.
+ */
+export function chartNavigatorOptions(
+  theme: IndicatorChartTheme,
+  data: Array<[number, number]>,
+): Highcharts.NavigatorOptions {
+  return {
+    enabled: true,
+    height: chartSize(40),
+    margin: chartSize(20),
+    maskFill: theme.navigatorMask,
+    outlineColor: theme.border,
+    series: {
+      data,
+      color: theme.primary,
+      lineColor: theme.primary,
+      lineWidth: 1,
+      opacity: 0.9,
+      type: 'line',
+    },
+    xAxis: {
+      gridLineColor: theme.grid,
+      labels: {
+        format: '{value:%Y}',
+        style: { color: theme.textSecondary, fontSize: chartFontSize(9) },
+      },
+    },
+    handles: {
+      backgroundColor: theme.scrollbarButton,
+      borderColor: theme.border,
+    },
+  }
+}
+
+export function chartScrollbarOptions(theme: IndicatorChartTheme): Highcharts.ScrollbarOptions {
+  return {
+    enabled: true,
+    height: chartSize(8),
+    barBackgroundColor: theme.scrollbarBar,
+    barBorderColor: theme.dark ? 'rgba(97, 180, 255, 0.28)' : 'rgba(143, 182, 242, 0.35)',
+    buttonBackgroundColor: theme.scrollbarButton,
+    buttonBorderColor: theme.dark ? 'rgba(97, 180, 255, 0.28)' : 'rgba(143, 182, 242, 0.45)',
+    rifleColor: theme.dark ? 'rgba(216, 232, 255, 0.48)' : 'rgba(23, 50, 103, 0.35)',
+    trackBackgroundColor: theme.navigatorTrack,
+    trackBorderColor: theme.border,
+  }
+}

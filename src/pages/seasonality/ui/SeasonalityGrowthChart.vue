@@ -5,6 +5,8 @@ import {
   axisLabelStyle,
   axisTitleStyle,
   baseHighchartsChartOptions,
+  chartNavigatorOptions,
+  chartScrollbarOptions,
   disabledSeriesStates,
   indicatorChartTheme,
 } from '@/pages/indicators/ui/indicatorHighcharts'
@@ -42,12 +44,20 @@ function renderChart() {
   const chartHeight = props.height ?? 430
 
   chart = Highcharts.stockChart(chartElement.value, {
+    // Points are built with Date.UTC and read back with getUTCFullYear, so the
+    // axis has to format in UTC too. Otherwise a Jan 1 tick lands on Dec 31 of
+    // the previous year west of UTC and the navigator's year label is off by one.
+    time: {
+      timezone: 'UTC',
+    },
     chart: {
       ...baseHighchartsChartOptions(theme),
       ...(props.transparentBackground ? { backgroundColor: 'transparent' } : {}),
       height: chartHeight,
+      // The right axis reserves its own room for the tick labels and title, so
+      // this only has to be the breathing space at the container edge.
       spacingLeft: 8,
-      spacingRight: 48,
+      spacingRight: 8,
     },
     title: {
       text: props.showChartTitle === false ? '' : title,
@@ -110,19 +120,11 @@ function renderChart() {
         color: theme.textMuted,
       },
     },
-    navigator: {
-      enabled: true,
-      maskFill: theme.navigatorMask,
-      outlineColor: theme.border,
-    },
-    scrollbar: {
-      enabled: true,
-      barBackgroundColor: theme.scrollbarBar,
-      buttonBackgroundColor: theme.scrollbarButton,
-      rifleColor: theme.textMuted,
-      trackBackgroundColor: theme.navigatorTrack,
-      trackBorderColor: theme.border,
-    },
+    navigator: chartNavigatorOptions(
+      theme,
+      props.points.map((point) => [point.timestamp, point.value] as [number, number]),
+    ),
+    scrollbar: chartScrollbarOptions(theme),
     xAxis: {
       type: 'datetime',
       lineColor: theme.border,
@@ -251,5 +253,40 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--app-text-muted);
   font-size: 0.875rem;
+}
+
+/* Navigator and scrollbar chrome. Highcharts draws these outside the option
+   surface, so the fills have to be pinned here to match the indicator charts. */
+:deep(.highcharts-navigator-xaxis text),
+:deep(.highcharts-scrollbar text) {
+  font-size: calc(9px * var(--chart-ui-scale, 1)) !important;
+  font-weight: 400 !important;
+}
+
+:deep(.highcharts-navigator-mask-inside) {
+  fill: rgba(22, 119, 255, 0.338);
+}
+
+:root[data-theme='dark'] :deep(.highcharts-navigator-mask-inside) {
+  fill: rgba(97, 180, 255, 0.12);
+}
+
+:deep(.highcharts-scrollbar-thumb) {
+  fill: rgba(22, 119, 255, 0.08);
+  stroke: rgba(143, 182, 242, 0.35);
+}
+
+:root[data-theme='dark'] :deep(.highcharts-scrollbar-thumb) {
+  fill: rgba(97, 180, 255, 0.14);
+  stroke: rgba(97, 180, 255, 0.28);
+}
+
+:deep(.highcharts-scrollbar-track) {
+  fill: rgba(255, 255, 255, 0.18);
+  stroke: var(--app-border);
+}
+
+:root[data-theme='dark'] :deep(.highcharts-scrollbar-track) {
+  fill: rgba(15, 27, 43, 0.38);
 }
 </style>

@@ -9,6 +9,7 @@ import {
   ChartColumn,
   CircleDollarSign,
   Clock3,
+  Download,
   Info,
   Percent,
   Table2,
@@ -18,9 +19,12 @@ import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
 import { extractSeasonalityRows, fetchSeasonalityPayload, seasonalityRecord } from '@/entities/seasonality/api/seasonality.api'
 import { buildDayMonthChartPoints } from '@/entities/seasonality/model/day-month'
+import { seasonalityCsvFilename, seasonalityCsvTable } from '@/entities/seasonality/model/table-csv'
+import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import ListPageHeader from '@/shared/ui/ListPageHeader.vue'
 import ListPagePanel from '@/shared/ui/ListPagePanel.vue'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
+import SeasonalityDataTable from './ui/SeasonalityDataTable.vue'
 import SeasonalityGrowthChart from './ui/SeasonalityGrowthChart.vue'
 import SeasonalityReturnChart from './ui/SeasonalityReturnChart.vue'
 import SeasonalityYearReturnChart from './ui/SeasonalityYearReturnChart.vue'
@@ -35,6 +39,13 @@ type OtherReturnColumnKey = 'label' | 'averageReturn' | 'percentPositive'
 type GrowthYearColumnKey = 'year' | 'startDate' | 'endDate' | 'windowReturn'
 type SortDirection = 'asc' | 'desc'
 type NoticeKind = 'info' | 'error'
+
+interface SeasonalityColumn<Key extends string> {
+  key: Key
+  label: string
+  align?: 'left' | 'right' | 'center'
+  minWidth?: number
+}
 
 interface MarketEntry {
   symbol: string
@@ -437,6 +448,28 @@ const growthStatusText = computed(
 const growthChartSubtitle = computed(
   () => `Cumulative value of an initial $1 invested only during ${growthWindowLabel.value} each year.`,
 )
+const otherCategoryPhrase = computed(() => {
+  if (activeOtherCategory.value === 'month') return 'month'
+  if (activeOtherCategory.value === 'dayOfMonth') return 'day of month'
+  if (activeOtherCategory.value === 'dayOfYear') return 'day of year'
+  return 'day of week'
+})
+const specificDaysStatusText = computed(
+  () =>
+    `Showing ${normalizedSymbol.value} performance around ${specificDayTitle.value} with a ${filters.shift}-day window, ${filters.startYear}-${filters.endYear}.`,
+)
+const otherChartsStatusText = computed(
+  () => `Showing ${normalizedSymbol.value} seasonality by ${otherCategoryPhrase.value}, ${filters.startYear}-${filters.endYear}.`,
+)
+// One status line for every view, rendered from the same slot so the spacing
+// below the filter bar stays identical across views.
+const activeStatusText = computed(() => {
+  if (activeView.value === 'dayOfMonth') return dayOfMonthStatusText.value
+  if (activeView.value === 'specificDays') return specificDaysStatusText.value
+  if (activeView.value === 'otherCharts') return otherChartsStatusText.value
+  if (activeView.value === 'growthDollar') return growthStatusText.value
+  return ''
+})
 
 const symbolSearchOptions = computed(() => {
   const defaults = ['SPX', 'NDX', 'AAPL', 'QQQ', 'MSFT']
@@ -484,18 +517,21 @@ const requestKey = computed(() =>
   }),
 )
 
-const tableColumns = computed<Array<{ key: TableColumnKey; label: string }>>(() => {
-  const dayColumn = activeOtherCategory.value === 'dayOfYear' ? [{ key: 'day' as const, label: 'Day' }] : [
-    { key: 'month' as const, label: 'Month' },
-    { key: 'day' as const, label: 'Day' },
-  ]
+const tableColumns = computed<Array<SeasonalityColumn<TableColumnKey>>>(() => {
+  const dayColumn: Array<SeasonalityColumn<TableColumnKey>> =
+    activeOtherCategory.value === 'dayOfYear'
+      ? [{ key: 'day', label: 'Day', minWidth: 90 }]
+      : [
+          { key: 'month', label: 'Month', minWidth: 96 },
+          { key: 'day', label: 'Day', minWidth: 86 },
+        ]
 
   return [
     ...dayColumn,
-    { key: 'averageReturn', label: 'AVG RET' },
-    { key: 'percentPositive', label: '% POS' },
-    { key: 'max', label: 'MAX' },
-    { key: 'min', label: 'MIN' },
+    { key: 'averageReturn', label: 'AVG RET', minWidth: 112 },
+    { key: 'percentPositive', label: '% POS', minWidth: 104 },
+    { key: 'max', label: 'MAX', minWidth: 98 },
+    { key: 'min', label: 'MIN', minWidth: 98 },
   ]
 })
 
@@ -510,11 +546,11 @@ const dayChartPoints = computed<ReturnPoint[]>(() => {
   return buildDayMonthChartPoints(dayResultRows.value, dayChartFallbackDomainSize.value)
 })
 
-const dayTableColumns = computed<Array<{ key: DayResultColumnKey; label: string }>>(() => {
+const dayTableColumns = computed<Array<SeasonalityColumn<DayResultColumnKey>>>(() => {
   return [
-    { key: 'day', label: 'Day' },
-    { key: 'averageReturn', label: 'Average return (%)' },
-    { key: 'percentPositive', label: 'Percent positive (%)' },
+    { key: 'day', label: 'Day', minWidth: 86 },
+    { key: 'averageReturn', label: 'Average return (%)', minWidth: 150 },
+    { key: 'percentPositive', label: 'Percent positive (%)', minWidth: 158 },
   ]
 })
 
@@ -525,23 +561,23 @@ const sortedDayResultRows = computed(() =>
   }),
 )
 
-const specificBreakdownColumns: Array<{ key: SpecificBreakdownColumnKey; label: string }> = [
-  { key: 'day', label: 'Day' },
-  { key: 'averageReturn', label: 'Average return (%)' },
-  { key: 'percentPositive', label: 'Percent positive (%)' },
+const specificBreakdownColumns: Array<SeasonalityColumn<SpecificBreakdownColumnKey>> = [
+  { key: 'day', label: 'Day', minWidth: 140 },
+  { key: 'averageReturn', label: 'Average return (%)', minWidth: 150 },
+  { key: 'percentPositive', label: 'Percent positive (%)', minWidth: 158 },
 ]
 
-const otherReturnColumns = computed<Array<{ key: OtherReturnColumnKey; label: string }>>(() => [
-  { key: 'label', label: otherReturnGroupLabel.value },
-  { key: 'averageReturn', label: 'Average return (%)' },
-  { key: 'percentPositive', label: 'Percent positive (%)' },
+const otherReturnColumns = computed<Array<SeasonalityColumn<OtherReturnColumnKey>>>(() => [
+  { key: 'label', label: otherReturnGroupLabel.value, minWidth: 120 },
+  { key: 'averageReturn', label: 'Average return (%)', minWidth: 150 },
+  { key: 'percentPositive', label: 'Percent positive (%)', minWidth: 158 },
 ])
 
-const growthYearColumns: Array<{ key: GrowthYearColumnKey; label: string }> = [
-  { key: 'year', label: 'Year' },
-  { key: 'startDate', label: 'Start Date' },
-  { key: 'endDate', label: 'End Date' },
-  { key: 'windowReturn', label: 'Window Return' },
+const growthYearColumns: Array<SeasonalityColumn<GrowthYearColumnKey>> = [
+  { key: 'year', label: 'Year', minWidth: 78 },
+  { key: 'startDate', label: 'Start Date', minWidth: 108 },
+  { key: 'endDate', label: 'End Date', minWidth: 108 },
+  { key: 'windowReturn', label: 'Window Return', minWidth: 128 },
 ]
 
 const specificBreakdownRows = computed<SpecificDayBreakdownRow[]>(() =>
@@ -1307,21 +1343,6 @@ function growthYearCellClass(row: GrowthYearRow, key: GrowthYearColumnKey) {
   return key === 'windowReturn' ? signedValueClass(row.windowReturn) : ''
 }
 
-function specificBreakdownAriaSort(key: SpecificBreakdownColumnKey) {
-  if (specificBreakdownSort.key !== key) return 'none'
-  return specificBreakdownSort.direction === 'asc' ? 'ascending' : 'descending'
-}
-
-function otherReturnAriaSort(key: OtherReturnColumnKey) {
-  if (otherReturnSort.key !== key) return 'none'
-  return otherReturnSort.direction === 'asc' ? 'ascending' : 'descending'
-}
-
-function growthYearAriaSort(key: GrowthYearColumnKey) {
-  if (growthYearSort.key !== key) return 'none'
-  return growthYearSort.direction === 'asc' ? 'ascending' : 'descending'
-}
-
 function dayCellText(row: DayResultRow, key: DayResultColumnKey) {
   if (key === 'day') return String(row.day)
   const value = row[key]
@@ -1330,13 +1351,7 @@ function dayCellText(row: DayResultRow, key: DayResultColumnKey) {
 
 function dayCellClass(row: DayResultRow, key: DayResultColumnKey) {
   if (key !== 'averageReturn') return ''
-  if (row.averageReturn === null) return 'day-month-results-table__missing'
-  return row.averageReturn < 0 ? 'day-month-results-table__negative' : 'day-month-results-table__positive'
-}
-
-function ariaSortFor(key: DayResultColumnKey) {
-  if (dayResultSort.key !== key) return 'none'
-  return dayResultSort.direction === 'asc' ? 'ascending' : 'descending'
+  return signedValueClass(row.averageReturn)
 }
 
 function tableSortValue(row: SeasonalityTableRow, key: TableColumnKey) {
@@ -1428,6 +1443,14 @@ function isNegativeCell(row: SeasonalityTableRow, key: TableColumnKey) {
   return typeof value === 'number' && value < 0
 }
 
+function otherTableCellClass(row: SeasonalityTableRow, key: TableColumnKey) {
+  return isNegativeCell(row, key) ? 'text-[var(--app-negative)]' : ''
+}
+
+function otherTableRowClass(row: SeasonalityTableRow) {
+  return isHighlightedRow(row) ? '!bg-[var(--app-primary-soft)]' : ''
+}
+
 function isHighlightedRow(row: SeasonalityTableRow) {
   if (activeOtherCategory.value === 'dayOfYear') return currentTradingIndex.value !== null && Number(row.day) === currentTradingIndex.value
   return newestDay.value !== null && newestMonth.value !== null && Number(row.day) === newestDay.value && Number(row.month) === newestMonth.value
@@ -1456,7 +1479,51 @@ function fixedPercent(value: number) {
 // "strongest" day of a month can still be negative.
 function signedValueClass(value: number | null) {
   if (value === null || value === 0) return ''
-  return value > 0 ? 'day-month-value--positive' : 'day-month-value--negative'
+  return value > 0 ? 'text-[var(--app-positive)]' : 'text-[var(--app-negative)]'
+}
+
+/**
+ * Every table exports what it renders: the same columns, the same cell text.
+ */
+function downloadTableCsv<Row, Key extends string>(
+  label: string,
+  columns: Array<SeasonalityColumn<Key>>,
+  rows: Row[],
+  cellText: (row: Row, key: Key) => string,
+) {
+  const { headers, rows: csvRows } = seasonalityCsvTable(columns, rows, cellText)
+  const isoDate = new Date().toISOString().slice(0, 10)
+  downloadCsv(seasonalityCsvFilename(label, isoDate), toCsv(headers, csvRows))
+}
+
+function downloadDayResultsCsv() {
+  downloadTableCsv(
+    `Daily Results ${filters.month} ${normalizedSymbol.value}`,
+    dayTableColumns.value,
+    sortedDayResultRows.value,
+    dayCellText,
+  )
+}
+
+function downloadSpecificBreakdownCsv() {
+  downloadTableCsv(specificBreakdownTitle.value, specificBreakdownColumns, sortedSpecificBreakdownRows.value, specificBreakdownCellText)
+}
+
+function downloadOtherReturnCsv() {
+  downloadTableCsv(otherReturnResultsTitle.value, otherReturnColumns.value, sortedOtherReturnRows.value, otherReturnCellText)
+}
+
+function downloadOtherTableCsv() {
+  downloadTableCsv(tableDescription.value.title, tableColumns.value, sortedTableRows.value, cellText)
+}
+
+function downloadGrowthYearCsv() {
+  downloadTableCsv(
+    `Year-by-Year Window Performance ${normalizedSymbol.value}`,
+    growthYearColumns,
+    sortedGrowthYearRows.value,
+    growthYearCellText,
+  )
 }
 </script>
 
@@ -1567,11 +1634,6 @@ function signedValueClass(value: number | null) {
                     <option v-for="month in monthOptions" :key="month.value" :value="month.label">{{ month.label }}</option>
                   </select>
                 </label>
-              </div>
-
-              <div class="day-month-status day-month-status--inset">
-                <Info :size="16" />
-                <span>{{ dayOfMonthStatusText }}</span>
               </div>
             </template>
 
@@ -1684,6 +1746,11 @@ function signedValueClass(value: number | null) {
                 </label>
               </template>
             </div>
+
+            <div class="day-month-status day-month-status--inset">
+              <Info :size="16" />
+              <span>{{ activeStatusText }}</span>
+            </div>
           </template>
 
           <template #notice>
@@ -1776,40 +1843,30 @@ function signedValueClass(value: number | null) {
                     <h3>Daily Results — {{ filters.month }} ({{ normalizedSymbol }})</h3>
                     <p>{{ dayResultsDescription }}</p>
                   </div>
+                  <button
+                    class="seasonality-csv-button"
+                    type="button"
+                    :disabled="loading || !sortedDayResultRows.length"
+                    title="Download this table as CSV"
+                    @click="downloadDayResultsCsv"
+                  >
+                    <Download :size="16" />
+                    CSV
+                  </button>
                 </header>
                 <div class="day-month-results__table-wrap">
-                  <table class="day-month-results-table">
-                    <thead>
-                      <tr>
-                        <th
-                          v-for="column in dayTableColumns"
-                          :key="column.key"
-                          scope="col"
-                          :aria-sort="ariaSortFor(column.key)"
-                        >
-                          <button type="button" @click="setDayResultSort(column.key)">
-                            {{ column.label }}
-                            <span v-if="dayResultSort.key === column.key">{{ dayResultSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                          </button>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-if="loading">
-                        <td :colspan="dayTableColumns.length" class="day-month-results__empty">Loading daily results...</td>
-                      </tr>
-                      <tr v-else-if="!sortedDayResultRows.length">
-                        <td :colspan="dayTableColumns.length" class="day-month-results__empty">No daily results</td>
-                      </tr>
-                      <template v-else>
-                        <tr v-for="row in sortedDayResultRows" :key="row.day">
-                          <td v-for="column in dayTableColumns" :key="column.key" :class="dayCellClass(row, column.key)">
-                            {{ dayCellText(row, column.key) }}
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
+                  <SeasonalityDataTable
+                    :columns="dayTableColumns"
+                    :rows="sortedDayResultRows"
+                    :loading="loading"
+                    empty-message="No daily results"
+                    :sort-key="dayResultSort.key"
+                    :sort-direction="dayResultSort.direction"
+                    :row-key="(row) => row.day"
+                    :cell-text="dayCellText"
+                    :cell-class="dayCellClass"
+                    @sort="setDayResultSort"
+                  />
                 </div>
               </section>
             </div>
@@ -1888,44 +1945,30 @@ function signedValueClass(value: number | null) {
                     <h3>{{ specificBreakdownTitle }}</h3>
                     <p>{{ specificBreakdownDescription }}</p>
                   </div>
+                  <button
+                    class="seasonality-csv-button"
+                    type="button"
+                    :disabled="loading || !sortedSpecificBreakdownRows.length"
+                    title="Download this table as CSV"
+                    @click="downloadSpecificBreakdownCsv"
+                  >
+                    <Download :size="16" />
+                    CSV
+                  </button>
                 </header>
                 <div class="specific-day-results__table-wrap">
-                  <table class="specific-day-results-table">
-                    <thead>
-                      <tr>
-                        <th
-                          v-for="column in specificBreakdownColumns"
-                          :key="column.key"
-                          scope="col"
-                          :aria-sort="specificBreakdownAriaSort(column.key)"
-                        >
-                          <button type="button" @click="setSpecificBreakdownSort(column.key)">
-                            {{ column.label }}
-                            <span v-if="specificBreakdownSort.key === column.key">{{ specificBreakdownSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                          </button>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-if="loading">
-                        <td :colspan="specificBreakdownColumns.length" class="specific-day-results__empty">Loading daily breakdown...</td>
-                      </tr>
-                      <tr v-else-if="!sortedSpecificBreakdownRows.length">
-                        <td :colspan="specificBreakdownColumns.length" class="specific-day-results__empty">No daily breakdown</td>
-                      </tr>
-                      <template v-else>
-                        <tr v-for="row in sortedSpecificBreakdownRows" :key="row.dayLabel">
-                          <td
-                            v-for="column in specificBreakdownColumns"
-                            :key="column.key"
-                            :class="specificBreakdownCellClass(row, column.key)"
-                          >
-                            {{ specificBreakdownCellText(row, column.key) }}
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
+                  <SeasonalityDataTable
+                    :columns="specificBreakdownColumns"
+                    :rows="sortedSpecificBreakdownRows"
+                    :loading="loading"
+                    empty-message="No daily breakdown"
+                    :sort-key="specificBreakdownSort.key"
+                    :sort-direction="specificBreakdownSort.direction"
+                    :row-key="(row) => row.dayLabel"
+                    :cell-text="specificBreakdownCellText"
+                    :cell-class="specificBreakdownCellClass"
+                    @sort="setSpecificBreakdownSort"
+                  />
                 </div>
               </section>
             </div>
@@ -2005,44 +2048,30 @@ function signedValueClass(value: number | null) {
                     <h3>{{ otherReturnResultsTitle }}</h3>
                     <p>{{ otherReturnResultsDescription }}</p>
                   </div>
+                  <button
+                    class="seasonality-csv-button"
+                    type="button"
+                    :disabled="loading || !sortedOtherReturnRows.length"
+                    title="Download this table as CSV"
+                    @click="downloadOtherReturnCsv"
+                  >
+                    <Download :size="16" />
+                    CSV
+                  </button>
                 </header>
                 <div class="day-month-results__table-wrap">
-                  <table class="day-month-results-table">
-                    <thead>
-                      <tr>
-                        <th
-                          v-for="column in otherReturnColumns"
-                          :key="column.key"
-                          scope="col"
-                          :aria-sort="otherReturnAriaSort(column.key)"
-                        >
-                          <button type="button" @click="setOtherReturnSort(column.key)">
-                            {{ column.label }}
-                            <span v-if="otherReturnSort.key === column.key">{{ otherReturnSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                          </button>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-if="loading">
-                        <td :colspan="otherReturnColumns.length" class="day-month-results__empty">Loading results...</td>
-                      </tr>
-                      <tr v-else-if="!sortedOtherReturnRows.length">
-                        <td :colspan="otherReturnColumns.length" class="day-month-results__empty">No results</td>
-                      </tr>
-                      <template v-else>
-                        <tr v-for="row in sortedOtherReturnRows" :key="row.label">
-                          <td
-                            v-for="column in otherReturnColumns"
-                            :key="column.key"
-                            :class="otherReturnCellClass(row, column.key)"
-                          >
-                            {{ otherReturnCellText(row, column.key) }}
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
+                  <SeasonalityDataTable
+                    :columns="otherReturnColumns"
+                    :rows="sortedOtherReturnRows"
+                    :loading="loading"
+                    empty-message="No results"
+                    :sort-key="otherReturnSort.key"
+                    :sort-direction="otherReturnSort.direction"
+                    :row-key="(row) => row.label"
+                    :cell-text="otherReturnCellText"
+                    :cell-class="otherReturnCellClass"
+                    @sort="setOtherReturnSort"
+                  />
                 </div>
               </section>
             </div>
@@ -2057,50 +2086,39 @@ function signedValueClass(value: number | null) {
                 </div>
               </section>
 
-              <div class="seasonality-table-wrap">
-                <table class="seasonality-table">
-                  <thead>
-                    <tr>
-                      <th v-for="column in tableColumns" :key="column.key">
-                        <button type="button" @click="setTableSort(column.key)">
-                          {{ column.label }}
-                          <span v-if="tableSort.key === column.key">{{ tableSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-if="loading">
-                      <td :colspan="tableColumns.length" class="seasonality-empty">Loading table...</td>
-                    </tr>
-                    <tr v-else-if="!sortedTableRows.length">
-                      <td :colspan="tableColumns.length" class="seasonality-empty">No table data</td>
-                    </tr>
-                    <tr
-                      v-for="row in sortedTableRows"
-                      v-else
-                      :key="`${row.month ?? ''}-${row.day ?? ''}`"
-                      :class="{ 'seasonality-table__row--highlighted': isHighlightedRow(row) }"
-                    >
-                      <td
-                        v-for="column in tableColumns"
-                        :key="column.key"
-                        :class="{ 'seasonality-table__cell--negative': isNegativeCell(row, column.key) }"
-                      >
-                        {{ cellText(row, column.key) }}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="seasonality-table-column">
+                <div class="seasonality-table-toolbar">
+                  <button
+                    class="seasonality-csv-button"
+                    type="button"
+                    :disabled="loading || !sortedTableRows.length"
+                    title="Download this table as CSV"
+                    @click="downloadOtherTableCsv"
+                  >
+                    <Download :size="16" />
+                    CSV
+                  </button>
+                </div>
+                <div class="seasonality-table-wrap">
+                  <SeasonalityDataTable
+                    :columns="tableColumns"
+                    :rows="sortedTableRows"
+                    :loading="loading"
+                    empty-message="No table data"
+                    :sort-key="tableSort.key"
+                    :sort-direction="tableSort.direction"
+                    :row-key="(row) => `${row.month ?? ''}-${row.day ?? ''}`"
+                    :cell-text="cellText"
+                    :cell-class="otherTableCellClass"
+                    :row-class="otherTableRowClass"
+                    :max-height="590"
+                    @sort="setTableSort"
+                  />
+                </div>
               </div>
             </div>
 
             <div v-else-if="activeView === 'growthDollar'" class="growth-dollar-workspace">
-              <div class="day-month-status">
-                <Info :size="16" />
-                <span>{{ growthStatusText }}</span>
-              </div>
-
               <div class="growth-dollar-main-grid">
                 <section class="day-month-chart-card">
                   <header class="day-month-card-header">
@@ -2190,6 +2208,16 @@ function signedValueClass(value: number | null) {
                     <h3>Year-by-Year Window Performance</h3>
                     <p>Annual return from holding only during trading days {{ filters.entryDay }}-{{ filters.exitDay }} each year.</p>
                   </div>
+                  <button
+                    class="seasonality-csv-button"
+                    type="button"
+                    :disabled="loading || !sortedGrowthYearRows.length"
+                    title="Download this table as CSV"
+                    @click="downloadGrowthYearCsv"
+                  >
+                    <Download :size="16" />
+                    CSV
+                  </button>
                 </header>
                 <div class="growth-year-results__body">
                   <div class="growth-year-results__chart">
@@ -2200,42 +2228,19 @@ function signedValueClass(value: number | null) {
                     />
                   </div>
                   <div class="growth-year-results__table-wrap">
-                    <table class="growth-year-results-table">
-                      <thead>
-                        <tr>
-                          <th
-                            v-for="column in growthYearColumns"
-                            :key="column.key"
-                            scope="col"
-                            :aria-sort="growthYearAriaSort(column.key)"
-                          >
-                            <button type="button" @click="setGrowthYearSort(column.key)">
-                              {{ column.label }}
-                              <span v-if="growthYearSort.key === column.key">{{ growthYearSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                            </button>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-if="loading">
-                          <td :colspan="growthYearColumns.length" class="growth-year-results__empty">Loading yearly results...</td>
-                        </tr>
-                        <tr v-else-if="!sortedGrowthYearRows.length">
-                          <td :colspan="growthYearColumns.length" class="growth-year-results__empty">No yearly results</td>
-                        </tr>
-                        <template v-else>
-                          <tr v-for="row in sortedGrowthYearRows" :key="row.year">
-                            <td
-                              v-for="column in growthYearColumns"
-                              :key="column.key"
-                              :class="growthYearCellClass(row, column.key)"
-                            >
-                              {{ growthYearCellText(row, column.key) }}
-                            </td>
-                          </tr>
-                        </template>
-                      </tbody>
-                    </table>
+                    <SeasonalityDataTable
+                      :columns="growthYearColumns"
+                      :rows="sortedGrowthYearRows"
+                      :loading="loading"
+                      empty-message="No yearly results"
+                      :sort-key="growthYearSort.key"
+                      :sort-direction="growthYearSort.direction"
+                      :row-key="(row) => row.year"
+                      :cell-text="growthYearCellText"
+                      :cell-class="growthYearCellClass"
+                      :max-height="268"
+                      @sort="setGrowthYearSort"
+                    />
                   </div>
                 </div>
               </section>
@@ -2607,7 +2612,9 @@ function signedValueClass(value: number | null) {
   overflow: hidden;
 }
 
-.day-month-results__header {
+.day-month-results__header,
+.specific-day-results__header,
+.growth-year-results__header {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -2616,96 +2623,48 @@ function signedValueClass(value: number | null) {
   padding: 17px 18px 12px;
 }
 
-.day-month-results__header p {
+.day-month-results__header p,
+.specific-day-results__header p,
+.growth-year-results__header p {
   margin: 4px 0 0;
   color: var(--app-text-secondary);
   font-size: 0.76rem;
   font-weight: 500;
 }
 
+.seasonality-csv-button {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-surface);
+  padding: 0 12px;
+  color: var(--app-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.seasonality-csv-button:hover:not(:disabled) {
+  border-color: var(--app-primary-hover);
+  color: var(--app-primary);
+}
+
+.seasonality-csv-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .day-month-results__table-wrap {
   overflow-x: auto;
   padding: 0 18px 14px;
-}
-
-.day-month-results-table {
-  width: 100%;
-  min-width: 620px;
-  border-collapse: collapse;
-  background: var(--app-surface);
-  color: var(--app-text);
-  font-size: 0.78rem;
-  text-align: left;
-}
-
-.day-month-results-table th,
-.day-month-results-table td {
-  border-bottom: 0;
-  padding: 7px 14px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.day-month-results-table th:first-child,
-.day-month-results-table td:first-child {
-  width: 86px;
-  text-align: left;
-  padding-left: 18px;
-}
-
-.day-month-results-table th {
-  background: var(--app-surface);
-  color: var(--app-text-secondary);
-  font-size: 0.76rem;
-  font-weight: 650;
-  text-transform: none;
-}
-
-.day-month-results-table th button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: inherit;
-  font-weight: 650;
-}
-
-.day-month-results-table tbody tr {
-  transition: background-color 160ms ease;
-}
-
-.day-month-results-table tbody tr:nth-child(odd) {
-  background: var(--app-surface);
-}
-
-.day-month-results-table tbody tr:nth-child(even) {
-  background: var(--app-row-even);
-}
-
-.day-month-results-table tbody tr:hover {
-  background: var(--app-surface-hover);
-}
-
-.day-month-results-table td {
-  color: var(--app-text-secondary);
-  font-weight: 650;
-}
-
-.day-month-results-table__negative {
-  color: var(--app-negative) !important;
-}
-
-.day-month-results-table__positive {
-  color: var(--app-positive) !important;
-}
-
-.day-month-results-table__missing {
-  color: var(--app-text-muted) !important;
-  font-weight: 600;
-}
-
-.day-month-results__empty {
-  height: 160px;
-  color: var(--app-text-muted) !important;
 }
 
 .specific-day-workspace {
@@ -2855,79 +2814,9 @@ function signedValueClass(value: number | null) {
   overflow: hidden;
 }
 
-.specific-day-results__header {
-  padding: 17px 18px 12px;
-}
-
-.specific-day-results__header p {
-  margin: 4px 0 0;
-  color: var(--app-text-secondary);
-  font-size: 0.76rem;
-  font-weight: 500;
-}
-
 .specific-day-results__table-wrap {
   overflow-x: auto;
   padding: 0 18px 14px;
-}
-
-.specific-day-results-table {
-  width: 100%;
-  min-width: 620px;
-  border-collapse: collapse;
-  background: var(--app-surface);
-  color: var(--app-text);
-  font-size: 0.78rem;
-  text-align: left;
-}
-
-.specific-day-results-table th,
-.specific-day-results-table td {
-  border-bottom: 0;
-  padding: 7px 14px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.specific-day-results-table th:first-child,
-.specific-day-results-table td:first-child {
-  width: 150px;
-  text-align: left;
-  padding-left: 18px;
-}
-
-.specific-day-results-table th {
-  background: var(--app-surface);
-  color: var(--app-text-secondary);
-  font-size: 0.76rem;
-  font-weight: 650;
-}
-
-.specific-day-results-table th button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: inherit;
-  font-weight: 650;
-}
-
-.specific-day-results-table tbody tr:nth-child(even) {
-  background: var(--app-row-even);
-}
-
-.specific-day-results-table tbody tr:hover {
-  background: var(--app-surface-hover);
-}
-
-.specific-day-results-table td {
-  color: var(--app-text-secondary);
-  font-weight: 650;
-}
-
-.specific-day-results__empty {
-  height: 150px;
-  color: var(--app-text-muted) !important;
-  text-align: center !important;
 }
 
 .growth-dollar-workspace {
@@ -3067,19 +2956,12 @@ function signedValueClass(value: number | null) {
 }
 
 .growth-year-results__header {
-  padding: 17px 18px 12px;
-}
-
-.growth-year-results__header p {
-  margin: 4px 0 0;
-  color: var(--app-text-secondary);
-  font-size: 0.76rem;
-  font-weight: 500;
+  align-items: flex-start;
 }
 
 .growth-year-results__body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.58fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
   gap: 16px;
   padding: 0 18px 14px;
 }
@@ -3090,68 +2972,7 @@ function signedValueClass(value: number | null) {
 }
 
 .growth-year-results__table-wrap {
-  max-height: 268px;
-  overflow: auto;
-}
-
-.growth-year-results-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--app-surface);
-  color: var(--app-text);
-  font-size: 0.78rem;
-  text-align: left;
-}
-
-.growth-year-results-table th,
-.growth-year-results-table td {
-  border-bottom: 0;
-  padding: 7px 8px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.growth-year-results-table th:first-child,
-.growth-year-results-table td:first-child {
-  width: 54px;
-  text-align: left;
-}
-
-.growth-year-results-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--app-surface);
-  color: var(--app-text-secondary);
-  font-size: 0.76rem;
-  font-weight: 650;
-}
-
-.growth-year-results-table th button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: inherit;
-  font-weight: 650;
-}
-
-.growth-year-results-table tbody tr:nth-child(even) {
-  background: var(--app-row-even);
-}
-
-.growth-year-results-table tbody tr:hover {
-  background: var(--app-surface-hover);
-}
-
-.growth-year-results-table td {
-  color: var(--app-text-secondary);
-  font-weight: 650;
-}
-
-.growth-year-results__empty {
-  height: 150px;
-  color: var(--app-text-muted) !important;
-  text-align: center !important;
+  overflow: hidden;
 }
 
 .seasonality-filters {
@@ -3248,88 +3069,14 @@ function signedValueClass(value: number | null) {
   margin-bottom: 0;
 }
 
+.seasonality-table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
 .seasonality-table-wrap {
-  max-height: 590px;
   min-width: 0;
-  overflow: auto;
-  border: 1px solid var(--app-border-muted);
-  border-radius: 6px;
-  background: var(--app-surface);
-}
-
-.seasonality-table {
-  width: 100%;
-  min-width: 620px;
-  border-collapse: collapse;
-  background: var(--app-surface);
-  font-size: 0.8125rem;
-  text-align: left;
-}
-
-.seasonality-table th,
-.seasonality-table td {
-  border-bottom: 1px solid var(--app-border-muted);
-  padding: 9px 10px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.seasonality-table th:first-child,
-.seasonality-table td:first-child {
-  text-align: left;
-}
-
-.seasonality-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--app-surface-muted);
-  color: var(--app-text-muted);
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.seasonality-table th button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: inherit;
-  font-weight: 700;
-}
-
-.seasonality-table td {
-  color: var(--app-text-secondary);
-  font-weight: 650;
-}
-
-.seasonality-table tbody tr {
-  transition: background-color 160ms ease;
-}
-
-.seasonality-table tbody tr:nth-child(odd) {
-  background: var(--app-surface);
-}
-
-.seasonality-table tbody tr:nth-child(even) {
-  background: var(--app-row-even);
-}
-
-.seasonality-table tbody tr:hover {
-  background: var(--app-surface-hover);
-}
-
-.seasonality-table__cell--negative {
-  color: var(--app-negative) !important;
-}
-
-.seasonality-table__row--highlighted td {
-  background: var(--app-primary-soft);
-}
-
-.seasonality-empty {
-  height: 240px;
-  color: var(--app-text-muted) !important;
 }
 
 @media (max-width: 1279px) {
