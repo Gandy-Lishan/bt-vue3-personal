@@ -44,14 +44,14 @@ function accuracyRingStyle(row: MarketPredictionRow) {
     No market predictions found
   </div>
 
-  <div v-else class="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+  <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3">
     <article
       v-for="row in rows"
       :key="row.id"
-      class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
+      class="min-w-0 overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
     >
       <div class="flex items-start justify-between gap-3">
-        <button class="text-left text-2xl font-extrabold leading-7 text-[var(--app-text)] transition hover:text-[var(--app-primary)] hover:underline" type="button" @click="$emit('open', row)">
+        <button class="min-w-0 truncate text-left text-2xl font-extrabold leading-7 text-[var(--app-text)] transition hover:text-[var(--app-primary)] hover:underline" type="button" @click="$emit('open', row)">
           {{ row.ticker }}
         </button>
         <MarketPredictionRatingBadge :rating="row.rating" :category="row.ratingCategory" />

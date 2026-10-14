@@ -122,11 +122,11 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
     No data
   </div>
 
-  <div v-else class="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+  <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3">
     <article
       v-for="indicator in indicators"
       :key="indicator.id"
-      class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
+      class="min-w-0 overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
     >
       <div class="flex items-start gap-2.5">
         <button

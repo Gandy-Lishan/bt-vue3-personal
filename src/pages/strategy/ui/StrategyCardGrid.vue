@@ -44,15 +44,15 @@ function percentClass(value: number | null) {
     No strategies found
   </div>
 
-  <div v-else-if="props.tab === 'signals'" class="grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+  <div v-else-if="props.tab === 'signals'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-4">
     <article
       v-for="row in props.signals"
       :key="row.id"
-      class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
+      class="min-w-0 overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
       :class="{ 'border-amber-200 bg-amber-50/70': row.currentDay }"
     >
       <div class="flex items-start justify-between gap-3">
-        <button class="min-w-0 text-left text-base font-extrabold leading-6 text-[var(--app-primary)] hover:underline" type="button" @click="$emit('open', row)">
+        <button class="min-w-0 truncate text-left text-base font-extrabold leading-6 text-[var(--app-primary)] hover:underline" type="button" @click="$emit('open', row)">
           {{ row.modelName }}
         </button>
         <button
@@ -102,13 +102,13 @@ function percentClass(value: number | null) {
     </article>
   </div>
 
-  <div v-else class="grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+  <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-4">
     <article
       v-for="row in props.summaries"
       :key="row.id"
-      class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
+      class="min-w-0 overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
     >
-      <button class="text-left text-base font-extrabold leading-6 text-[var(--app-primary)] hover:underline" type="button" @click="$emit('open', row)">
+      <button class="min-w-0 truncate text-left text-base font-extrabold leading-6 text-[var(--app-primary)] hover:underline" type="button" @click="$emit('open', row)">
         {{ row.modelName }}
       </button>
 
