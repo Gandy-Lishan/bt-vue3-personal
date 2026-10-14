@@ -47,6 +47,7 @@ type StrategyColumn<T extends StrategySortKey = StrategySortKey> = {
   align?: 'left' | 'right' | 'center'
   sortable?: boolean
   tooltip?: string
+  mobileHidden?: boolean
 }
 
 type StrategySignalTableColumn = Omit<StrategyColumn<StrategySignalSortKey>, 'key'> & {
@@ -54,15 +55,15 @@ type StrategySignalTableColumn = Omit<StrategyColumn<StrategySignalSortKey>, 'ke
 }
 
 const signalColumns: StrategySignalTableColumn[] = [
-  { key: 'favorite', label: '', minWidth: 44, width: 5, align: 'center' },
-  { key: 'modelName', label: 'Model Name', minWidth: 190, width: 20, sortable: true },
-  { key: 'timeFrame', label: 'Time Frame', minWidth: 88, width: 9, sortable: true },
-  { key: 'currentSignal', label: 'Current Signal', minWidth: 180, width: 21, sortable: true, tooltip: 'Current Signal: (e.g., Long, Sell, etc)' },
-  { key: 'lastSignalDate', label: 'Last Signal Date', minWidth: 108, width: 12, sortable: true, tooltip: 'Last change in Signal' },
-  { key: 'frequency', label: 'Frequency', minWidth: 82, width: 9, sortable: true, tooltip: 'Model Update Frequency' },
-  { key: 'ytdReturn', label: 'YTD Return (%)', minWidth: 108, width: 10, align: 'right', sortable: true, tooltip: `YTD until ${props.ytdLabel} Return(%)` },
-  { key: 'cagr', label: 'CAGR (%)', minWidth: 94, width: 8, align: 'right', sortable: true, tooltip: 'Compound Annual Growth Return (%) Since 07/01/06' },
-  { key: 'backtest', label: 'Actions', minWidth: 54, width: 6, align: 'center' },
+  { key: 'favorite', label: '', minWidth: 44, width: 5, align: 'center', mobileHidden: false },
+  { key: 'modelName', label: 'Model Name', minWidth: 190, width: 20, sortable: true, mobileHidden: false },
+  { key: 'timeFrame', label: 'Time Frame', minWidth: 88, width: 9, sortable: true, mobileHidden: true },
+  { key: 'currentSignal', label: 'Current Signal', minWidth: 180, width: 21, sortable: true, tooltip: 'Current Signal:  (e.g., Long, Sell, etc)', mobileHidden: false },
+  { key: 'lastSignalDate', label: 'Last Signal Date', minWidth: 108, width: 12, sortable: true, tooltip: 'last change in Signal', mobileHidden: true },
+  { key: 'frequency', label: 'Frequency', minWidth: 82, width: 9, sortable: true, tooltip: 'Model Update  Frequency', mobileHidden: true },
+  { key: 'ytdReturn', label: 'YTD Return (%)', minWidth: 108, width: 10, align: 'right', sortable: true, tooltip: 'YTD until  08/31/26  Return(%)', mobileHidden: false },
+  { key: 'cagr', label: 'CAGR (%)', minWidth: 94, width: 8, align: 'right', sortable: true, tooltip: 'Compound Annual Growth Return (%)    Since 07/01/06', mobileHidden: false },
+  { key: 'backtest', label: 'Actions', minWidth: 54, width: 6, align: 'center', mobileHidden: false },
 ]
 
 const summaryColumns: Array<StrategyColumn<StrategySummarySortKey>> = [
@@ -80,6 +81,7 @@ const summaryColumns: Array<StrategyColumn<StrategySummarySortKey>> = [
 ]
 
 const visibleRows = computed(() => (props.tab === 'signals' ? props.signals : props.summaries))
+const tableColspan = computed(() => (props.tab === 'signals' ? signalColumns.length : summaryColumns.length))
 
 function alignClass(column: { align?: 'left' | 'right' | 'center' }) {
   if (column.align === 'right') return 'text-right'
@@ -106,249 +108,180 @@ function percentClass(value: number | null) {
   if (value === null) return ''
   return value < 0 ? 'text-[var(--app-negative)]' : 'text-[var(--app-positive)]'
 }
-
-// Mobile card field config for signals tab
-const signalCardFields = computed(() => [
-  { key: 'modelName' as const, label: 'Model' },
-  { key: 'currentSignal' as const, label: 'Signal' },
-  { key: 'timeFrame' as const, label: 'Time Frame' },
-  { key: 'lastSignalDate' as const, label: 'Last Signal' },
-  { key: 'frequency' as const, label: 'Frequency' },
-  { key: 'ytdReturn' as const, label: 'YTD Return', isPercent: true },
-  { key: 'cagr' as const, label: 'CAGR', isPercent: true },
-])
-
-function getCardFieldValue(row: StrategySignalRow, key: string) {
-  return (row as unknown as Record<string, unknown>)[key]
-}
 </script>
 
 <template>
   <div class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
-    <!-- Loading / Empty state (shared) -->
-    <div v-if="props.loading || !visibleRows.length" class="px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
-      {{ props.loading ? 'Loading strategies...' : 'No strategies found' }}
-    </div>
-
-    <template v-else>
-      <!-- ===== SIGNALS TAB ===== -->
-      <template v-if="props.tab === 'signals'">
-        <!-- Desktop: table (md and above) -->
-        <div class="hidden md:block overflow-x-auto">
-          <table class="border-collapse w-full table-fixed text-left text-[0.8125rem] text-[var(--app-text)]">
-            <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
-              <tr class="border-b border-[var(--app-border)]">
-                <th
-                  v-for="column in signalColumns"
-                  :key="column.key"
-                  scope="col"
-                  class="box-border px-2 py-2.5"
-                  :class="alignClass(column)"
-                  :style="{ width: column.width ? `${column.width}%` : undefined }"
-                  :aria-sort="column.sortable && isSorted(column.key) ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
-                >
-                  <div class="flex w-full items-center gap-1" :class="headerContentClass(column)">
-                    <button
-                      v-if="column.sortable"
-                      class="inline-flex min-w-0 items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
-                      :class="isSorted(column.key) ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]'"
-                      type="button"
-                      @click="$emit('sort', column.key as StrategySortKey)"
-                    >
-                      <span class="min-w-0">{{ column.label }}</span>
-                      <span v-if="column.tooltip" class="strategy-help" @click.stop>
-                        <CircleHelp :size="11" aria-hidden="true" />
-                        <span class="strategy-help__hint" role="tooltip">{{ column.tooltip }}</span>
-                      </span>
-                      <component :is="sortIcon(column.key)" :size="13" aria-hidden="true" />
-                    </button>
-                    <span v-else>{{ column.label }}</span>
-                  </div>
-                  <span v-if="column.key === 'ytdReturn'" class="mt-0.5 block text-[0.64rem] font-medium text-[var(--app-text-muted)]">
-                    as of {{ props.ytdLabel }}
-                  </span>
-                  <span v-if="column.key === 'cagr'" class="mt-0.5 block text-[0.64rem] font-medium text-[var(--app-text-muted)]">
-                    since Jul 1, 2006
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="row in props.signals"
-                :key="row.id"
-                class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
-                :class="{ 'bg-amber-50/80': row.currentDay }"
+    <div class="overflow-x-auto">
+      <table
+        class="border-collapse text-left text-[0.8125rem] text-[var(--app-text)]"
+        :class="props.tab === 'signals' ? 'w-full table-fixed' : 'min-w-full'"
+      >
+        <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
+          <template v-if="props.tab === 'signals'">
+            <tr class="border-b border-[var(--app-border)]">
+              <th
+                v-for="column in signalColumns"
+                :key="column.key"
+                scope="col"
+                class="box-border px-2 py-2.5"
+                :class="[alignClass(column), column.mobileHidden ? 'hidden md:table-cell' : '']"
+                :style="{ width: column.width ? `${column.width}%` : undefined }"
+                :aria-sort="column.sortable && isSorted(column.key) ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
               >
-                <td class="box-border px-2 py-2.5 text-center">
+                <div class="flex w-full items-center gap-1" :class="headerContentClass(column)">
                   <button
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-md transition"
-                    :class="row.favorite ? 'text-amber-500' : 'text-[var(--app-text-muted)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]'"
+                  v-if="column.sortable"
+                    class="inline-flex min-w-0 items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
+                    :class="isSorted(column.key) ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]'"
                     type="button"
-                    :aria-label="row.favorite ? 'Remove favorite strategy' : 'Add favorite strategy'"
-                    @click="$emit('favorite', row)"
+                    @click="$emit('sort', column.key as StrategySortKey)"
                   >
-                    <Star :size="18" :fill="row.favorite ? 'currentColor' : 'none'" />
-                  </button>
-                </td>
-                <td class="box-border px-2 py-2.5">
-                  <button class="min-w-0 break-words text-left font-extrabold leading-snug text-[var(--app-primary)] transition hover:underline" type="button" @click="$emit('open', row)">
-                    {{ row.modelName }}
-                  </button>
-                </td>
-                <td class="box-border px-2 py-2.5 font-semibold">{{ row.timeFrame }}</td>
-                <td class="box-border break-words px-2 py-2.5 font-semibold leading-snug">{{ row.currentSignal }}</td>
-                <td class="box-border px-2 py-2.5 font-semibold">{{ row.lastSignalDate }}</td>
-                <td class="box-border px-2 py-2.5 font-semibold">{{ row.frequency }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.ytdReturn)">
-                  {{ formatStrategyPercent(row.ytdReturn) }}
-                </td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.cagr)">
-                  {{ formatStrategyPercent(row.cagr) }}
-                </td>
-                <td class="box-border px-2 py-2.5 text-center">
-                  <button
-                    class="strategy-action inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-primary)] transition hover:text-[var(--app-primary-hover)]"
-                    type="button"
-                    aria-label="Backtest this strategy"
-                    @click="$emit('open', row)"
-                  >
-                    <MoveRight :size="24" :stroke-width="2" class="preview-icon" />
-                    <span class="strategy-help__hint strategy-help__hint--action" role="tooltip">Backtest This Strategy</span>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Mobile: card list (below md) -->
-        <div class="md:hidden divide-y divide-[var(--app-border-muted)]">
-          <div
-            v-for="row in props.signals"
-            :key="row.id"
-            class="px-4 py-3 odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)]"
-            :class="{ 'bg-amber-50/80': row.currentDay }"
-          >
-            <!-- Card header: favorite star + model name + action arrow -->
-            <div class="flex items-start gap-2">
-              <button
-                class="mt-0.5 shrink-0 p-1 transition"
-                :class="row.favorite ? 'text-amber-500' : 'text-[var(--app-text-muted)]'"
-                type="button"
-                :aria-label="row.favorite ? 'Remove favorite' : 'Add favorite'"
-                @click="$emit('favorite', row)"
-              >
-                <Star :size="18" :fill="row.favorite ? 'currentColor' : 'none'" />
-              </button>
-              <div class="min-w-0 flex-1">
-                <button class="block w-full text-left font-extrabold leading-snug text-[var(--app-primary)] transition hover:underline" type="button" @click="$emit('open', row)">
-                  {{ row.modelName }}
-                </button>
-              </div>
-              <button
-                class="shrink-0 p-1 text-[var(--app-primary)]"
-                type="button"
-                aria-label="Backtest this strategy"
-                @click="$emit('open', row)"
-              >
-                <MoveRight :size="20" :stroke-width="2" />
-              </button>
-            </div>
-
-            <!-- Card fields grid -->
-            <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-              <div v-for="field in signalCardFields" :key="field.key" class="flex items-baseline gap-1.5">
-                <span class="shrink-0 text-[0.6875rem] text-[var(--app-text-muted)]">{{ field.label }}</span>
-                <span
-                  class="min-w-0 truncate font-semibold"
-                  :class="[
-                    field.isPercent ? percentClass(getCardFieldValue(row, field.key) as number | null) : '',
-                  ]"
-                >
-                  <template v-if="field.isPercent">
-                    {{ formatStrategyPercent(getCardFieldValue(row, field.key) as number | null) }}
-                  </template>
-                  <template v-else>
-                    {{ getCardFieldValue(row, field.key) }}
-                  </template>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <!-- ===== SUMMARY TAB (desktop only, too wide for mobile cards) ===== -->
-      <template v-else>
-        <div class="overflow-x-auto">
-          <table class="border-collapse min-w-full text-left text-[0.8125rem] text-[var(--app-text)]">
-            <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
-              <tr class="border-b border-[var(--app-border)]">
-                <th class="box-border px-2 py-2.5" rowspan="2" :style="{ minWidth: 'calc(240px * var(--fixed-ui-scale, 1))' }">
-                  <button
-                    class="inline-flex w-full items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
-                    :class="isSorted('modelName') ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]'"
-                    type="button"
-                    @click="$emit('sort', 'modelName')"
-                  >
-                    <span>Model Name</span>
-                    <component :is="sortIcon('modelName')" :size="13" aria-hidden="true" />
-                  </button>
-                </th>
-                <th class="box-border border-l border-[var(--app-border)] px-2 py-2 text-center" colspan="2">Returns</th>
-                <th class="box-border border-l border-[var(--app-border)] px-2 py-2 text-center" colspan="4">Risk</th>
-                <th class="box-border border-l border-[var(--app-border)] px-2 py-2 text-center" colspan="4">Trade Statistics</th>
-              </tr>
-              <tr class="border-b border-[var(--app-border)]">
-                <th
-                  v-for="column in summaryColumns.slice(1)"
-                  :key="column.key"
-                  scope="col"
-                  class="box-border px-2 py-2.5"
-                  :class="alignClass(column)"
-                  :style="{ minWidth: `calc(${column.minWidth}px * var(--fixed-ui-scale, 1))` }"
-                  :aria-sort="isSorted(column.key) ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
-                >
-                  <button
-                    class="inline-flex w-full items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
-                    :class="[isSorted(column.key) ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]', column.align === 'right' ? 'justify-end' : 'justify-start']"
-                    type="button"
-                    @click="$emit('sort', column.key)"
-                  >
-                    <span>{{ column.label }}</span>
+                    <span class="min-w-0">{{ column.label }}</span>
+                    <span v-if="column.tooltip" class="strategy-help" @click.stop>
+                      <CircleHelp :size="11" aria-hidden="true" />
+                      <span class="strategy-help__hint" role="tooltip">{{ column.tooltip }}</span>
+                    </span>
                     <component :is="sortIcon(column.key)" :size="13" aria-hidden="true" />
                   </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="row in props.summaries"
-                :key="row.id"
-                class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
+                  <span v-else>{{ column.label }}</span>
+                </div>
+                <span v-if="column.key === 'ytdReturn'" class="mt-0.5 block text-[0.64rem] font-medium text-[var(--app-text-muted)]">
+                  as of {{ props.ytdLabel }}
+                </span>
+                <span v-if="column.key === 'cagr'" class="mt-0.5 block text-[0.64rem] font-medium text-[var(--app-text-muted)]">
+                  since Jul 1, 2006
+                </span>
+              </th>
+            </tr>
+          </template>
+
+          <template v-else>
+            <tr class="border-b border-[var(--app-border)]">
+              <th class="box-border px-2 py-2.5" rowspan="2" :style="{ minWidth: 'calc(240px * var(--fixed-ui-scale, 1))' }">
+                <button
+                  class="inline-flex w-full items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
+                  :class="isSorted('modelName') ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]'"
+                  type="button"
+                  @click="$emit('sort', 'modelName')"
+                >
+                  <span>Model Name</span>
+                  <component :is="sortIcon('modelName')" :size="13" aria-hidden="true" />
+                </button>
+              </th>
+              <th class="box-border border-l border-[var(--app-border)] px-2 py-2 text-center" colspan="2">Returns</th>
+              <th class="box-border border-l border-[var(--app-border)] px-2 py-2 text-center" colspan="4">Risk</th>
+              <th class="box-border border-l border-[var(--app-border)] px-2 py-2 text-center" colspan="4">Trade Statistics</th>
+            </tr>
+            <tr class="border-b border-[var(--app-border)]">
+              <th
+                v-for="column in summaryColumns.slice(1)"
+                :key="column.key"
+                scope="col"
+                class="box-border px-2 py-2.5"
+                :class="alignClass(column)"
+                :style="{ minWidth: `calc(${column.minWidth}px * var(--fixed-ui-scale, 1))` }"
+                :aria-sort="isSorted(column.key) ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
               >
-                <td class="box-border px-2 py-2.5">
-                  <button class="text-left font-extrabold text-[var(--app-primary)] transition hover:underline" type="button" @click="$emit('open', row)">
-                    {{ row.modelName }}
-                  </button>
-                </td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.cagr)">{{ formatStrategyPercent(row.cagr) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyPercent(row.benchmarkCagr) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.netProfit)">{{ formatStrategyPercent(row.netProfit) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold text-[var(--app-negative)]">{{ formatStrategyPercent(row.maxDrawdown) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyNumber(row.sharpeRatio, 2) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyNumber(row.profitLossRatio, 2) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.averageWin)">{{ formatStrategyPercent(row.averageWin) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.averageLoss)">{{ formatStrategyPercent(row.averageLoss) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyInteger(row.totalTrades) }}</td>
-                <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyPercent(row.winRate) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </template>
-    </template>
+                <button
+                  class="inline-flex w-full items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
+                  :class="[isSorted(column.key) ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]', column.align === 'right' ? 'justify-end' : 'justify-start']"
+                  type="button"
+                  @click="$emit('sort', column.key)"
+                >
+                  <span>{{ column.label }}</span>
+                  <component :is="sortIcon(column.key)" :size="13" aria-hidden="true" />
+                </button>
+              </th>
+            </tr>
+          </template>
+        </thead>
+
+        <tbody>
+          <tr v-if="props.loading">
+            <td :colspan="tableColspan" class="h-56 px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+              Loading strategies...
+            </td>
+          </tr>
+          <tr v-else-if="!visibleRows.length">
+            <td :colspan="tableColspan" class="h-56 px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+              No strategies found
+            </td>
+          </tr>
+
+          <template v-else-if="props.tab === 'signals'">
+            <tr
+              v-for="row in props.signals"
+              :key="row.id"
+              class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
+              :class="{ 'bg-amber-50/80': row.currentDay }"
+            >
+              <td class="box-border px-2 py-2.5 text-center">
+                <button
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-md transition"
+                  :class="row.favorite ? 'text-amber-500' : 'text-[var(--app-text-muted)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]'"
+                  type="button"
+                  :aria-label="row.favorite ? 'Remove favorite strategy' : 'Add favorite strategy'"
+                  @click="$emit('favorite', row)"
+                >
+                  <Star :size="18" :fill="row.favorite ? 'currentColor' : 'none'" />
+                </button>
+              </td>
+              <td class="box-border px-2 py-2.5">
+                <button class="min-w-0 break-words text-left font-extrabold leading-snug text-[var(--app-primary)] transition hover:underline" type="button" @click="$emit('open', row)">
+                  {{ row.modelName }}
+                </button>
+              </td>
+              <td class="box-border px-2 py-2.5 font-semibold hidden md:table-cell">{{ row.timeFrame }}</td>
+              <td class="box-border break-words px-2 py-2.5 font-semibold leading-snug">{{ row.currentSignal }}</td>
+              <td class="box-border px-2 py-2.5 font-semibold hidden md:table-cell">{{ row.lastSignalDate }}</td>
+              <td class="box-border px-2 py-2.5 font-semibold hidden md:table-cell">{{ row.frequency }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.ytdReturn)">
+                {{ formatStrategyPercent(row.ytdReturn) }}
+              </td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.cagr)">
+                {{ formatStrategyPercent(row.cagr) }}
+              </td>
+              <td class="box-border px-2 py-2.5 text-center">
+                <button
+                  class="strategy-action inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-primary)] transition hover:text-[var(--app-primary-hover)]"
+                  type="button"
+                  aria-label="Backtest this strategy"
+                  @click="$emit('open', row)"
+                >
+                  <MoveRight :size="24" :stroke-width="2" class="preview-icon" />
+                  <span class="strategy-help__hint strategy-help__hint--action" role="tooltip">Backtest This Strategy</span>
+                </button>
+              </td>
+            </tr>
+          </template>
+
+          <template v-else>
+            <tr
+              v-for="row in props.summaries"
+              :key="row.id"
+              class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
+            >
+              <td class="box-border px-2 py-2.5">
+                <button class="text-left font-extrabold text-[var(--app-primary)] transition hover:underline" type="button" @click="$emit('open', row)">
+                  {{ row.modelName }}
+                </button>
+              </td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.cagr)">{{ formatStrategyPercent(row.cagr) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyPercent(row.benchmarkCagr) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.netProfit)">{{ formatStrategyPercent(row.netProfit) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold text-[var(--app-negative)]">{{ formatStrategyPercent(row.maxDrawdown) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyNumber(row.sharpeRatio, 2) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyNumber(row.profitLossRatio, 2) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.averageWin)">{{ formatStrategyPercent(row.averageWin) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.averageLoss)">{{ formatStrategyPercent(row.averageLoss) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyInteger(row.totalTrades) }}</td>
+              <td class="box-border px-2 py-2.5 text-right font-semibold">{{ formatStrategyPercent(row.winRate) }}</td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
