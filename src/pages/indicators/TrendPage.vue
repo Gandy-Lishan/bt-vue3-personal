@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BarChart3,
@@ -306,6 +306,28 @@ watch(
   },
   { immediate: true },
 )
+
+// Mobile: auto-switch to cards view
+const isMobile = ref(false)
+let mobileQuery: MediaQueryList | null = null
+
+function updateMobileState() {
+  isMobile.value = mobileQuery?.matches ?? false
+}
+
+onMounted(() => {
+  mobileQuery = window.matchMedia('(max-width: 767px)')
+  updateMobileState()
+  mobileQuery.addEventListener('change', updateMobileState)
+})
+
+onUnmounted(() => {
+  mobileQuery?.removeEventListener('change', updateMobileState)
+})
+
+watch(isMobile, (mobile) => {
+  if (mobile) store.setViewMode('cards')
+})
 </script>
 
 <template>

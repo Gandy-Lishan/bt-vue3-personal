@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Download, Info, RotateCcw, Search, X } from '@lucide/vue'
 import { fetchMarketPredictions } from '@/entities/market/api/market-prediction.api'
@@ -24,6 +24,23 @@ import MarketPredictionTable from './ui/MarketPredictionTable.vue'
 
 const router = useRouter()
 const viewMode = ref<MarketPredictionViewMode>('table')
+const isMobile = ref(false)
+let mobileQuery: MediaQueryList | null = null
+
+function updateMobileState() {
+  isMobile.value = mobileQuery?.matches ?? false
+}
+
+onMounted(() => {
+  mobileQuery = window.matchMedia('(max-width: 767px)')
+  updateMobileState()
+  mobileQuery.addEventListener('change', updateMobileState)
+  void loadMarketPredictions()
+})
+
+onUnmounted(() => {
+  mobileQuery?.removeEventListener('change', updateMobileState)
+})
 const rows = ref<MarketPredictionRow[]>([])
 const loading = ref(false)
 const descriptionOpen = ref(false)
@@ -159,8 +176,9 @@ watch(
   },
 )
 
-onMounted(() => {
-  void loadMarketPredictions()
+// Auto-switch to cards view on mobile
+watch(isMobile, (mobile) => {
+  if (mobile) viewMode.value = 'cards'
 })
 
 onBeforeUnmount(() => {
