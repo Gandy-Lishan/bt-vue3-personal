@@ -47,6 +47,7 @@ type StrategyColumn<T extends StrategySortKey = StrategySortKey> = {
   align?: 'left' | 'right' | 'center'
   sortable?: boolean
   tooltip?: string
+  mobileHidden?: boolean
 }
 
 type StrategySignalTableColumn = Omit<StrategyColumn<StrategySignalSortKey>, 'key'> & {
@@ -54,15 +55,15 @@ type StrategySignalTableColumn = Omit<StrategyColumn<StrategySignalSortKey>, 'ke
 }
 
 const signalColumns: StrategySignalTableColumn[] = [
-  { key: 'favorite', label: '', minWidth: 44, width: 5, align: 'center' },
-  { key: 'modelName', label: 'Model Name', minWidth: 190, width: 20, sortable: true },
-  { key: 'timeFrame', label: 'Time Frame', minWidth: 88, width: 9, sortable: true },
-  { key: 'currentSignal', label: 'Current Signal', minWidth: 180, width: 21, sortable: true, tooltip: 'Current Signal:  (e.g., Long, Sell, etc)' },
-  { key: 'lastSignalDate', label: 'Last Signal Date', minWidth: 108, width: 12, sortable: true, tooltip: 'last change in Signal' },
-  { key: 'frequency', label: 'Frequency', minWidth: 82, width: 9, sortable: true, tooltip: 'Model Update  Frequency' },
-  { key: 'ytdReturn', label: 'YTD Return (%)', minWidth: 108, width: 10, align: 'right', sortable: true, tooltip: 'YTD until  08/31/26  Return(%)' },
-  { key: 'cagr', label: 'CAGR (%)', minWidth: 94, width: 8, align: 'right', sortable: true, tooltip: 'Compound Annual Growth Return (%)    Since 07/01/06' },
-  { key: 'backtest', label: 'Actions', minWidth: 54, width: 6, align: 'center' },
+  { key: 'favorite', label: '', minWidth: 44, width: 5, align: 'center', mobileHidden: false },
+  { key: 'modelName', label: 'Model Name', minWidth: 190, width: 20, sortable: true, mobileHidden: false },
+  { key: 'timeFrame', label: 'Time Frame', minWidth: 88, width: 9, sortable: true, mobileHidden: true },
+  { key: 'currentSignal', label: 'Current Signal', minWidth: 180, width: 21, sortable: true, tooltip: 'Current Signal:  (e.g., Long, Sell, etc)', mobileHidden: false },
+  { key: 'lastSignalDate', label: 'Last Signal Date', minWidth: 108, width: 12, sortable: true, tooltip: 'last change in Signal', mobileHidden: true },
+  { key: 'frequency', label: 'Frequency', minWidth: 82, width: 9, sortable: true, tooltip: 'Model Update  Frequency', mobileHidden: true },
+  { key: 'ytdReturn', label: 'YTD Return (%)', minWidth: 108, width: 10, align: 'right', sortable: true, tooltip: 'YTD until  08/31/26  Return(%)', mobileHidden: false },
+  { key: 'cagr', label: 'CAGR (%)', minWidth: 94, width: 8, align: 'right', sortable: true, tooltip: 'Compound Annual Growth Return (%)    Since 07/01/06', mobileHidden: false },
+  { key: 'backtest', label: 'Actions', minWidth: 54, width: 6, align: 'center', mobileHidden: false },
 ]
 
 const summaryColumns: Array<StrategyColumn<StrategySummarySortKey>> = [
@@ -124,7 +125,7 @@ function percentClass(value: number | null) {
                 :key="column.key"
                 scope="col"
                 class="box-border px-2 py-2.5"
-                :class="alignClass(column)"
+                :class="[alignClass(column), column.mobileHidden ? 'hidden md:table-cell' : '']"
                 :style="{ width: column.width ? `${column.width}%` : undefined }"
                 :aria-sort="column.sortable && isSorted(column.key) ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
               >
@@ -231,10 +232,10 @@ function percentClass(value: number | null) {
                   {{ row.modelName }}
                 </button>
               </td>
-              <td class="box-border px-2 py-2.5 font-semibold">{{ row.timeFrame }}</td>
+              <td class="box-border px-2 py-2.5 font-semibold hidden md:table-cell">{{ row.timeFrame }}</td>
               <td class="box-border break-words px-2 py-2.5 font-semibold leading-snug">{{ row.currentSignal }}</td>
-              <td class="box-border px-2 py-2.5 font-semibold">{{ row.lastSignalDate }}</td>
-              <td class="box-border px-2 py-2.5 font-semibold">{{ row.frequency }}</td>
+              <td class="box-border px-2 py-2.5 font-semibold hidden md:table-cell">{{ row.lastSignalDate }}</td>
+              <td class="box-border px-2 py-2.5 font-semibold hidden md:table-cell">{{ row.frequency }}</td>
               <td class="box-border px-2 py-2.5 text-right font-semibold" :class="percentClass(row.ytdReturn)">
                 {{ formatStrategyPercent(row.ytdReturn) }}
               </td>
