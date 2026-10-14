@@ -51,7 +51,7 @@ watch(
         <h1 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">{{ props.title }}</h1>
         <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ props.description }}</p>
 
-        <div v-if="props.showViewModeToggle" class="list-page-header__view-row hidden md:flex">
+        <div v-if="props.showViewModeToggle" class="list-page-header__view-row">
           <span class="list-page-header__view-label">View as</span>
           <div class="list-page-header__toggle">
             <button
@@ -93,6 +93,12 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
+}
+
+@media (max-width: 767px) {
+  .list-page-header__view-row {
+    display: none;
+  }
 }
 
 .list-page-header__intro {
