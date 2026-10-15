@@ -65,6 +65,15 @@ const isComparing = ref(false)
 const visibleMin = ref<number | null>(null)
 const visibleMax = ref<number | null>(null)
 
+// Chart-specific narrow breakpoint: axis titles, navigator etc. should only fold on small phones.
+const compactChartBreakpoint = '(max-width: 640px)'
+const isCompactChart = ref(false)
+let compactQuery: MediaQueryList | null = null
+
+function updateCompactChartState() {
+  isCompactChart.value = compactQuery?.matches ?? false
+}
+
 const standardRows = computed(() => (Array.isArray(props.rows) ? props.rows : []))
 const seasonalityData = computed(() => (isIndicatorSeasonalityChartData(props.rows) ? props.rows : null))
 const isSeasonalityChart = computed(() => {
@@ -631,6 +640,7 @@ function renderChart() {
   }
   activeSeriesModels = seriesModels
 
+  const isCompact = isCompactChart.value
   const twoPane = seriesModels.length > 1
   const theme = chartTheme()
   const textColor = theme.textSecondary
@@ -649,7 +659,7 @@ function renderChart() {
     chart: {
       ...baseHighchartsChartOptions(theme),
       spacingLeft: chartSize(8),
-      spacingRight: chartSize(72),
+      spacingRight: chartSize(isCompact ? 48 : 72),
       spacingTop: chartSize(8),
       spacingBottom: chartSize(10),
       zooming: {
@@ -684,8 +694,14 @@ function renderChart() {
         color: primaryColor,
       },
     },
-    navigator: chartNavigatorOptions(theme, navigatorSource.data),
-    scrollbar: chartScrollbarOptions(theme),
+    navigator: {
+      ...chartNavigatorOptions(theme, navigatorSource.data),
+      enabled: !isCompact,
+    },
+    scrollbar: {
+      ...chartScrollbarOptions(theme),
+      enabled: !isCompact,
+    },
     xAxis: {
       type: 'datetime',
       ordinal: false,
@@ -722,15 +738,17 @@ function renderChart() {
             maxPadding: 0.1,
             tickPixelInterval: chartSize(46),
             labels: {
-              x: chartSize(25),
-              style: { color: textColor, fontSize: chartFontSize(10) },
+              x: chartSize(isCompact ? 4 : 25),
+              style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
             },
-            title: {
-              text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
-              useHTML: true,
-              style: { color: textColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
-              x: chartSize(36),
-            },
+            title: isCompact
+              ? undefined
+              : {
+                  text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
+                  useHTML: true,
+                  style: { color: textColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
+                  x: chartSize(36),
+                },
           },
           {
             top: '40%',
@@ -745,15 +763,17 @@ function renderChart() {
             maxPadding: 0.1,
             tickPixelInterval: chartSize(44),
             labels: {
-              x: chartSize(25),
-              style: { color: textColor, fontSize: chartFontSize(10) },
+              x: chartSize(isCompact ? 4 : 25),
+              style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
             },
-            title: {
-              text: seriesModels[1] ? seriesAxisTitle(seriesModels[1]) : escapeHtml(props.detail.title),
-              useHTML: true,
-              style: { color: primaryColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
-              x: chartSize(44),
-            },
+            title: isCompact
+              ? undefined
+              : {
+                  text: seriesModels[1] ? seriesAxisTitle(seriesModels[1]) : escapeHtml(props.detail.title),
+                  useHTML: true,
+                  style: { color: primaryColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
+                  x: chartSize(44),
+                },
             plotLines: thresholdPlotLines(thresholds),
           },
         ]
@@ -770,15 +790,17 @@ function renderChart() {
             maxPadding: 0.1,
             tickPixelInterval: chartSize(44),
             labels: {
-              x: chartSize(25),
-              style: { color: textColor, fontSize: chartFontSize(10) },
+              x: chartSize(isCompact ? 4 : 25),
+              style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
             },
-            title: {
-              text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
-              useHTML: true,
-              style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
-              x: chartSize(44),
-            },
+            title: isCompact
+              ? undefined
+              : {
+                  text: seriesModels[0] ? seriesAxisTitle(seriesModels[0]) : undefined,
+                  useHTML: true,
+                  style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
+                  x: chartSize(44),
+                },
             plotLines: thresholdPlotLines(thresholds),
           },
         ],
@@ -874,12 +896,16 @@ watch(
 )
 
 watch(
-  () => [props.detail.id, props.rows, props.loading, props.error],
+  () => [props.detail.id, props.rows, props.loading, props.error, props.isMobile, isCompactChart.value],
   () => {
     void nextTick(renderChart)
   },
   { deep: true },
 )
+
+watch(isCompactChart, () => {
+  void nextTick(renderChart)
+})
 
 watch(isComparing, () => {
   void nextTick(renderChart)
@@ -888,6 +914,11 @@ watch(isComparing, () => {
 onMounted(() => {
   document.addEventListener('fullscreenchange', handleFullscreenChange)
   observeThemeChanges()
+  if (typeof window !== 'undefined') {
+    compactQuery = window.matchMedia(compactChartBreakpoint)
+    updateCompactChartState()
+    compactQuery.addEventListener('change', updateCompactChartState)
+  }
   void nextTick(renderChart)
 })
 
@@ -895,6 +926,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   themeObserver?.disconnect()
   themeObserver = null
+  compactQuery?.removeEventListener('change', updateCompactChartState)
+  compactQuery = null
   destroyChart()
 })
 </script>
