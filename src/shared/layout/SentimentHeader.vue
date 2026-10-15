@@ -200,12 +200,12 @@ function firstPath(item: NavItem) {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
-        <a class="relative rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]" href="/notifications" aria-label="Notifications">
+        <a class="relative inline-flex items-center justify-center rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]" href="/notifications" aria-label="Notifications">
           <Bell :size="18" />
-          <span class="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff4b63] px-1 text-[0.625rem] font-normal text-white">8</span>
+          <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff4b63] px-1 text-[0.625rem] font-normal text-white">8</span>
         </a>
         <button
-          class="rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]"
+          class="inline-flex items-center justify-center rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]"
           type="button"
           :aria-label="themeToggleLabel"
           :title="themeToggleLabel"
@@ -214,7 +214,7 @@ function firstPath(item: NavItem) {
           <Sun v-if="isDarkTheme" :size="18" />
           <Moon v-else :size="18" />
         </button>
-        <a class="rounded-md p-2 text-[var(--chrome-accent)] transition hover:bg-[var(--chrome-hover)]" href="https://users.sentimentrader.com/users/" title="Back to Classic Site">
+        <a class="inline-flex items-center justify-center rounded-md p-2 text-[var(--chrome-accent)] transition hover:bg-[var(--chrome-hover)]" href="https://users.sentimentrader.com/users/" title="Back to Classic Site">
           <Home :size="20" />
         </a>
 

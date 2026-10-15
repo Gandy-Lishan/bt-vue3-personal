@@ -95,10 +95,12 @@ watch(
   gap: 1.15rem;
 }
 
-@media (max-width: 767px) {
-  .list-page-header__view-row {
-    display: none;
-  }
+.list-page-header__view-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 1.1rem;
 }
 
 .list-page-header__intro {
@@ -109,12 +111,10 @@ watch(
   min-width: 0;
 }
 
-.list-page-header__view-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.85rem;
-  margin-top: 1.1rem;
+@media (max-width: 767px) {
+  .list-page-header__view-row {
+    display: none;
+  }
 }
 
 .list-page-header__view-label {
