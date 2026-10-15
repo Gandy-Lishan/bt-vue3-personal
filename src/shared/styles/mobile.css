@@ -278,6 +278,58 @@
   }
 }
 
+/* Indicator Detail page */
+@media (max-width: 768px) {
+  .indicator-summary {
+    padding: 8px 10px 10px !important;
+  }
+
+  .indicator-summary__title {
+    font-size: 1.25rem !important;
+  }
+
+  .indicator-summary__stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .indicator-stat-card {
+    border-left: 0 !important;
+    border-top: 1px solid var(--app-border);
+  }
+
+  .indicator-stat-card:first-child {
+    border-top: 0 !important;
+  }
+}
+
+/* Seasonality page */
+@media (max-width: 768px) {
+  .seasonality-table {
+    font-size: 0.75rem !important;
+  }
+
+  .seasonality-filters {
+    grid-template-columns: 1fr !important;
+  }
+
+  .day-month-filter-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .specific-day-summary-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .growth-dollar-glance__grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .growth-dollar-metric {
+    min-height: auto !important;
+    padding: 8px !important;
+  }
+}
+
 /* ============================================
    10. Utility Classes for Mobile
    ============================================ */

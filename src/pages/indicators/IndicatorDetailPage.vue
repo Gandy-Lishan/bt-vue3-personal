@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw, type RouteLocationRaw } from 'vue-router'
-import { ArrowDown, ArrowUp, ChevronLeft, Star } from '@lucide/vue'
+import { ArrowDown, ArrowUp, ChevronLeft, Menu, Search, Star, X } from '@lucide/vue'
 import { fetchIndicatorChartData, fetchIndicatorDownloadData } from '@/entities/indicator/api/indicator.api'
 import { isSeasonalityIndicatorType, pruneStandaloneDetailChartData } from '@/entities/indicator/model/indicator.chart'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
@@ -91,6 +91,15 @@ const detailContentElement = ref<HTMLElement | null>(null)
 /** Matches the `xl:` breakpoint where the sidebar and detail sit side by side. */
 const sidebarBreakpoint = '(min-width: 1280px)'
 const sidebarHeight = ref('')
+
+// Mobile detection for sidebar sheet pattern
+const isMobile = ref(false)
+let mobileQuery: MediaQueryList | null = null
+const isSidebarSheetOpen = ref(false)
+
+function updateMobileState() {
+  isMobile.value = mobileQuery?.matches ?? false
+}
 
 const relatedRows = ref<Indicator[]>([])
 const isRelatedLoading = ref(false)
@@ -193,6 +202,8 @@ const detailListItems = computed(() => {
   if (isHistoricalVolatilityDetail.value) return store.itemsBySource[historicalDetailSource.value] ?? []
   return store.sourceItems
 })
+
+const currentIndicatorLabel = computed(() => detail.value?.title ?? '')
 
 const sidebarItems = computed(() => {
   const query = listSearchQuery.value.trim().toLowerCase()
@@ -960,11 +971,17 @@ function observeDetailContent() {
 }
 
 onMounted(() => {
+  // Mobile detection
+  mobileQuery = window.matchMedia('(max-width: 1279px)')
+  updateMobileState()
+  mobileQuery.addEventListener('change', updateMobileState)
+
   window.addEventListener('resize', updateSidebarHeight)
   void nextTick(observeDetailContent)
 })
 
 onBeforeUnmount(() => {
+  mobileQuery?.removeEventListener('change', updateMobileState)
   window.removeEventListener('resize', updateSidebarHeight)
   detailResizeObserver?.disconnect()
 })
@@ -1085,7 +1102,9 @@ watch(activeTab, (tab) => {
       </section>
 
       <section v-else-if="detail" class="grid items-start gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <!-- Desktop sidebar (xl+) -->
         <DetailSearchSidebar
+          v-if="!isMobile"
           v-model="listSearchQuery"
           :title="listLabel"
           :placeholder="sidebarSearchPlaceholder"
@@ -1109,6 +1128,17 @@ watch(activeTab, (tab) => {
             </button>
           </template>
         </DetailSearchSidebar>
+
+        <!-- Mobile: Select Indicator button (replaces sidebar) -->
+        <button
+          v-if="isMobile"
+          class="mb-3 flex w-full items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-left transition hover:border-[var(--app-primary)]"
+          type="button"
+          @click="isSidebarSheetOpen = true"
+        >
+          <Menu :size="20" class="text-[var(--app-text-secondary)]" />
+          <span class="flex-1 text-sm font-medium text-[var(--app-text)] truncate">{{ currentIndicatorLabel || 'Select Indicator' }}</span>
+        </button>
 
         <section ref="detailContentElement" class="min-w-0 space-y-3">
           <section class="indicator-summary">
@@ -1192,6 +1222,7 @@ watch(activeTab, (tab) => {
             :rows="chartRows"
             :loading="isChartLoading"
             :error="chartError"
+            :is-mobile="isMobile"
             @download="downloadCsv"
           />
           <p v-if="csvMessage" class="text-right text-sm font-medium text-[var(--app-text-muted)]">{{ csvMessage }}</p>
@@ -1203,8 +1234,11 @@ watch(activeTab, (tab) => {
               <button
                 v-for="tab in detailTabs"
                 :key="tab.id"
-                class="h-12 shrink-0 border-b-2 px-3 text-base font-semibold"
-                :class="activeTab === tab.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
+                class="shrink-0 border-b-2 px-3 font-semibold"
+                :class="[
+                  isMobile ? 'h-10 text-xs' : 'h-12 text-base',
+                  activeTab === tab.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'
+                ]"
                 type="button"
                 @click="activeTab = tab.id"
               >
@@ -1212,7 +1246,7 @@ watch(activeTab, (tab) => {
               </button>
             </div>
 
-            <div v-if="activeTab === 'detail'" class="p-5">
+            <div v-if="activeTab === 'detail'" class="p-3 md:p-5">
               <section>
                 <h3 class="mb-2 text-base font-semibold text-[var(--app-text)]">Construction</h3>
                 <div class="indicator-rich-text text-sm leading-6 text-[var(--app-text-secondary)]" v-html="detail.constructionHtml || detail.construction" />
@@ -1220,7 +1254,9 @@ watch(activeTab, (tab) => {
 
               <section v-if="detail.showReturns && detail.thresholdRows.length" class="mt-6 border-t border-[var(--app-border)] pt-5">
                 <h3 class="mb-3 text-base font-semibold text-[var(--app-text)]">Threshold Return Analysis</h3>
-                <div class="overflow-hidden rounded-md border border-[var(--app-border)]">
+
+                <!-- Desktop: table -->
+                <div v-if="!isMobile" class="overflow-hidden rounded-md border border-[var(--app-border)]">
                   <table class="min-w-full text-left text-sm">
                     <thead class="bg-[var(--app-surface-muted)] text-[var(--app-text)]">
                       <tr>
@@ -1239,6 +1275,29 @@ watch(activeTab, (tab) => {
                   </table>
                 </div>
 
+                <!-- Mobile: cards -->
+                <div v-else class="space-y-2">
+                  <article
+                    v-for="row in detail.thresholdRows"
+                    :key="row.location"
+                    class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
+                  >
+                    <div class="flex justify-between text-sm">
+                      <span class="font-semibold text-[var(--app-text)]">{{ row.location }}</span>
+                    </div>
+                    <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span class="text-[var(--app-text-muted)]">Annualized Return</span>
+                        <p class="font-semibold text-[var(--app-text)]">{{ row.annualizedReturn }}</p>
+                      </div>
+                      <div>
+                        <span class="text-[var(--app-text-muted)]">Percent Time</span>
+                        <p class="font-semibold text-[var(--app-text)]">{{ row.percentTime }}</p>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+
                 <button
                   v-if="detail.returnSegments.length"
                   class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm font-semibold text-[var(--app-primary)] hover:bg-[var(--app-primary-soft)]"
@@ -1248,26 +1307,45 @@ watch(activeTab, (tab) => {
                   {{ showReturnSegments ? 'Hide' : 'Show' }} Return Segments
                 </button>
 
-                <div v-if="showReturnSegments && detail.returnSegments.length" class="mt-3 max-h-72 overflow-auto rounded-md border border-[var(--app-border)]">
-                  <table class="min-w-full text-left text-xs">
-                    <thead class="bg-[var(--app-surface-muted)] text-[var(--app-text)]">
-                      <tr>
-                        <th v-for="column in returnSegmentColumns" :key="column" class="px-3 py-2">{{ column }}</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-[var(--app-border-muted)] text-[var(--app-text-secondary)]">
-                      <tr v-for="(row, rowIndex) in detail.returnSegments" :key="rowIndex">
-                        <td v-for="column in returnSegmentColumns" :key="column" class="px-3 py-2">
-                          {{ segmentValue(row, column) }}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <!-- Return Segments: Desktop table -->
+                <div v-if="showReturnSegments && detail.returnSegments.length">
+                  <div v-if="!isMobile" class="mt-3 max-h-72 overflow-auto rounded-md border border-[var(--app-border)]">
+                    <table class="min-w-full text-left text-xs">
+                      <thead class="bg-[var(--app-surface-muted)] text-[var(--app-text)]">
+                        <tr>
+                          <th v-for="column in returnSegmentColumns" :key="column" class="px-3 py-2">{{ column }}</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-[var(--app-border-muted)] text-[var(--app-text-secondary)]">
+                        <tr v-for="(row, rowIndex) in detail.returnSegments" :key="rowIndex">
+                          <td v-for="column in returnSegmentColumns" :key="column" class="px-3 py-2">
+                            {{ segmentValue(row, column) }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Return Segments: Mobile cards -->
+                  <div v-else class="mt-3 space-y-2 max-h-96 overflow-y-auto">
+                    <article
+                      v-for="(row, rowIndex) in detail.returnSegments"
+                      :key="rowIndex"
+                      class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
+                    >
+                      <div class="space-y-1.5">
+                        <div v-for="column in returnSegmentColumns" :key="column" class="flex justify-between text-xs">
+                          <span class="text-[var(--app-text-muted)]">{{ column }}</span>
+                          <span class="font-medium text-[var(--app-text)]">{{ segmentValue(row, column) }}</span>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
                 </div>
               </section>
             </div>
 
-            <div v-else-if="activeTab === 'research'" class="p-5">
+            <div v-else-if="activeTab === 'research'" class="p-3 md:p-5">
               <IndicatorListTable
                 :indicators="pagedResearchRows"
                 :loading="false"
@@ -1288,7 +1366,7 @@ watch(activeTab, (tab) => {
               />
             </div>
 
-            <div v-else-if="activeTab === 'related'" class="p-5">
+            <div v-else-if="activeTab === 'related'" class="p-3 md:p-5">
               <IndicatorListTable
                 :indicators="pagedRelatedRows"
                 :loading="isRelatedLoading"
@@ -1310,7 +1388,7 @@ watch(activeTab, (tab) => {
               />
             </div>
 
-            <div v-else class="p-5">
+            <div v-else class="p-3 md:p-5">
               <ConstituentConditionsTable
                 :rows="pagedConstituentRows"
                 :columns="constituentTableColumns"
@@ -1331,6 +1409,108 @@ watch(activeTab, (tab) => {
           </section>
         </section>
       </section>
+
+      <!-- Mobile sidebar drawer (left slide-in, matches ListExplorerPage pattern) -->
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition duration-300"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition duration-200"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="isMobile && isSidebarSheetOpen"
+            class="fixed inset-0 z-50"
+          >
+            <!-- Backdrop -->
+            <div
+              class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              @click="isSidebarSheetOpen = false"
+            />
+
+            <!-- Drawer content (left slide-in) -->
+            <Transition
+              enter-active-class="transition duration-300 transform"
+              enter-from-class="-translate-x-full"
+              enter-to-class="translate-x-0"
+              leave-active-class="transition duration-200 transform"
+              leave-from-class="translate-x-0"
+              leave-to-class="-translate-x-full"
+            >
+              <div class="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--app-surface)] shadow-xl overflow-y-auto">
+                <!-- Drawer header -->
+                <div class="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 flex items-center justify-between">
+                  <h2 class="text-base font-semibold text-[var(--app-text)]">{{ listLabel }}</h2>
+                  <button
+                    @click="isSidebarSheetOpen = false"
+                    class="p-2 rounded-md text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]"
+                    aria-label="Close filters"
+                  >
+                    <X :size="20" />
+                  </button>
+                </div>
+
+                <!-- Search + list -->
+                <div class="p-2">
+                  <!-- Search input -->
+                  <label class="mb-4 flex h-10 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3">
+                    <Search :size="18" class="shrink-0 text-[var(--app-text-muted)]" />
+                    <input
+                      v-model="listSearchQuery"
+                      class="ml-2 min-w-0 flex-1 bg-transparent text-sm text-[var(--app-text)] outline-none placeholder:text-[var(--app-text-muted)]"
+                      :placeholder="sidebarSearchPlaceholder"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
+
+                  <!-- Item list -->
+                  <div class="space-y-0">
+                    <RouterLink
+                      v-for="item in sidebarNavItems"
+                      :key="item.id"
+                      :to="item.to"
+                      class="flex items-center gap-2 border-b border-[var(--app-border-muted)] px-3 py-2.5 text-sm leading-5"
+                      :class="item.active ? 'border-l-4 border-l-[var(--app-primary)] bg-[var(--app-primary-soft)] pl-2 font-semibold' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                      @click="isSidebarSheetOpen = false"
+                    >
+                      <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+                      <!-- Favorite star -->
+                      <span v-if="item.favoriteLocked" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <button
+                        v-else
+                        class="shrink-0 transition"
+                        :class="item.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-favorite)]'"
+                        type="button"
+                        :title="favoriteActionLabel(Boolean(item.favorite))"
+                        @click.prevent="toggleSidebarFavorite(item.id)"
+                      >
+                        <Star :size="16" :fill="item.favorite ? 'var(--app-favorite)' : 'transparent'" />
+                      </button>
+                    </RouterLink>
+                    <p v-if="!sidebarNavItems.length" class="py-4 text-center text-sm text-[var(--app-text-muted)]">
+                      {{ emptySidebarMessage }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- App Download CTA -->
+                <div class="sticky bottom-0 border-t border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                  <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
+                    <p class="text-sm font-semibold">Get the full experience in our app</p>
+                    <p class="mt-1 text-xs opacity-90">Real-time signals · Strategy management</p>
+                    <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
+                      Download Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </Transition>
+      </Teleport>
     </main>
   </div>
 </template>

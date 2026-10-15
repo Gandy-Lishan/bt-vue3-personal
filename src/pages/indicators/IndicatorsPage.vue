@@ -291,7 +291,6 @@ watch(isMobile, (mobile) => {
             <span class="flex-1 text-sm font-medium text-[var(--app-text)]">
               {{ store.activeSection === 'favorites' ? 'My Favorites' : store.activeSection === 'popular' ? 'Most Popular' : store.activeGroup.label }}
             </span>
-            <span class="text-xs text-[var(--app-text-muted)]">切换分类</span>
           </button>
         </div>
 
@@ -553,11 +552,11 @@ watch(isMobile, (mobile) => {
           >
             <div class="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--app-surface)] shadow-xl overflow-y-auto">
               <div class="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 flex items-center justify-between">
-                <h2 class="text-base font-semibold text-[var(--app-text)]">指标分类</h2>
+                <h2 class="text-base font-semibold text-[var(--app-text)]">Filters & Categories</h2>
                 <button
                   @click="isMobileSidebarOpen = false"
                   class="p-2 rounded-md text-[var(--app-text)] hover:bg-[var(--app-surface-muted)]"
-                  aria-label="关闭分类"
+                  aria-label="Close filters"
                 >
                   <X :size="20" />
                 </button>
@@ -569,7 +568,7 @@ watch(isMobile, (mobile) => {
                 <button
                   v-for="section in featuredSections"
                   :key="section.id"
-                  class="flex w-full items-center gap-3 px-4 py-3 text-left transition"
+                  class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
                   :class="store.activeSection === section.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
                   type="button"
                   @click="selectSection(section.id)"
@@ -591,7 +590,7 @@ watch(isMobile, (mobile) => {
                 <button
                   v-for="group in visibleGroups"
                   :key="group.id"
-                  class="flex w-full items-center gap-3 px-4 py-3 text-left transition"
+                  class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
                   :class="store.activeSection === 'indicators' && store.activeGroupId === group.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text-secondary)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
                   type="button"
                   @click="selectGroup(group)"
@@ -614,10 +613,10 @@ watch(isMobile, (mobile) => {
               <!-- App Download CTA -->
               <div class="sticky bottom-0 border-t border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                 <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
-                  <p class="text-sm font-semibold">在 App 中体验完整功能</p>
-                  <p class="mt-1 text-xs opacity-90">实时信号 · 策略管理</p>
+                  <p class="text-sm font-semibold">Get the full experience in our app</p>
+                  <p class="mt-1 text-xs opacity-90">Real-time signals · Strategy management</p>
                   <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
-                    立即下载
+                    Download Now
                   </button>
                 </div>
               </div>

@@ -12,6 +12,7 @@ import {
   Info,
   Landmark,
   Layers,
+  Menu,
   RotateCcw,
   Search,
   Shapes,
@@ -307,8 +308,9 @@ watch(
   { immediate: true },
 )
 
-// Mobile: auto-switch to cards view
+// Mobile: auto-switch to cards view + sidebar drawer
 const isMobile = ref(false)
+const isMobileSidebarOpen = ref(false)
 let mobileQuery: MediaQueryList | null = null
 
 function updateMobileState() {
@@ -316,7 +318,7 @@ function updateMobileState() {
 }
 
 onMounted(() => {
-  mobileQuery = window.matchMedia('(max-width: 767px)')
+  mobileQuery = window.matchMedia('(max-width: 1279px)')
   updateMobileState()
   mobileQuery.addEventListener('change', updateMobileState)
 })
@@ -342,7 +344,20 @@ watch(isMobile, (mobile) => {
       />
 
       <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
-        <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
+        <!-- Mobile: Sidebar toggle button -->
+        <div class="xl:hidden mb-3">
+          <button
+            @click="isMobileSidebarOpen = true"
+            class="flex w-full items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-left transition hover:border-[var(--app-primary)]"
+            type="button"
+          >
+            <Menu :size="20" class="text-[var(--app-text-secondary)]" />
+            <span class="flex-1 text-sm font-medium text-[var(--app-text)]">{{ activeOption.label }}</span>
+          </button>
+        </div>
+
+        <!-- Desktop Sidebar -->
+        <aside class="hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3 xl:block">
           <button
             v-if="favoriteOption"
             class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
@@ -621,6 +636,91 @@ watch(isMobile, (mobile) => {
             </div>
           </section>
         </div>
+      </Teleport>
+
+      <!-- Mobile Sidebar Drawer -->
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition duration-300"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition duration-200"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div v-if="isMobileSidebarOpen" class="xl:hidden fixed inset-0 z-50">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="isMobileSidebarOpen = false" />
+            <Transition
+              enter-active-class="transition duration-300 transform"
+              enter-from-class="-translate-x-full"
+              enter-to-class="translate-x-0"
+              leave-active-class="transition duration-200 transform"
+              leave-from-class="translate-x-0"
+              leave-to-class="-translate-x-full"
+            >
+              <div class="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--app-surface)] shadow-xl overflow-y-auto">
+                <div class="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 flex items-center justify-between">
+                  <h2 class="text-base font-semibold text-[var(--app-text)]">Select View</h2>
+                  <button
+                    @click="isMobileSidebarOpen = false"
+                    class="p-2 rounded-md text-[var(--app-text)] hover:bg-[var(--app-surface-muted)]"
+                    aria-label="Close filters"
+                  >
+                    <X :size="20" />
+                  </button>
+                </div>
+                <div class="p-2">
+                  <button
+                    v-if="favoriteOption"
+                    class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
+                    :class="activeOption.id === favoriteOption.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
+                    type="button"
+                    @click="selectOption(favoriteOption); isMobileSidebarOpen = false"
+                  >
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--app-favorite)]">
+                      <component :is="optionIcon(favoriteOption)" :size="21" fill="var(--app-favorite)" />
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-sm font-semibold leading-5">{{ favoriteOption.label }}</span>
+                    </span>
+                  </button>
+
+                  <div v-if="favoriteOption" class="my-3 border-t border-[var(--app-border-muted)]" />
+
+                  <button
+                    v-for="option in sidebarOptions"
+                    :key="option.id"
+                    class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition"
+                    :class="activeOption.id === option.id ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'"
+                    type="button"
+                    @click="selectOption(option); isMobileSidebarOpen = false"
+                  >
+                    <span
+                      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                      :class="activeOption.id === option.id ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"
+                    >
+                      <component :is="optionIcon(option)" :size="21" />
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-sm font-semibold leading-5">{{ option.label }}</span>
+                    </span>
+                  </button>
+                </div>
+
+                <!-- App Download CTA -->
+                <div class="sticky bottom-0 border-t border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                  <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
+                    <p class="text-sm font-semibold">Get the full experience in our app</p>
+                    <p class="mt-1 text-xs opacity-90">Real-time signals · Strategy management</p>
+                    <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
+                      Download Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </Transition>
       </Teleport>
     </main>
   </div>

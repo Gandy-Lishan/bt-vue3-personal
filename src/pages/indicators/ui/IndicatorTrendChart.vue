@@ -42,10 +42,12 @@ const props = withDefaults(
     rows: IndicatorChartData
     loading?: boolean
     error?: string
+    isMobile?: boolean
   }>(),
   {
     loading: false,
     error: '',
+    isMobile: false,
   },
 )
 
@@ -900,7 +902,8 @@ onBeforeUnmount(() => {
 <template>
   <section ref="chartShell" class="indicator-chart-shell overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
     <div class="chart-toolbar px-4 pt-4">
-      <div class="chart-primary-row">
+      <!-- Desktop toolbar -->
+      <div v-if="!props.isMobile" class="chart-primary-row">
         <div v-if="!isSeasonalityChart" class="chart-range-group">
           <button
             v-for="range in rangeOptions"
@@ -974,6 +977,63 @@ onBeforeUnmount(() => {
           >
             <BarChart3 :size="15" />
             Backtest
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile toolbar -->
+      <div v-else class="flex flex-col gap-3">
+        <!-- Range select -->
+        <div v-if="!isSeasonalityChart" class="flex items-center gap-2">
+          <select
+            v-model="activeRange"
+            class="flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--app-text)]"
+            @change="applyRange(activeRange)"
+          >
+            <option v-for="range in rangeOptions" :key="range.id" :value="range.id">{{ range.label }}</option>
+          </select>
+          <span class="text-xs font-semibold text-[var(--app-primary)]">{{ visibleRangeLabel }}</span>
+        </div>
+
+        <!-- Action buttons row -->
+        <div class="flex items-center gap-2 overflow-x-auto">
+          <button
+            v-if="!isSeasonalityChart"
+            class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
+            :class="{ 'bg-[var(--app-primary-soft)]': isComparing }"
+            type="button"
+            @click="toggleCompare"
+          >
+            <Plus :size="14" /> Compare
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
+            type="button"
+            @click="toggleFullScreen"
+          >
+            <Maximize2 :size="14" /> Fullscreen
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
+            type="button"
+            @click="emit('download')"
+          >
+            <Download :size="14" /> CSV
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
+            type="button"
+            @click="openLargeChart"
+          >
+            <ExternalLink :size="14" /> Legacy
+          </button>
+          <button
+            v-if="!isSeasonalityChart"
+            class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
+            type="button"
+            @click="openBacktest"
+          >
+            <BarChart3 :size="14" /> Backtest
           </button>
         </div>
       </div>
