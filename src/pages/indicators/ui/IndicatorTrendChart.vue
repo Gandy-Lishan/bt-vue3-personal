@@ -659,7 +659,7 @@ function renderChart() {
     chart: {
       ...baseHighchartsChartOptions(theme),
       spacingLeft: chartSize(8),
-      spacingRight: chartSize(isCompact ? 48 : 72),
+      spacingRight: chartSize(isCompact ? 8 : 72),
       spacingTop: chartSize(8),
       spacingBottom: chartSize(10),
       zooming: {
@@ -738,7 +738,7 @@ function renderChart() {
             maxPadding: 0.1,
             tickPixelInterval: chartSize(46),
             labels: {
-              x: chartSize(isCompact ? 4 : 25),
+              x: chartSize(isCompact ? 0 : 25),
               style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
             },
             title: isCompact
@@ -763,7 +763,7 @@ function renderChart() {
             maxPadding: 0.1,
             tickPixelInterval: chartSize(44),
             labels: {
-              x: chartSize(isCompact ? 4 : 25),
+              x: chartSize(isCompact ? 0 : 25),
               style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
             },
             title: isCompact
@@ -790,7 +790,7 @@ function renderChart() {
             maxPadding: 0.1,
             tickPixelInterval: chartSize(44),
             labels: {
-              x: chartSize(isCompact ? 4 : 25),
+              x: chartSize(isCompact ? 0 : 25),
               style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
             },
             title: isCompact
