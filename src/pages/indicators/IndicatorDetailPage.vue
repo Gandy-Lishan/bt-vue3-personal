@@ -1435,6 +1435,7 @@ watch(activeTab, (tab) => {
               />
 
               <IndicatorPagination
+                v-if="!(isCompactRelated && relatedViewMode === 'cards')"
                 class="mt-4"
                 :page="relatedPage"
                 :page-count="relatedPageCount"
