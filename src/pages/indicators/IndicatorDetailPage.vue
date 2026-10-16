@@ -109,13 +109,6 @@ let relatedRequestId = 0
 let relatedLoadedForId = ''
 const relatedViewMode = ref<ListExplorerViewMode>('table')
 
-const isCompactRelated = ref(false)
-let compactRelatedQuery: MediaQueryList | null = null
-
-function updateCompactRelatedState() {
-  isCompactRelated.value = compactRelatedQuery?.matches ?? false
-}
-
 const {
   page: relatedPage,
   sortKey: relatedSortKey,
@@ -986,22 +979,16 @@ onMounted(() => {
   updateMobileState()
   mobileQuery.addEventListener('change', updateMobileState)
 
-  // Compact breakpoint auto-switches Related Charts to card view
-  compactRelatedQuery = window.matchMedia('(max-width: 767px)')
-  updateCompactRelatedState()
-  compactRelatedQuery.addEventListener('change', updateCompactRelatedState)
-
   window.addEventListener('resize', updateSidebarHeight)
   void nextTick(observeDetailContent)
 })
 
-watch(isCompactRelated, (compact) => {
-  if (compact) relatedViewMode.value = 'cards'
+watch(isMobile, (mobile) => {
+  if (mobile) relatedViewMode.value = 'cards'
 })
 
 onBeforeUnmount(() => {
   mobileQuery?.removeEventListener('change', updateMobileState)
-  compactRelatedQuery?.removeEventListener('change', updateCompactRelatedState)
   window.removeEventListener('resize', updateSidebarHeight)
   detailResizeObserver?.disconnect()
 })
@@ -1435,7 +1422,7 @@ watch(activeTab, (tab) => {
               />
 
               <IndicatorPagination
-                v-if="!(isCompactRelated && relatedViewMode === 'cards')"
+                v-if="!(isMobile && relatedViewMode === 'cards')"
                 class="mt-4"
                 :page="relatedPage"
                 :page-count="relatedPageCount"
