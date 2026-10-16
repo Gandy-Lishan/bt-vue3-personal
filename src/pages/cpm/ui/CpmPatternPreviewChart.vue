@@ -3,22 +3,30 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Highcharts from 'highcharts/highstock'
 import type { CpmPatternPreviewPoint } from '@/entities/cpm/model/cpm.types'
 import {
-  axisLabelStyle,
-  axisTitleStyle,
   baseHighchartsChartOptions,
   disabledSeriesStates,
   indicatorChartTheme,
 } from '@/pages/indicators/ui/indicatorHighcharts'
 
+export interface CpmPatternPreviewOverlay {
+  start: number
+  end: number
+  label?: string
+}
+
 const props = withDefaults(
   defineProps<{
     points: CpmPatternPreviewPoint[]
+    valueMode?: 'normalized' | 'price'
     loading?: boolean
     height?: number
+    overlays?: CpmPatternPreviewOverlay[]
   }>(),
   {
+    valueMode: 'normalized',
     loading: false,
     height: 260,
+    overlays: () => [],
   },
 )
 
@@ -27,11 +35,23 @@ const chartElement = ref<HTMLDivElement | null>(null)
 let chart: Highcharts.Chart | null = null
 let themeObserver: MutationObserver | null = null
 
-const hasData = computed(() => props.points.length > 1)
+const chartData = computed(() => {
+  return props.points
+    .map((point) => {
+      const value = props.valueMode === 'price' ? point.close : point.normalizedReturn
+      return value === null || !Number.isFinite(value) ? null : [point.timestamp, value] as [number, number]
+    })
+    .filter((point): point is [number, number] => point !== null)
+})
+const hasData = computed(() => chartData.value.length > 1)
 const chartHeight = computed(() => props.height)
 
 function formatPercent(value: number) {
   return `${Highcharts.numberFormat(value, 2).replace(/\.?0+$/, '')}%`
+}
+
+function formatPrice(value: number) {
+  return Highcharts.numberFormat(value, 2).replace(/\.?0+$/, '')
 }
 
 function destroyChart() {
@@ -44,8 +64,13 @@ function renderChart() {
   if (!chartElement.value || props.loading || !hasData.value) return
 
   const theme = indicatorChartTheme()
-  const data = props.points.map((point) => [point.timestamp, point.normalizedReturn] as [number, number])
-  const maxAbsValue = Math.max(...data.map((point) => Math.abs(point[1])), 1)
+  const data = chartData.value
+  const values = data.map((point) => point[1])
+  const isPriceMode = props.valueMode === 'price'
+  const maxAbsValue = Math.max(...values.map((value) => Math.abs(value)), 1)
+  const minValue = Math.min(...values)
+  const maxValue = Math.max(...values)
+  const pricePadding = Math.max((maxValue - minValue) * 0.12, maxValue * 0.01, 1)
 
   chart = Highcharts.chart(chartElement.value, {
     chart: {
@@ -73,38 +98,33 @@ function renderChart() {
     },
     xAxis: {
       type: 'datetime',
-      gridLineWidth: 1,
-      gridLineColor: theme.grid,
-      gridLineDashStyle: 'Dash',
-      lineColor: theme.border,
-      tickColor: theme.border,
-      labels: {
-        style: axisLabelStyle(theme),
-      },
+      visible: false,
+      plotBands: props.overlays.slice(0, 24).map((overlay, index) => {
+        const primary = index % 2 === 0
+        return {
+          from: overlay.start,
+          to: overlay.end,
+          color: primary ? 'rgba(0, 108, 255, 0.10)' : 'rgba(124, 58, 237, 0.10)',
+          borderWidth: 1,
+          borderColor: primary ? 'rgba(0, 108, 255, 0.55)' : 'rgba(124, 58, 237, 0.55)',
+          label: overlay.label
+            ? {
+                text: overlay.label,
+                vertical: 'top',
+                style: {
+                  color: primary ? '#006cff' : '#7c3aed',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                },
+              }
+            : undefined,
+        }
+      }),
     },
     yAxis: {
-      title: {
-        text: 'Normalized Return',
-        style: axisTitleStyle(theme),
-      },
-      labels: {
-        formatter() {
-          return formatPercent(Number(this.value))
-        },
-        style: axisLabelStyle(theme),
-      },
-      max: Math.ceil(maxAbsValue * 1.15),
-      min: Math.floor(maxAbsValue * -1.15),
-      gridLineColor: theme.grid,
-      gridLineDashStyle: 'Dash',
-      plotLines: [
-        {
-          color: theme.border,
-          value: 0,
-          width: 1,
-          zIndex: 3,
-        },
-      ],
+      visible: false,
+      max: isPriceMode ? maxValue + pricePadding : Math.ceil(maxAbsValue * 1.15),
+      min: isPriceMode ? Math.max(0, minValue - pricePadding) : Math.floor(maxAbsValue * -1.15),
     },
     tooltip: {
       backgroundColor: theme.tooltipBg,
@@ -115,7 +135,9 @@ function renderChart() {
         fontSize: '12px',
       },
       formatter() {
-        return `<b>${Highcharts.dateFormat('%b %e, %Y', Number(this.x))}</b><br/>Normalized: ${formatPercent(Number(this.y))}`
+        const label = isPriceMode ? 'Price' : 'Normalized'
+        const value = isPriceMode ? formatPrice(Number(this.y)) : formatPercent(Number(this.y))
+        return `<b>${Highcharts.dateFormat('%b %e, %Y', Number(this.x))}</b><br/>${label}: ${value}`
       },
     },
     plotOptions: {
@@ -134,7 +156,7 @@ function renderChart() {
     series: [
       {
         type: 'area',
-        name: 'Normalized Pattern',
+        name: isPriceMode ? 'Price Trend' : 'Normalized Pattern',
         data,
         color: theme.primary,
         lineColor: theme.primary,
@@ -169,7 +191,7 @@ function observeThemeChanges() {
 }
 
 watch(
-  () => [props.points, props.loading, chartHeight.value],
+  () => [props.points, props.valueMode, props.loading, props.overlays, chartHeight.value],
   () => {
     void nextTick(renderChart)
   },

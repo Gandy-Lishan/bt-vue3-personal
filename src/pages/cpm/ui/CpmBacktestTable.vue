@@ -141,7 +141,7 @@ function returnClass(row: CpmBacktestRow) {
                 <span v-else>{{ row.period }}</span>
               </td>
               <td class="box-border px-3 py-2.5 text-center">
-                <span class="inline-flex rounded-md border px-2.5 py-1 text-xs font-extrabold" :class="statusClass(row)">
+                <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-extrabold" :class="statusClass(row)">
                   {{ row.status }}
                 </span>
               </td>

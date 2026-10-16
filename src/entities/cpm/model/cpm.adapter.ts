@@ -9,7 +9,7 @@ import type {
   CpmStatus,
 } from './cpm.types'
 
-export const CPM_PAGE_SIZE = 10
+export const CPM_PAGE_SIZE = 12
 
 export const cpmSortOptions = [
   { key: 'name', label: 'Name', kind: 'text' },
@@ -55,6 +55,12 @@ export function normalizeCpmStatus(value: unknown): CpmStatus {
   return 'Unknown'
 }
 
+function normalizeSystemPattern(value: unknown) {
+  const normalized = text(value).trim()
+  if (!normalized || ['null', 'none', 'undefined'].includes(normalized.toLowerCase())) return ''
+  return normalized
+}
+
 export function normalizeCpmBacktestRow(raw: CpmBacktestRawRow, index = 0): CpmBacktestRow {
   const url = text(raw.url)
   const name = text(raw.name, url || `CPM ${index + 1}`)
@@ -66,6 +72,7 @@ export function normalizeCpmBacktestRow(raw: CpmBacktestRawRow, index = 0): CpmB
     url,
     name,
     symbol: text(raw.symbol),
+    systemPattern: normalizeSystemPattern(raw.system_pattern ?? raw.systemPattern),
     timeframe: text(raw.timeframe),
     startDate,
     endDate,

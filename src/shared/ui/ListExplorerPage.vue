@@ -17,6 +17,7 @@ const props = withDefaults(
     ads?: IndicatorAd[]
     sidebarWidth?: string
     contentClass?: string
+    hidePanelHeader?: boolean
   }>(),
   {
     viewMode: 'table',
@@ -24,6 +25,7 @@ const props = withDefaults(
     ads: () => [],
     sidebarWidth: '220px',
     contentClass: '',
+    hidePanelHeader: false,
   },
 )
 
@@ -61,7 +63,7 @@ const isMobileFiltersOpen = ref(false)
       </div>
 
       <div
-        class="grid gap-4"
+        class="grid grid-cols-1 gap-4"
         :class="$slots.sidebar ? 'xl:grid-cols-[var(--list-explorer-sidebar)_minmax(0,1fr)]' : ''"
         :style="layoutStyle"
       >
@@ -70,7 +72,7 @@ const isMobileFiltersOpen = ref(false)
           <slot name="sidebar" />
         </div>
 
-        <ListPagePanel :title="props.panelTitle" :description="props.panelDescription" :class="props.contentClass">
+        <ListPagePanel :title="props.panelTitle" :description="props.panelDescription" :hide-header="props.hidePanelHeader" :class="props.contentClass">
           <template v-if="$slots['title-actions']" #title-actions>
             <slot name="title-actions" />
           </template>

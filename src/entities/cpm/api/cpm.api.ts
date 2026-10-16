@@ -3,8 +3,10 @@ import type {
   CpmBacktestRawRow,
   CpmCorrelationPayload,
   CpmCorrelationResult,
+  CpmJobResponse,
   CpmListRequest,
   CpmListResult,
+  CpmPatternPreviewBatchRequest,
   CpmPatternPreviewRequest,
   CpmPatternPreviewResult,
 } from '../model/cpm.types'
@@ -60,6 +62,52 @@ function rowsFromPayload(payload: unknown): CpmBacktestRawRow[] {
   return Array.isArray(results) ? (results as CpmBacktestRawRow[]) : []
 }
 
+function recordFromPayload(payload: unknown): Record<string, unknown> {
+  return payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : {}
+}
+
+function normalizeCpmJobResponse(payload: unknown): CpmJobResponse {
+  const record = recordFromPayload(payload)
+  const data = recordFromPayload(record.data)
+  const code = Number(record.code ?? data.code)
+  const url = String(record.url ?? data.url ?? '')
+  const status = String(record.status ?? data.status ?? '')
+  const message = String(record.message ?? record.detail ?? data.message ?? data.detail ?? '')
+
+  return {
+    code: Number.isFinite(code) ? code : null,
+    url,
+    status,
+    message,
+    data,
+    raw: payload,
+  }
+}
+
+async function postCpmJob(path: string, payload: CpmCorrelationPayload, signal?: AbortSignal): Promise<CpmJobResponse> {
+  try {
+    return normalizeCpmJobResponse(await fetchPayload(path, {
+      method: 'POST',
+      body: formDataFromPayload(payload),
+      signal,
+    }))
+  } catch {
+    return normalizeCpmJobResponse({})
+  }
+}
+
+async function fetchCpmJob(path: string, url: string, signal?: AbortSignal): Promise<CpmJobResponse> {
+  if (!url) return normalizeCpmJobResponse({})
+
+  try {
+    return normalizeCpmJobResponse(await fetchPayload(`${path}?url=${encodeURIComponent(url)}`, { signal }))
+  } catch {
+    return normalizeCpmJobResponse({})
+  }
+}
+
 export async function fetchCpmList(request: CpmListRequest = {}): Promise<CpmListResult> {
   const query = new URLSearchParams()
   query.set('ordering', request.ordering || '-create_date')
@@ -104,6 +152,36 @@ export async function fetchCpmResult(url: string, signal?: AbortSignal): Promise
   }
 }
 
+export function startCpmPatternMatchPreview(payload: CpmCorrelationPayload, signal?: AbortSignal) {
+  return postCpmJob('/dev/cpm/preview_pattern/', payload, signal)
+}
+
+export function fetchCpmPatternMatchPreview(url: string, signal?: AbortSignal) {
+  return fetchCpmJob('/dev/cpm/preview_pattern/', url, signal)
+}
+
+export function startCpmPatternBacktest(payload: CpmCorrelationPayload, signal?: AbortSignal) {
+  return postCpmJob('/dev/cpm/run_cpm_bt', payload, signal)
+}
+
+export function fetchCpmPatternBacktestJob(url: string, signal?: AbortSignal) {
+  return fetchCpmJob('/dev/cpm/run_cpm_bt/', url, signal)
+}
+
+export async function updateCpmPatternBacktest(url: string, payload: CpmCorrelationPayload, signal?: AbortSignal): Promise<CpmJobResponse> {
+  if (!url) return normalizeCpmJobResponse({})
+
+  try {
+    return normalizeCpmJobResponse(await fetchPayload(`/dev/cpm/update_cpm_bt?url=${encodeURIComponent(url)}`, {
+      method: 'PUT',
+      body: formDataFromPayload(payload),
+      signal,
+    }))
+  } catch {
+    return normalizeCpmJobResponse({})
+  }
+}
+
 async function postCorrelation(path: string, payload: CpmCorrelationPayload, signal?: AbortSignal) {
   try {
     const result = await fetchPayload(path, {
@@ -127,6 +205,16 @@ export function runBetaAnalyzer(payload: CpmCorrelationPayload, signal?: AbortSi
 
 export function runPatternCorrelation(payload: CpmCorrelationPayload, signal?: AbortSignal) {
   return postCorrelation('/dev/symbol_corr_app/pattern_corr/', payload, signal)
+}
+
+export async function fetchPatternPrices(symbol: string, signal?: AbortSignal): Promise<Array<{ Date: string; Close: number }>> {
+  const query = new URLSearchParams({ symbol, start: '1800-10-01', end: new Date().toISOString().slice(0, 10), freq: 'daily' })
+  const payload = await fetchPayload(`/dev/st_data/pair_data?${query}`, { signal })
+  const rows = Array.isArray(payload) ? payload : (payload as { data?: unknown })?.data
+  if (!Array.isArray(rows)) throw new Error('Price history is unavailable.')
+  return rows.map(row => ({ Date: String(row.DT ?? row.Date ?? '').slice(0, 10), Close: Number(row.Close ?? row.close) }))
+    .filter(row => /^\d{4}-\d{2}-\d{2}$/.test(row.Date) && Number.isFinite(row.Close))
+    .sort((a, b) => a.Date.localeCompare(b.Date))
 }
 
 export async function fetchCpmPatternPreview(request: CpmPatternPreviewRequest, signal?: AbortSignal): Promise<CpmPatternPreviewResult> {
@@ -158,6 +246,54 @@ export async function fetchCpmPatternPreview(request: CpmPatternPreviewRequest, 
     return normalizeCpmPatternPreviewPayload(await response.json(), symbol)
   } catch {
     return normalizeCpmPatternPreviewPayload([], symbol)
+  }
+}
+
+function stockRecentItemsFromPayload(payload: unknown) {
+  if (Array.isArray(payload)) return payload
+  if (!payload || typeof payload !== 'object') return []
+
+  const record = payload as Record<string, unknown>
+  return Array.isArray(record.data) ? record.data : []
+}
+
+export async function fetchCpmPatternPreviews(requests: CpmPatternPreviewBatchRequest[], signal?: AbortSignal): Promise<Record<string, CpmPatternPreviewResult>> {
+  const validRequests = requests.filter((request) => request.id && request.symbol.trim() && request.startDate && request.endDate)
+  if (!validRequests.length) return {}
+
+  try {
+    const response = await fetch('/dev/st_data/stock_recent_data', {
+      method: 'POST',
+      credentials: 'include',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        indicator_list: validRequests.map((request) => ({
+          name: request.symbol.trim(),
+          start: request.startDate,
+          end: request.endDate,
+        })),
+      }),
+    })
+
+    if (!response.ok) throw new CpmRequestError(response.status, '/dev/st_data/stock_recent_data')
+
+    const payload = await response.json()
+    const items = stockRecentItemsFromPayload(payload)
+
+    return validRequests.reduce<Record<string, CpmPatternPreviewResult>>((acc, request, index) => {
+      const item = items[index]
+      acc[request.id] = normalizeCpmPatternPreviewPayload(item === undefined ? payload : [item], request.symbol)
+      return acc
+    }, {})
+  } catch {
+    return validRequests.reduce<Record<string, CpmPatternPreviewResult>>((acc, request) => {
+      acc[request.id] = normalizeCpmPatternPreviewPayload([], request.symbol)
+      return acc
+    }, {})
   }
 }
 

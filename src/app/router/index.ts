@@ -152,6 +152,20 @@ const router = createRouter({
       component: () => import('@/pages/cpm/CPMPage.vue'),
     },
     {
+      path: '/my-stuff',
+      redirect: '/my-stuff/signals',
+    },
+    {
+      path: '/my-stuff/:section?',
+      name: 'my-stuff',
+      component: () => import('@/pages/my-stuff/MyStuffPage.vue'),
+    },
+    { path: '/my_signals', redirect: '/my-stuff/signals' },
+    { path: '/myindicator', redirect: '/my-stuff/indicators' },
+    { path: '/my_screen', redirect: '/my-stuff/screens' },
+    { path: '/watchlist', redirect: '/my-stuff/watchlist' },
+    { path: '/stuff_contact', redirect: '/my-stuff/concierge' },
+    {
       path: '/404',
       name: 'unauthorized',
       component: () => import('@/pages/system/UnauthorizedPage.vue'),

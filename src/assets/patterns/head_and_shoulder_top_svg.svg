@@ -1,0 +1,27 @@
+<svg width="740" height="319" viewBox="0 0 740 319" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M29.2422 280.599L72.3939 232.206L115.546 183.812L158.697 135.419L201.849 208.009L245.001 159.616L288.153 111.223L331.304 62.8294L374.456 38.6328L417.608 62.8294L460.759 111.223L503.911 159.616L547.063 208.009L590.215 135.419L633.366 183.812L676.518 232.206L719.67 280.599V280.599H29.2422Z" fill="url(#paint0_linear_16609_2205)"/>
+<path d="M29.2422 280.599L72.3939 232.206L115.546 183.812L158.697 135.419L201.849 208.009L245.001 159.616L288.153 111.223L331.304 62.8294L374.456 38.6328L417.608 62.8294L460.759 111.223L503.911 159.616L547.063 208.009L590.215 135.419L633.366 183.812L676.518 232.206L719.67 280.599" stroke="#2563EB" stroke-width="2" stroke-linejoin="round"/>
+<ellipse cx="29.2422" cy="280.599" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="72.3906" cy="232.208" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="115.547" cy="183.814" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="158.695" cy="135.419" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="201.852" cy="208.009" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="245" cy="159.619" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="288.156" cy="111.224" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="331.305" cy="62.8295" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="374.453" cy="38.6342" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="417.609" cy="62.8295" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="460.758" cy="111.224" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="503.914" cy="159.619" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="547.062" cy="208.009" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="590.211" cy="135.419" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="633.367" cy="183.814" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="676.516" cy="232.208" rx="3" ry="2.72407" fill="#2563EB"/>
+<ellipse cx="719.672" cy="280.599" rx="3" ry="2.72407" fill="#2563EB"/>
+<defs>
+<linearGradient id="paint0_linear_16609_2205" x1="380.138" y1="38.6328" x2="383.433" y2="259.876" gradientUnits="userSpaceOnUse">
+<stop offset="0.248599" stop-color="#64A2FF" stop-opacity="0.12"/>
+<stop offset="1" stop-color="#64A2FF" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>

@@ -8,6 +8,8 @@ export interface CpmBacktestRawRow extends Record<string, unknown> {
   url?: string
   name?: string
   symbol?: string
+  system_pattern?: unknown
+  systemPattern?: unknown
   timeframe?: string
   start_date?: string
   end_date?: string
@@ -23,6 +25,7 @@ export interface CpmBacktestRow {
   url: string
   name: string
   symbol: string
+  systemPattern: string
   timeframe: string
   startDate: string
   endDate: string
@@ -75,10 +78,23 @@ export interface CpmCorrelationResult {
   seriesRows: Array<Record<string, unknown>>
 }
 
+export interface CpmJobResponse {
+  code: number | null
+  url: string
+  status: string
+  message: string
+  data: Record<string, unknown>
+  raw: unknown
+}
+
 export interface CpmPatternPreviewRequest {
   symbol: string
   startDate: string
   endDate: string
+}
+
+export interface CpmPatternPreviewBatchRequest extends CpmPatternPreviewRequest {
+  id: string
 }
 
 export interface CpmRecentDataRow extends Record<string, unknown> {

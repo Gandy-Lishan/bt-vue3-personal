@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, CircleHelp, Download, Info, Link2, Play, RotateCcw, Search, Table2, X } from '@lucide/vue'
+import { ArrowDown, ArrowUp, ArrowUpDown, CircleHelp, Info, Link2, Play, RotateCcw, Search, Table2, X } from '@lucide/vue'
 import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
 import {
+  fetchPatternPrices,
   fetchAssetCorrelation,
   runAssetCorrelation,
   runBetaAnalyzer,
@@ -16,7 +17,9 @@ import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import AppDataTable from '@/shared/ui/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/shared/ui/app-data-table.types'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
+import CpmPatternComparisonChart from './CpmPatternComparisonChart.vue'
 import CpmRollingCorrelationChart from './CpmRollingCorrelationChart.vue'
+import { patternCalendarRangeValid } from '@/entities/cpm/model/pattern-calendar'
 
 type CorrelationTone = 'positive' | 'negative' | 'neutral' | 'empty'
 type SortDirection = 'asc' | 'desc'
@@ -137,6 +140,32 @@ interface AssetPair {
   value: number
 }
 
+interface PatternSnapshot {
+  referenceSymbol: string
+  referenceStartDate: string
+  referenceEndDate: string
+  comparisonSymbol: string
+  comparisonStartDate: string
+  comparisonEndDate: string
+  referenceBarsNum: number
+  comparisonBarsNum: number
+}
+
+interface PatternPeriodPoint {
+  alignedBar: number
+  timestamp: number | null
+  date: string
+  price: number | null
+  normalized: number | null
+}
+
+interface PatternObservation {
+  bar: number
+  reference: PatternPeriodPoint | null
+  comparison: PatternPeriodPoint | null
+  difference: number | null
+}
+
 const props = defineProps<{
   section: CpmSectionKey
 }>()
@@ -196,6 +225,97 @@ const pattern = reactive({
   referenceBarsNum: 252,
   comparisonBarsNum: 252,
 })
+
+const submittedPattern = reactive<PatternSnapshot>({
+  referenceSymbol: pattern.referenceSymbol,
+  referenceStartDate: pattern.referenceStartDate,
+  referenceEndDate: pattern.referenceEndDate,
+  comparisonSymbol: pattern.comparisonSymbol,
+  comparisonStartDate: pattern.comparisonStartDate,
+  comparisonEndDate: pattern.comparisonEndDate,
+  referenceBarsNum: pattern.referenceBarsNum,
+  comparisonBarsNum: pattern.comparisonBarsNum,
+})
+const selectedPatternObservationIndex = ref(0)
+const patternChartMode = ref<'price' | 'normalized'>('price')
+const patternCalendar = ref<Array<{ Date: string; Close: number }>>([])
+const patternCalendarLoading = ref(false)
+let patternCalendarRequest = 0
+
+async function autoRunPatternComparison() {
+  if (props.section !== 'pattern') return
+  if (!patternCalendar.value.length) await loadPatternCalendar()
+  if (patternCalendar.value.length && pattern.referenceStartDate && pattern.referenceEndDate) void submit()
+}
+
+async function loadPatternCalendar() {
+  if (props.section !== 'pattern') return
+  const request = ++patternCalendarRequest
+  patternCalendarLoading.value = true
+  try {
+    const rows = await fetchPatternPrices('SPX')
+    if (request !== patternCalendarRequest || props.section !== 'pattern') return
+    if (!rows.length) throw new Error('No trading calendar data.')
+    patternCalendar.value = rows
+    setPatternDefaults()
+  } catch {
+    if (request === patternCalendarRequest) errorMessage.value = 'Trading calendar could not be loaded. Please try again.'
+  } finally {
+    if (request === patternCalendarRequest) patternCalendarLoading.value = false
+  }
+}
+
+function setPatternDefaults() {
+  const rows = patternCalendar.value
+  if (!rows.length) return
+  pattern.referenceEndDate = rows.at(-1)!.Date
+  pattern.referenceStartDate = rows[Math.max(0, rows.length - 252)]!.Date
+  pattern.comparisonEndDate = pattern.referenceStartDate
+  pattern.comparisonStartDate = rows[Math.max(0, rows.length - 504)]!.Date
+  pattern.referenceBarsNum = 252
+  pattern.comparisonBarsNum = 252
+  calculatePatternBars()
+  applySubmittedPatternSnapshot(currentPatternSnapshot())
+}
+
+function calculatePatternBars() {
+  pattern.comparisonBarsNum = Number(pattern.referenceBarsNum)
+  updatePatternEndDate('reference')
+  updatePatternEndDate('comparison')
+}
+
+function onPatternStartDateChange(side: 'reference' | 'comparison') {
+  const end = pattern[`${side}EndDate`]
+  if (end) {
+    const bars = patternTradingBarsBetween(pattern[`${side}StartDate`], end)
+    if (bars > 0) {
+      pattern.referenceBarsNum = bars
+      pattern.comparisonBarsNum = bars
+      updatePatternEndDate(side === 'reference' ? 'comparison' : 'reference')
+      return
+    }
+  }
+  calculatePatternBars()
+}
+
+function patternTradingBarsBetween(startDate: string, endDate: string) {
+  const dates = patternCalendar.value.map(row => row.Date)
+  const startIndex = dates.findIndex(date => date >= startDate)
+  if (startIndex < 0) return 0
+  let count = 0
+  for (let index = startIndex; index < dates.length && dates[index] <= endDate; index += 1) count += 1
+  return count
+}
+
+function updatePatternEndDate(side: 'reference' | 'comparison') {
+  const bars = Number(pattern.referenceBarsNum)
+  const dates = patternCalendar.value.map(row => row.Date)
+  const start = pattern[`${side}StartDate`]
+  const index = dates.findIndex(date => date >= start)
+  pattern[`${side}EndDate`] = start && Number.isInteger(bars) && bars >= 5 && bars <= 252 && index >= 0
+    ? dates[index + bars - 1] ?? ''
+    : ''
+}
 
 const marketEntries: MarketEntry[] = [
   ...(stocksData as StockEntry[]).map((entry) => ({
@@ -364,13 +484,100 @@ const secondaryRows = computed(() => result.value?.seriesRows ?? [])
 const score = computed(() => {
   if (props.section !== 'pattern') return ''
   const data = result.value?.data ?? {}
-  const value = data.pattern_corr ?? data.score ?? data.correlation
+  const value = data.pattern_corr ?? data.patternCorrelation ?? data.score ?? data.correlation ?? data.corr
   return value === undefined || value === null || value === '' ? '' : String(value)
 })
 
+const patternObservations = computed<PatternObservation[]>(() => (
+  props.section === 'pattern'
+    ? buildPatternObservations(result.value?.data ?? {}, primaryRows.value, secondaryRows.value)
+    : []
+))
+const patternObservationRows = computed<Array<Record<string, unknown>>>(() => patternObservations.value.map((row) => ({
+  Bar: row.bar,
+  'Period A Date': row.reference?.date || '-',
+  'Period A Price': row.reference?.price,
+  'Period B Date': row.comparison?.date || '-',
+  'Period B Price': row.comparison?.price,
+  'Normalized A': row.reference?.normalized,
+  'Normalized B': row.comparison?.normalized,
+  'Difference (A - B)': row.difference,
+})))
+const patternCorrelationValue = computed(() => patternCorrelationDecimal(score.value, patternObservations.value))
+const patternCorrelationPercent = computed(() => {
+  const value = patternCorrelationValue.value
+  return value === null ? '-' : `${Math.round(value * 100)}%`
+})
+const patternCorrelationText = computed(() => {
+  const value = patternCorrelationValue.value
+  return value === null ? '-' : value.toFixed(2).replace(/\.?0+$/, '')
+})
+const patternStrength = computed(() => patternSimilarityStrength(patternCorrelationValue.value))
+const patternPriceChartSeries = computed(() => [
+  {
+    key: 'period-a-price',
+    name: `Period A · ${normalizeSymbolLabel(submittedPattern.referenceSymbol) || 'Reference'}`,
+    data: patternObservations.value
+      .filter((row) => row.reference?.price !== null && row.reference?.price !== undefined)
+      .map((row) => [row.bar, row.reference?.price as number] as [number, number]),
+    fill: true,
+    yAxis: 0 as const,
+  },
+  {
+    key: 'period-b-price',
+    name: `Period B · ${normalizeSymbolLabel(submittedPattern.comparisonSymbol) || 'Comparison'}`,
+    data: patternObservations.value
+      .filter((row) => row.comparison?.price !== null && row.comparison?.price !== undefined)
+      .map((row) => [row.bar, row.comparison?.price as number] as [number, number]),
+    color: '#7c3aed',
+    fill: true,
+    yAxis: 1 as const,
+  },
+])
+
+function patternMinMaxScaled(data: Array<[number, number]>) {
+  if (data.length < 2) return data
+  const values = data.map((point) => point[1])
+  const low = Math.min(...values)
+  const range = Math.max(...values) - low
+  return data.map(([bar, value]) => [bar, range ? ((value - low) / range) * 100 : 50] as [number, number])
+}
+
+const patternNormalizedChartSeries = computed(() => [
+  {
+    key: 'period-a-normalized',
+    name: `Period A · ${normalizeSymbolLabel(submittedPattern.referenceSymbol) || 'Reference'}`,
+    data: patternMinMaxScaled(patternPriceChartSeries.value[0]!.data),
+    fill: true,
+  },
+  {
+    key: 'period-b-normalized',
+    name: `Period B · ${normalizeSymbolLabel(submittedPattern.comparisonSymbol) || 'Comparison'}`,
+    data: patternMinMaxScaled(patternPriceChartSeries.value[1]!.data),
+    color: '#7c3aed',
+    fill: true,
+  },
+])
+const selectedPatternObservation = computed(() => {
+  const rows = patternObservations.value
+  if (!rows.length) return null
+  const index = Math.max(0, Math.min(selectedPatternObservationIndex.value, rows.length - 1))
+  return rows[index] ?? rows[0]
+})
+const patternAlignedBars = computed(() => patternObservations.value.length || Math.min(Number(submittedPattern.referenceBarsNum) || 0, Number(submittedPattern.comparisonBarsNum) || 0))
+const selectedPatternReferenceReturn = computed(() => patternReturnSinceStart(selectedPatternObservation.value?.reference?.normalized))
+const selectedPatternComparisonReturn = computed(() => patternReturnSinceStart(selectedPatternObservation.value?.comparison?.normalized))
+const selectedPatternReturnGap = computed(() => {
+  const reference = selectedPatternReferenceReturn.value
+  const comparison = selectedPatternComparisonReturn.value
+  return reference === null || comparison === null ? null : reference - comparison
+})
+const patternPeriodsSameLength = computed(() => Number(pattern.referenceBarsNum) === Number(pattern.comparisonBarsNum))
+const submittedPatternPeriodsSameLength = computed(() => Number(submittedPattern.referenceBarsNum) === Number(submittedPattern.comparisonBarsNum))
+const hasPatternResults = computed(() => Boolean(score.value || patternObservations.value.length || primaryRows.value.length || secondaryRows.value.length))
 const primaryColumns = computed(() => tableColumns(primaryRows.value))
 const secondaryColumns = computed(() => tableColumns(secondaryRows.value.slice(0, 1)))
-const hasResults = computed(() => primaryRows.value.length || secondaryRows.value.length || score.value)
+const hasResults = computed(() => primaryRows.value.length || secondaryRows.value.length || score.value || (props.section === 'pattern' && patternObservations.value.length))
 const assetRows = computed(() => (props.section === 'asset' ? primaryRows.value : []))
 const assetMatrixColumnKeys = computed(() => {
   const rows = assetRows.value
@@ -1073,6 +1280,397 @@ function formatAssetStat(value: number | null, decimals = 2) {
   return value.toFixed(decimals).replace(/\.?0+$/, '')
 }
 
+function extractRecordArray(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>
+    if (Array.isArray(record.data)) return extractRecordArray(record.data)
+    if (Array.isArray(record.rows)) return extractRecordArray(record.rows)
+    if (Array.isArray(record.result)) return extractRecordArray(record.result)
+  }
+  return []
+}
+
+function dataRowsByKeys(data: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const rows = extractRecordArray(data[key])
+    if (rows.length) return rows
+  }
+
+  const compactTargets = keys.map(compactKey)
+  for (const [key, value] of Object.entries(data)) {
+    if (!compactTargets.includes(compactKey(key))) continue
+    const rows = extractRecordArray(value)
+    if (rows.length) return rows
+  }
+
+  return []
+}
+
+function buildPatternObservations(
+  data: Record<string, unknown>,
+  primary: Array<Record<string, unknown>>,
+  secondary: Array<Record<string, unknown>>,
+): PatternObservation[] {
+  const alignedCandidates = [
+    dataRowsByKeys(data, ['alignedRows', 'aligned_rows', 'aligned', 'observations', 'observationRows', 'comparisonRows']),
+    dataRowsByKeys(data, ['corr_info', 'corr_matrix', 'data', 'result', 'results']),
+    secondary,
+    primary,
+  ]
+
+  const alignedRows = alignedCandidates.find((rows) => rows.length && rowsLookLikeAlignedPattern(rows)) ?? []
+  if (alignedRows.length) return normalizeAlignedPatternRows(alignedRows)
+
+  const referenceRows = patternPeriodRows(data, 'reference', primary, secondary)
+  const comparisonRows = patternPeriodRows(data, 'comparison', primary, secondary)
+  if (referenceRows.length && comparisonRows.length) return pairPatternPeriodRows(referenceRows, comparisonRows)
+
+  return []
+}
+
+function patternPeriodRows(
+  data: Record<string, unknown>,
+  role: 'reference' | 'comparison',
+  primary: Array<Record<string, unknown>>,
+  secondary: Array<Record<string, unknown>>,
+) {
+  const keys = role === 'reference'
+    ? ['reference', 'referenceData', 'reference_data', 'referenceRows', 'periodA', 'period_a', 'periodAData', 'period_a_data', 'period1', 'period_1', 'aData']
+    : ['comparison', 'comparisonData', 'comparison_data', 'comparisonRows', 'periodB', 'period_b', 'periodBData', 'period_b_data', 'period2', 'period_2', 'bData']
+  const keyedRows = dataRowsByKeys(data, keys)
+  if (keyedRows.length && rowsLookLikeSinglePatternPeriod(keyedRows)) return keyedRows
+
+  const roleTokens = role === 'reference'
+    ? ['reference', 'ref', 'perioda', 'period1']
+    : ['comparison', 'compare', 'comp', 'periodb', 'period2']
+  for (const [key, value] of Object.entries(data)) {
+    const compact = compactKey(key)
+    if (!roleTokens.some((token) => compact.includes(token))) continue
+    const rows = extractRecordArray(value)
+    if (rows.length && rowsLookLikeSinglePatternPeriod(rows)) return rows
+  }
+
+  if (role === 'reference' && rowsLookLikeSinglePatternPeriod(primary)) return primary
+  if (role === 'comparison' && rowsLookLikeSinglePatternPeriod(secondary)) return secondary
+  return []
+}
+
+function rowsLookLikeAlignedPattern(rows: Array<Record<string, unknown>>) {
+  const row = rows.find(Boolean)
+  if (!row) return false
+  const referenceSignal = patternRoleFieldKey(row, 'reference', 'date')
+    || patternRoleFieldKey(row, 'reference', 'price')
+    || patternRoleFieldKey(row, 'reference', 'normalized')
+  const comparisonSignal = patternRoleFieldKey(row, 'comparison', 'date')
+    || patternRoleFieldKey(row, 'comparison', 'price')
+    || patternRoleFieldKey(row, 'comparison', 'normalized')
+  return Boolean(referenceSignal && comparisonSignal)
+}
+
+function rowsLookLikeSinglePatternPeriod(rows: Array<Record<string, unknown>>) {
+  if (!rows.length) return false
+  const dateKey = rollingDateKey(rows)
+  const priceKey = patternPeriodPriceKey(rows, dateKey)
+  const normalizedKey = patternPeriodNormalizedKey(rows, dateKey, priceKey)
+  return Boolean(dateKey && (priceKey || normalizedKey))
+}
+
+function patternRoleFieldKey(row: Record<string, unknown>, role: 'reference' | 'comparison', kind: 'date' | 'price' | 'normalized' | 'bar') {
+  const keys = Object.keys(row)
+  const exact = patternExactFieldKeys(role, kind)
+  const exactMatch = keys.find((key) => exact.includes(compactKey(key)))
+  if (exactMatch) return exactMatch
+
+  const roleTokens = role === 'reference'
+    ? ['reference', 'ref', 'perioda', 'period1', 'base', 'left']
+    : ['comparison', 'compare', 'comp', 'periodb', 'period2', 'match', 'right']
+  const kindTokens = kind === 'date'
+    ? ['date', 'time', 'datetime', 'timestamp']
+    : kind === 'price'
+      ? ['price', 'close', 'adjclose', 'value']
+      : kind === 'bar'
+        ? ['bar', 'index', 'number']
+        : ['normalized', 'normalised', 'indexed', 'indexvalue', 'cumreturn', 'return']
+
+  return keys.find((key) => {
+    const compact = compactKey(key)
+    return roleTokens.some((token) => compact.includes(token))
+      && kindTokens.some((token) => compact.includes(token))
+  }) ?? ''
+}
+
+function patternExactFieldKeys(role: 'reference' | 'comparison', kind: 'date' | 'price' | 'normalized' | 'bar') {
+  const side = role === 'reference' ? 'a' : 'b'
+  const period = role === 'reference' ? 'perioda' : 'periodb'
+  const roleName = role === 'reference' ? 'reference' : 'comparison'
+  const aliases = role === 'reference' ? ['ref'] : ['compare', 'comp']
+  const kindAliases = kind === 'date'
+    ? ['date', 'time', 'datetime', 'timestamp']
+    : kind === 'price'
+      ? ['price', 'close', 'adjclose', 'value']
+      : kind === 'bar'
+        ? ['bar', 'barnumber', 'alignedbar']
+        : ['normalized', 'normalised', 'indexed', 'index', 'return', 'normalizedvalue']
+  const roleAliases = [side, period, roleName, ...aliases]
+  return roleAliases.flatMap((prefix) => kindAliases.flatMap((suffix) => [
+    `${prefix}${suffix}`,
+    `${suffix}${prefix}`,
+  ]))
+}
+
+function patternBarKey(rows: Array<Record<string, unknown>>, dateKey = '') {
+  const row = rows[0]
+  if (!row) return ''
+  const candidates = ['aligned_bar', 'alignedBar', 'bar', 'Bar', 'bar_num', 'barNumber', 'index']
+  return candidates.find((key) => key !== dateKey && key in row && rows.some((item) => parseCpmNumber(item[key]) !== null))
+    ?? Object.keys(row).find((key) => key !== dateKey && /^(aligned)?bar(number|num)?$|^index$/i.test(key) && rows.some((item) => parseCpmNumber(item[key]) !== null))
+    ?? ''
+}
+
+function patternPeriodPriceKey(rows: Array<Record<string, unknown>>, dateKey: string) {
+  const keys = numericDataKeys(rows, dateKey)
+  const candidates = ['price', 'Price', 'close', 'Close', 'adj_close', 'Adj Close', 'stock_price', 'stockPrice']
+  const exact = candidates.find((key) => keys.includes(key) && hasNumericData(rows, key))
+  if (exact) return exact
+
+  return keys.find((key) => {
+    const compact = compactKey(key)
+    return /(price|close|adjclose|value)/.test(compact) && !/(norm|index|return|corr)/.test(compact)
+  }) ?? ''
+}
+
+function patternPeriodNormalizedKey(rows: Array<Record<string, unknown>>, dateKey: string, priceKey = '') {
+  const keys = numericDataKeys(rows, dateKey).filter((key) => key !== priceKey)
+  const candidates = ['normalized', 'Normalized', 'normalized_return', 'normalizedReturn', 'indexed', 'Indexed', 'index_value', 'Index Value']
+  const exact = candidates.find((key) => keys.includes(key) && hasNumericData(rows, key))
+  if (exact) return exact
+
+  return keys.find((key) => /(norm|index|return)/.test(compactKey(key)) && !/(price|close|corr)/.test(compactKey(key))) ?? ''
+}
+
+function normalizeAlignedPatternRows(rows: Array<Record<string, unknown>>): PatternObservation[] {
+  const first = rows[0] ?? {}
+  const referenceDateKey = patternRoleFieldKey(first, 'reference', 'date')
+  const referencePriceKey = patternRoleFieldKey(first, 'reference', 'price')
+  const referenceNormalizedKey = patternRoleFieldKey(first, 'reference', 'normalized')
+  const comparisonDateKey = patternRoleFieldKey(first, 'comparison', 'date')
+  const comparisonPriceKey = patternRoleFieldKey(first, 'comparison', 'price')
+  const comparisonNormalizedKey = patternRoleFieldKey(first, 'comparison', 'normalized')
+  const barKey = patternBarKey(rows, referenceDateKey || comparisonDateKey)
+  const referenceFirstPrice = firstNumericValue(rows, referencePriceKey)
+  const comparisonFirstPrice = firstNumericValue(rows, comparisonPriceKey)
+  const referenceMode = normalizedValueMode(rows.map((row) => parseCpmNumber(row[referenceNormalizedKey])).filter((value): value is number => value !== null))
+  const comparisonMode = normalizedValueMode(rows.map((row) => parseCpmNumber(row[comparisonNormalizedKey])).filter((value): value is number => value !== null))
+
+  return rows.map((row, index) => {
+    const bar = Math.trunc(parseCpmNumber(row[barKey]) ?? index + 1)
+    const reference = patternPointFromRow(row, bar, referenceDateKey, referencePriceKey, referenceNormalizedKey, referenceFirstPrice, referenceMode)
+    const comparison = patternPointFromRow(row, bar, comparisonDateKey, comparisonPriceKey, comparisonNormalizedKey, comparisonFirstPrice, comparisonMode)
+    return {
+      bar,
+      reference,
+      comparison,
+      difference: patternDifference(reference?.normalized ?? null, comparison?.normalized ?? null),
+    }
+  }).filter((row) => row.reference || row.comparison)
+}
+
+function pairPatternPeriodRows(referenceRows: Array<Record<string, unknown>>, comparisonRows: Array<Record<string, unknown>>): PatternObservation[] {
+  const referencePoints = normalizeSinglePatternPeriodRows(referenceRows)
+  const comparisonPoints = normalizeSinglePatternPeriodRows(comparisonRows)
+  const length = Math.min(referencePoints.length, comparisonPoints.length)
+
+  return Array.from({ length }, (_, index) => {
+    const bar = index + 1
+    const reference = { ...referencePoints[index], alignedBar: bar }
+    const comparison = { ...comparisonPoints[index], alignedBar: bar }
+    return {
+      bar,
+      reference,
+      comparison,
+      difference: patternDifference(reference.normalized, comparison.normalized),
+    }
+  })
+}
+
+function normalizeSinglePatternPeriodRows(rows: Array<Record<string, unknown>>): PatternPeriodPoint[] {
+  const dateKey = rollingDateKey(rows)
+  const priceKey = patternPeriodPriceKey(rows, dateKey)
+  const normalizedKey = patternPeriodNormalizedKey(rows, dateKey, priceKey)
+  const barKey = patternBarKey(rows, dateKey)
+  const firstPrice = firstNumericValue(rows, priceKey)
+  const normalizedMode = normalizedValueMode(rows.map((row) => parseCpmNumber(row[normalizedKey])).filter((value): value is number => value !== null))
+
+  return rows
+    .map((row, index) => patternPointFromRow(
+      row,
+      Math.trunc(parseCpmNumber(row[barKey]) ?? index + 1),
+      dateKey,
+      priceKey,
+      normalizedKey,
+      firstPrice,
+      normalizedMode,
+    ))
+    .filter((point): point is PatternPeriodPoint => point !== null)
+    .sort((left, right) => {
+      if (left.timestamp !== null && right.timestamp !== null) return left.timestamp - right.timestamp
+      return left.alignedBar - right.alignedBar
+    })
+}
+
+function patternPointFromRow(
+  row: Record<string, unknown>,
+  alignedBar: number,
+  dateKey: string,
+  priceKey: string,
+  normalizedKey: string,
+  firstPrice: number | null,
+  normalizedMode: 'index' | 'return' | 'ratio',
+): PatternPeriodPoint | null {
+  const timestamp = dateKey ? timestampFromValue(row[dateKey]) : null
+  const price = priceKey ? parseCpmNumber(row[priceKey]) : null
+  const rawNormalized = normalizedKey ? parseCpmNumber(row[normalizedKey]) : null
+  const normalized = firstPrice && price !== null
+    ? (price / firstPrice) * 100
+    : rawNormalized !== null ? normalizeIndexedValue(rawNormalized, normalizedMode) : null
+  const date = dateKey && timestamp !== null ? dateLabel(row[dateKey], timestamp) : textValue(row[dateKey])
+
+  if (timestamp === null && price === null && normalized === null) return null
+  return {
+    alignedBar,
+    timestamp,
+    date,
+    price,
+    normalized,
+  }
+}
+
+function firstNumericValue(rows: Array<Record<string, unknown>>, key: string) {
+  if (!key) return null
+  return rows.map((row) => parseCpmNumber(row[key])).find((value): value is number => value !== null && value !== 0) ?? null
+}
+
+function normalizedValueMode(values: number[]): 'index' | 'return' | 'ratio' {
+  const first = values.find((value) => Number.isFinite(value))
+  if (first === undefined) return 'index'
+  const maxAbs = Math.max(...values.map((value) => Math.abs(value)), Math.abs(first))
+  if (Math.abs(first - 1) <= 0.15 && maxAbs <= 4) return 'ratio'
+  if (Math.abs(first) <= 5 && maxAbs <= 80) return 'return'
+  return 'index'
+}
+
+function normalizeIndexedValue(value: number, mode: 'index' | 'return' | 'ratio') {
+  if (mode === 'ratio') return value * 100
+  if (mode === 'return') return value + 100
+  return value
+}
+
+function patternDifference(reference: number | null, comparison: number | null) {
+  if (reference === null || comparison === null) return null
+  return reference - comparison
+}
+
+function patternCorrelationDecimal(rawValue: unknown, observations: PatternObservation[]) {
+  const parsed = parseCpmNumber(rawValue)
+  if (parsed !== null) return Math.max(-1, Math.min(1, Math.abs(parsed) > 1 ? parsed / 100 : parsed))
+  return pearsonPatternCorrelation(observations)
+}
+
+function pearsonPatternCorrelation(observations: PatternObservation[]) {
+  const levels = observations
+    .map((row) => [row.reference?.normalized ?? null, row.comparison?.normalized ?? null] as const)
+  const pairs = levels.slice(1).map((pair, index) => {
+    const previous = levels[index]
+    if (!previous || previous[0] === null || previous[1] === null || !previous[0] || !previous[1] || pair[0] === null || pair[1] === null) return [null, null] as const
+    return [pair[0] / previous[0] - 1, pair[1] / previous[1] - 1] as const
+  })
+    .filter((pair): pair is readonly [number, number] => pair[0] !== null && pair[1] !== null)
+  if (pairs.length < 2) return null
+
+  const leftMean = pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length
+  const rightMean = pairs.reduce((sum, pair) => sum + pair[1], 0) / pairs.length
+  let numerator = 0
+  let leftVariance = 0
+  let rightVariance = 0
+
+  pairs.forEach(([left, right]) => {
+    const leftDelta = left - leftMean
+    const rightDelta = right - rightMean
+    numerator += leftDelta * rightDelta
+    leftVariance += leftDelta ** 2
+    rightVariance += rightDelta ** 2
+  })
+
+  const denominator = Math.sqrt(leftVariance * rightVariance)
+  if (!denominator) return null
+  return Math.max(-1, Math.min(1, numerator / denominator))
+}
+
+function patternSimilarityStrength(value: number | null): { label: string; tone: CorrelationTone } {
+  if (value === null) return { label: 'Pending data', tone: 'empty' }
+  const abs = Math.abs(value)
+  const direction = value < 0 ? 'inverse' : 'positive'
+  const tone = value < 0 ? 'negative' : value > 0.15 ? 'positive' : 'neutral'
+  if (abs >= 0.7) return { label: `Strong ${direction} correlation`, tone }
+  if (abs >= 0.4) return { label: `Moderate ${direction} correlation`, tone }
+  if (abs >= 0.15) return { label: `Weak ${direction} correlation`, tone }
+  return { label: 'Low correlation', tone: 'neutral' }
+}
+
+function formatPatternPrice(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '-'
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
+function formatPatternNumber(value: number | null | undefined, decimals = 1) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '-'
+  return value.toFixed(decimals).replace(/\.?0+$/, '')
+}
+
+function patternReturnSinceStart(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return null
+  return value - 100
+}
+
+function formatPatternReturn(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '-'
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
+}
+
+function formatPatternGap(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '-'
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)} pp`
+}
+
+function patternReturnTone(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return ''
+  return value < 0 ? 'pattern-negative' : 'pattern-valid'
+}
+
+function formatPatternDate(value: string | undefined) {
+  if (!value) return '-'
+  const parsed = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function patternPeriodValid(startDate: string, endDate: string, bars: number) {
+  return Boolean(startDate && endDate && startDate <= endDate && Number.isInteger(Number(bars)) && Number(bars) >= 5 && Number(bars) <= 252)
+}
+
+function selectPatternObservationByAlignedX(x: number) {
+  const rows = patternObservations.value
+  if (!rows.length || !Number.isFinite(x)) return
+  const rounded = Math.round(x)
+  const index = rows.findIndex((row) => row.bar === rounded)
+  selectedPatternObservationIndex.value = index >= 0
+    ? index
+    : Math.max(0, Math.min(rounded - 1, rows.length - 1))
+}
+
 function textValue(value: unknown) {
   if (value === undefined || value === null) return ''
   return String(value).trim()
@@ -1369,6 +1967,42 @@ function applySubmittedBetaSnapshot(snapshot: BetaSnapshot) {
   submittedBeta.rollWindow = snapshot.rollWindow
 }
 
+function currentPatternSnapshot(): PatternSnapshot {
+  return {
+    referenceSymbol: pattern.referenceSymbol,
+    referenceStartDate: pattern.referenceStartDate,
+    referenceEndDate: pattern.referenceEndDate,
+    comparisonSymbol: pattern.comparisonSymbol,
+    comparisonStartDate: pattern.comparisonStartDate,
+    comparisonEndDate: pattern.comparisonEndDate,
+    referenceBarsNum: Number(pattern.referenceBarsNum) || 0,
+    comparisonBarsNum: Number(pattern.comparisonBarsNum) || 0,
+  }
+}
+
+function applySubmittedPatternSnapshot(snapshot: PatternSnapshot) {
+  submittedPattern.referenceSymbol = snapshot.referenceSymbol
+  submittedPattern.referenceStartDate = snapshot.referenceStartDate
+  submittedPattern.referenceEndDate = snapshot.referenceEndDate
+  submittedPattern.comparisonSymbol = snapshot.comparisonSymbol
+  submittedPattern.comparisonStartDate = snapshot.comparisonStartDate
+  submittedPattern.comparisonEndDate = snapshot.comparisonEndDate
+  submittedPattern.referenceBarsNum = snapshot.referenceBarsNum
+  submittedPattern.comparisonBarsNum = snapshot.comparisonBarsNum
+}
+
+function swapPatternPeriods() {
+  const snapshot = currentPatternSnapshot()
+  pattern.referenceSymbol = snapshot.comparisonSymbol
+  pattern.referenceStartDate = snapshot.comparisonStartDate
+  pattern.referenceEndDate = snapshot.comparisonEndDate
+  pattern.referenceBarsNum = snapshot.comparisonBarsNum
+  pattern.comparisonSymbol = snapshot.referenceSymbol
+  pattern.comparisonStartDate = snapshot.referenceStartDate
+  pattern.comparisonEndDate = snapshot.referenceEndDate
+  pattern.comparisonBarsNum = snapshot.referenceBarsNum
+}
+
 function isoYearsAgo(years: number) {
   const date = new Date()
   date.setFullYear(date.getFullYear() - years)
@@ -1387,24 +2021,37 @@ function activeSymbolQuickYear() {
 }
 
 async function submit() {
+  if (props.section === 'pattern' && !patternCalendarRangeValid(pattern.referenceStartDate, pattern.referenceEndDate, pattern.comparisonStartDate, pattern.comparisonEndDate)) {
+    errorMessage.value = 'The selected date ranges differ substantially in length. Please adjust your dates.'
+    return
+  }
   loading.value = true
   errorMessage.value = ''
   const symbolSnapshot = props.section === 'symbol' ? currentSymbolSnapshot() : null
   const betaSnapshot = props.section === 'transmission' ? currentBetaSnapshot() : null
+  const patternSnapshot = props.section === 'pattern' ? currentPatternSnapshot() : null
   try {
     if (props.section === 'asset') {
       result.value = await runAssetCorrelation({ start_date: asset.startDate, end_date: asset.endDate })
     } else if (props.section === 'pattern') {
+      const snapshot = patternSnapshot ?? currentPatternSnapshot()
       result.value = await runPatternCorrelation({
-        referenceSymbol: pattern.referenceSymbol,
-        referenceStartDate: pattern.referenceStartDate,
-        referenceEndDate: pattern.referenceEndDate,
-        comparisonSymbol: pattern.comparisonSymbol,
-        comparisonStartDate: pattern.comparisonStartDate,
-        comparisonEndDate: pattern.comparisonEndDate,
-        referenceBarsNum: pattern.referenceBarsNum,
-        comparisonBarsNum: pattern.comparisonBarsNum,
+        referenceSymbol: snapshot.referenceSymbol,
+        referenceStartDate: snapshot.referenceStartDate,
+        referenceEndDate: snapshot.referenceEndDate,
+        comparisonSymbol: snapshot.comparisonSymbol,
+        comparisonStartDate: snapshot.comparisonStartDate,
+        comparisonEndDate: snapshot.comparisonEndDate,
+        referenceBarsNum: snapshot.referenceBarsNum,
+        comparisonBarsNum: snapshot.comparisonBarsNum,
       })
+      applySubmittedPatternSnapshot(snapshot)
+      if (result.value.code === 211 || score.value) {
+        const reference = snapshot.referenceSymbol === 'SPX' ? patternCalendar.value : await fetchPatternPrices(snapshot.referenceSymbol)
+        const comparison = snapshot.comparisonSymbol === 'SPX' ? patternCalendar.value : await fetchPatternPrices(snapshot.comparisonSymbol)
+        result.value.data.reference = reference.filter(row => row.Date >= snapshot.referenceStartDate && row.Date <= snapshot.referenceEndDate)
+        result.value.data.comparison = comparison.filter(row => row.Date >= snapshot.comparisonStartDate && row.Date <= snapshot.comparisonEndDate)
+      }
     } else if (props.section === 'transmission') {
       const snapshot = betaSnapshot ?? currentBetaSnapshot()
       result.value = await runBetaAnalyzer({
@@ -1427,6 +2074,8 @@ async function submit() {
     }
 
     if (!hasResults.value) errorMessage.value = result.value?.message || 'No results found.'
+  } catch {
+    errorMessage.value = 'Could not load comparison data. Please try again.'
   } finally {
     loading.value = false
   }
@@ -1471,11 +2120,19 @@ function resetForm() {
   pattern.comparisonEndDate = ''
   pattern.referenceBarsNum = 252
   pattern.comparisonBarsNum = 252
+  applySubmittedPatternSnapshot(currentPatternSnapshot())
+  selectedPatternObservationIndex.value = 0
+  if (props.section === 'pattern') {
+    if (patternCalendar.value.length) setPatternDefaults()
+    else void loadPatternCalendar()
+  }
   void loadAssetDefaults()
 }
 
 function downloadResults() {
-  const rows = props.section === 'transmission' && secondaryRows.value.length
+  const rows = props.section === 'pattern' && patternObservationRows.value.length
+    ? patternObservationRows.value
+    : props.section === 'transmission' && secondaryRows.value.length
     ? secondaryRows.value
     : primaryRows.value.length ? primaryRows.value : secondaryRows.value
   const columns = tableColumns(rows)
@@ -1491,6 +2148,7 @@ watch(
   (section) => {
     resetForm()
     if (section === 'symbol' || section === 'transmission') void submit()
+    if (section === 'pattern') void autoRunPatternComparison()
   },
 )
 
@@ -1507,6 +2165,7 @@ watch(
 )
 
 onMounted(() => {
+  void autoRunPatternComparison()
   void loadAssetDefaults()
   if (props.section === 'symbol' || props.section === 'transmission') void submit()
 })
@@ -1514,7 +2173,92 @@ onMounted(() => {
 
 <template>
   <div class="px-4 pb-4">
-    <template v-if="props.section === 'symbol'">
+    <template v-if="props.section === 'pattern'">
+      <div class="pattern-workspace">
+        <div class="pattern-length">
+          <label for="comparison-length">Comparison Length</label>
+          <input id="comparison-length" v-model.number="pattern.referenceBarsNum" type="number" min="5" max="252" :disabled="patternCalendarLoading || loading" @input="calculatePatternBars" />
+          <strong>bars</strong>
+          <span class="pattern-length-lock">Equal length for both periods</span>
+          <span class="pattern-subtitle">End dates are calculated from available trading bars.</span>
+        </div>
+        <div class="pattern-periods">
+          <template v-for="(side, index) in (['reference', 'comparison'] as const)" :key="side">
+            <section class="pattern-period">
+              <h3 :class="index ? 'pattern-b' : 'pattern-a'">Period {{ index ? 'B (Purple)' : 'A (Blue)' }}</h3>
+              <div class="pattern-fields">
+                <label>Symbol<SearchSelect v-model="pattern[`${side}Symbol`]" :options="symbolSearchOptions" :aria-label="`Period ${index ? 'B' : 'A'} symbol`" /></label>
+                <label>Date Range<span class="pattern-date-range"><input v-model="pattern[`${side}StartDate`]" type="date" :max="today" :disabled="patternCalendarLoading || loading" @change="onPatternStartDateChange(side)" /><span aria-hidden="true">→</span><input :value="pattern[`${side}EndDate`]" type="text" readonly :aria-label="`Period ${index ? 'B' : 'A'} automatic end date`" placeholder="Unavailable" /></span></label>
+              </div>
+              <p class="pattern-period-caption">{{ patternCalendarLoading ? 'Loading trading calendar...' : pattern[`${side}EndDate`] ? 'End date adjusts automatically to the shared bar count.' : 'Not enough available trading bars for this start date.' }}</p>
+            </section>
+            <div v-if="index === 0" class="pattern-swap">
+              <button type="button" title="Swap periods" aria-label="Swap periods" @click="swapPatternPeriods" :disabled="loading"><ArrowUpDown :size="19" /></button>
+              <span>Swap</span>
+            </div>
+          </template>
+        </div>
+        <div class="pattern-actions">
+          <div class="pattern-aligned-status">
+            <Info :size="17" />
+            Periods are matched by trading-bar position, not calendar date.
+          </div>
+          <button type="button" class="pattern-run" @click="submit" :disabled="loading || patternCalendarLoading || !patternPeriodsSameLength || !pattern.referenceSymbol.trim() || !pattern.comparisonSymbol.trim() || !patternPeriodValid(pattern.referenceStartDate, pattern.referenceEndDate, pattern.referenceBarsNum) || !patternPeriodValid(pattern.comparisonStartDate, pattern.comparisonEndDate, pattern.comparisonBarsNum)"><Play :size="17" />{{ loading ? 'Comparing...' : 'Compare Periods' }}</button>
+        </div>
+        <p v-if="errorMessage" role="alert" class="pattern-status">{{ errorMessage }}</p>
+        <section class="pattern-score">
+          <h3>Return Correlation</h3>
+          <strong :class="patternCorrelationValue !== null && patternCorrelationValue < 0 ? 'pattern-negative' : 'pattern-valid'">{{ patternCorrelationPercent }}</strong>
+          <span class="pattern-score-decimal">({{ patternCorrelationText }})</span>
+          <span class="pattern-badge" :class="correlationBadgeClass(patternStrength.tone)">{{ patternStrength.label }}</span>
+          <span class="pattern-score-bars">{{ patternAlignedBars }} aligned bars</span>
+          <p class="pattern-score-note">Shows how closely returns move together. High correlation does not mean equal total gains.</p>
+        </section>
+        <div class="pattern-analysis" :aria-busy="loading">
+          <section class="pattern-chart pattern-performance">
+            <div class="pattern-chart-heading">
+              <h3>Performance Comparison <span class="pattern-subtitle">{{ patternChartMode === 'price' ? 'Actual prices on separate axes.' : 'Each line scaled 0–100 (min–max).' }}</span></h3>
+              <div class="pattern-mode-toggle">
+                <button type="button" :aria-pressed="patternChartMode === 'price'" :disabled="loading" @click="patternChartMode = 'price'">Price</button>
+                <button type="button" :aria-pressed="patternChartMode === 'normalized'" :disabled="loading" @click="patternChartMode = 'normalized'">Normalized</button>
+              </div>
+            </div>
+            <CpmPatternComparisonChart
+              :series="patternChartMode === 'price' ? patternPriceChartSeries : patternNormalizedChartSeries"
+              :dual-axis="patternChartMode === 'price'"
+              :selected-x="selectedPatternObservation?.bar"
+              x-mode="aligned"
+              value-mode="price"
+              :y-axis-label="patternChartMode === 'price' ? `${submittedPattern.referenceSymbol || 'A'} · Price` : 'Normalized (0–100)'"
+              :right-axis-label="`${submittedPattern.comparisonSymbol || 'B'} · Price`"
+              :loading="loading"
+              :height="410"
+              show-legend
+              @point-hover="selectPatternObservationByAlignedX"
+            />
+          </section>
+          <aside class="pattern-detail">
+            <div class="pattern-detail-heading"><h3>Comparison Point</h3><strong>Bar {{ selectedPatternObservation?.bar ?? '-' }} of {{ patternAlignedBars || '-' }}</strong></div>
+            <input v-if="patternObservations.length" type="range" min="0" :max="patternObservations.length - 1" v-model.number="selectedPatternObservationIndex" aria-label="Comparison bar" class="pattern-slider" />
+            <p class="pattern-detail-help">Hover or drag to compare the same bar in both periods.</p>
+            <div v-for="(side, index) in (['reference', 'comparison'] as const)" :key="side" class="pattern-detail-period">
+              <h4 :class="index ? 'pattern-b' : 'pattern-a'">Period {{ index ? 'B' : 'A' }} · {{ submittedPattern[`${side}Symbol`] }}</h4>
+              <dl>
+                <dt>Date</dt><dd>{{ formatPatternDate(selectedPatternObservation?.[side]?.date) }}</dd>
+                <dt>Price</dt><dd>{{ formatPatternPrice(selectedPatternObservation?.[side]?.price) }}</dd>
+                <dt>Indexed Value</dt><dd>{{ formatPatternNumber(selectedPatternObservation?.[side]?.normalized) }}</dd>
+                <dt>Return Since Start</dt><dd class="pattern-return" :class="patternReturnTone(index ? selectedPatternComparisonReturn : selectedPatternReferenceReturn)">{{ formatPatternReturn(index ? selectedPatternComparisonReturn : selectedPatternReferenceReturn) }}</dd>
+              </dl>
+            </div>
+            <div class="pattern-difference"><span>Return Gap (A − B)</span><strong :class="patternReturnTone(selectedPatternReturnGap)">{{ formatPatternGap(selectedPatternReturnGap) }}</strong></div>
+            <small>pp = percentage points.</small>
+            <p v-if="!hasPatternResults" class="pattern-status">No results yet</p>
+            <p v-else-if="!submittedPatternPeriodsSameLength" class="pattern-status">Periods have different lengths.</p>
+          </aside>
+        </div>
+      </div>
+    </template>
+    <template v-else-if="props.section === 'symbol'">
       <section class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] p-4">
         <div class="grid items-end gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(170px,0.9fr)_minmax(280px,1.35fr)_minmax(170px,0.85fr)_minmax(160px,0.75fr)_auto]">
           <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
@@ -1738,9 +2482,13 @@ onMounted(() => {
               </section>
 
               <section class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] p-4">
-                <h5 class="text-sm font-extrabold text-[var(--app-text)]">How to Read Correlation Bands</h5>
+                <h5 class="text-sm font-extrabold text-[var(--app-text)]">Correlation value guide</h5>
                 <ul class="mt-3 grid gap-2 text-sm leading-5 text-[var(--app-text-secondary)]">
-                  <li v-for="item in correlationBandGuide" :key="item.label" class="flex items-center gap-2">
+                  <li
+                    v-for="item in correlationValueGuide"
+                    :key="item.label"
+                    class="flex items-center gap-2"
+                  >
                     <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color }" />
                     <span class="inline-flex min-w-0 items-center gap-1.5">
                       <span class="font-extrabold text-[var(--app-text)]">{{ item.label }}</span>
@@ -1771,13 +2519,9 @@ onMounted(() => {
               </section>
 
               <section class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] p-4">
-                <h5 class="text-sm font-extrabold text-[var(--app-text)]">Correlation value guide</h5>
+                <h5 class="text-sm font-extrabold text-[var(--app-text)]">How to Read Correlation Bands</h5>
                 <ul class="mt-3 grid gap-2 text-sm leading-5 text-[var(--app-text-secondary)]">
-                  <li
-                    v-for="item in correlationValueGuide"
-                    :key="item.label"
-                    class="flex items-center gap-2"
-                  >
+                  <li v-for="item in correlationBandGuide" :key="item.label" class="flex items-center gap-2">
                     <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color }" />
                     <span class="inline-flex min-w-0 items-center gap-1.5">
                       <span class="font-extrabold text-[var(--app-text)]">{{ item.label }}</span>
@@ -1950,40 +2694,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else-if="props.section === 'pattern'" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Reference Symbol
-          <input v-model="pattern.referenceSymbol" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" />
-        </label>
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Reference Start
-          <input v-model="pattern.referenceStartDate" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" type="date" />
-        </label>
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Reference End
-          <input v-model="pattern.referenceEndDate" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" type="date" />
-        </label>
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Reference Bars
-          <input v-model.number="pattern.referenceBarsNum" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" type="number" min="5" max="252" />
-        </label>
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Comparison Symbol
-          <input v-model="pattern.comparisonSymbol" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" />
-        </label>
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Comparison Start
-          <input v-model="pattern.comparisonStartDate" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" type="date" />
-        </label>
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Comparison End
-          <input v-model="pattern.comparisonEndDate" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" type="date" />
-        </label>
-        <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
-          Comparison Bars
-          <input v-model.number="pattern.comparisonBarsNum" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold normal-case tracking-normal text-[var(--app-text-secondary)] outline-none" type="number" min="5" max="252" />
-        </label>
-      </div>
 
       <div v-else class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_minmax(180px,1fr)_150px_120px_140px_140px]">
         <label class="grid gap-1 text-xs font-bold uppercase tracking-wide text-[var(--app-text-muted)]">
@@ -2612,7 +3322,87 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.pattern-workspace { display: grid; gap: 16px; min-width: 0; color: var(--app-text-secondary); font-size: 13px; }
+.pattern-workspace h3 { font-size: 15px; font-weight: 800; color: var(--app-text); }
+.pattern-workspace h4 { font-size: 14px; font-weight: 750; }
+.pattern-periods { display: grid; grid-template-columns: minmax(0, 1fr) 130px minmax(0, 1fr); gap: 12px; }
+.pattern-period { min-width: 0; border: 1px solid #c5ddff; border-radius: 6px; background: #f0f7ff; padding: 12px; }
+.pattern-period:last-child { background: #f6f1ff; border-color: #dfd1ff; }
+.pattern-period h3::before, .pattern-chart h3::before { content: ''; display: inline-block; width: 5px; height: 19px; background: var(--app-primary); border-radius: 3px; margin-right: 8px; vertical-align: middle; }
+.pattern-period:last-child h3::before, .pattern-chart h3.pattern-b::before { background: #b52bfa; }
+.pattern-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.pattern-fields label { display: grid; gap: 5px; min-width: 0; color: var(--app-text-muted); font-size: 11px; font-weight: 700; }
+.pattern-fields input { width: 100%; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-surface); color: var(--app-text-secondary); font-size: 13px; }
+.pattern-status { display: flex; align-items: center; gap: 6px; color: var(--app-text-muted); font-size: 12px; margin-top: 10px; }
+.pattern-period .pattern-status { background: #e7f7f0; border: 1px solid #d0eee4; padding: 10px; border-radius: 4px; font-weight: 600; }
+.pattern-bar-input { display: flex; align-items: center; gap: 5px; }
+.pattern-bar-input input { flex: 1; }
+.pattern-bar-input input { min-width: 62px; }
+.pattern-bar-input small { font-size: 10px; white-space: nowrap; }
+.pattern-workspace .pattern-a { color: var(--app-primary); }
+.pattern-workspace .pattern-b { color: var(--app-accent); }
+.pattern-valid { color: var(--app-positive); }
+.pattern-negative { color: var(--app-negative); }
+.pattern-swap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-surface); }
+.pattern-workspace button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-surface); color: var(--app-primary); font-size: 12px; font-weight: 700; }
+.pattern-workspace button:disabled { opacity: .5; cursor: not-allowed; }
+.pattern-workspace button:hover:enabled { border-color: var(--app-primary); }
+.pattern-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.pattern-workspace .pattern-run { background: var(--app-primary); color: white; }
+.pattern-analysis { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); gap: 16px; }
+.pattern-detail { display: flex; flex-direction: column; }
+.pattern-detail > small { margin-top: 4px; }
+.pattern-score { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-surface); }
+.pattern-score > strong { font-size: 42px; line-height: 1; font-weight: 800; }
+.pattern-score-note { flex: 1 1 170px; border-left: 1px solid var(--app-border); padding-left: 15px; color: var(--app-text-muted); font-size: 12px; }
+.pattern-badge { display: inline-block; padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.pattern-chart { min-width: 0; overflow: hidden; background: var(--app-surface); border: 1px solid var(--app-border-muted); border-radius: 6px; padding: 12px; }
+.pattern-chart > p { font-size: 11px; color: var(--app-text-muted); margin-top: 5px; }
+.pattern-detail { border: 1px solid var(--app-border-muted); border-radius: 6px; background: var(--app-surface); padding: 16px; min-width: 0; }
+.pattern-detail-period { margin-top: 16px; }
+.pattern-detail dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px; margin-top: 8px; font-size: 12px; }
+.pattern-detail dt { color: var(--app-text-muted); }
+.pattern-detail dd { text-align: right; font-weight: 700; overflow-wrap: anywhere; }
+.pattern-difference { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--app-border); display: flex; justify-content: space-between; gap: 8px; }
+.pattern-subtitle { color: var(--app-text-muted); font-size: 12px; font-weight: 500; }
+@media (min-width: 1500px) { .pattern-fields { grid-template-columns: minmax(0, .8fr) minmax(0, 1.5fr); gap: 8px; } .pattern-bar-input { flex-direction: column; align-items: stretch; } .pattern-bar-input input { flex: none; } }
+:root[data-theme='dark'] .pattern-period { background: #10263c; border-color: #29445f; }
+:root[data-theme='dark'] .pattern-period:last-child { background: #261d3c; }
+:root[data-theme='dark'] .pattern-period .pattern-status { background: #12382f; border-color: #215445; }
+@media (max-width: 1200px) { .pattern-analysis { grid-template-columns: minmax(0, 1fr); } .pattern-detail { border-left: 0; border-top: 1px solid var(--app-border); } }
+@media (max-width: 760px) { .pattern-periods { grid-template-columns: minmax(0, 1fr); } .pattern-swap { flex-direction: row; flex-wrap: wrap; } }
 /* The formula image is black-on-transparent; invert it for dark surfaces. */
+.pattern-length { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 14px 16px; border: 1px solid var(--app-border); border-radius: 6px; }
+.pattern-length label { font-weight: 800; color: var(--app-text); }
+.pattern-length input { width: 100px; height: 38px; padding: 0 12px; border: 1px solid var(--app-border); border-radius: 5px; background: var(--app-surface); font-size: 16px; font-weight: 700; }
+.pattern-length-lock { border-inline: 1px solid var(--app-border); padding-inline: 24px; }
+.pattern-periods { grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); }
+.pattern-fields { grid-template-columns: minmax(0, .85fr) minmax(0, 1.5fr); }
+.pattern-period { padding: 14px; }
+.pattern-swap { border: 0; background: transparent; }
+.pattern-swap button { width: 42px; height: 44px; }
+.pattern-auto-end { position: relative; display: flex; align-items: center; }
+.pattern-auto-end input { background: var(--app-surface-muted); color: var(--app-text-muted); padding-right: 55px; }
+.pattern-auto-end > span { position: absolute; right: 8px; padding: 3px 7px; background: var(--app-border-muted); border-radius: 12px; color: var(--app-text-muted); font-size: 11px; }
+.pattern-period-caption { color: var(--app-text-muted); margin-top: 8px; font-size: 12px; }
+.pattern-actions { align-items: stretch; }
+.pattern-actions > button { min-height: 44px; }
+.pattern-aligned-status { display: flex; align-items: center; gap: 8px; flex: 1; padding: 10px 16px; background: color-mix(in srgb, var(--app-positive) 8%, var(--app-surface)); border: 1px solid color-mix(in srgb, var(--app-positive) 22%, var(--app-surface)); border-radius: 5px; font-weight: 700; }
+@media (max-width: 760px) { .pattern-periods { grid-template-columns: minmax(0, 1fr); } .pattern-fields { grid-template-columns: minmax(0, 1fr); } .pattern-actions { flex-wrap: wrap; } .pattern-aligned-status { flex-basis: 100%; } .pattern-length-lock { padding-inline: 12px; } }
+.pattern-chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pattern-mode-toggle { display: inline-flex; overflow: hidden; border: 1px solid var(--app-border); border-radius: 6px; }
+.pattern-mode-toggle button { border: 0; border-radius: 0; min-height: 30px; background: var(--app-surface); }
+.pattern-mode-toggle button + button { border-left: 1px solid var(--app-border); }
+.pattern-mode-toggle button[aria-pressed='true'] { background: var(--app-primary-soft); color: var(--app-primary); }
+.pattern-date-range { display: flex; align-items: center; gap: 6px; }
+.pattern-date-range input { flex: 1; min-width: 0; padding: 0 8px; }
+.pattern-date-range > span { flex-shrink: 0; color: var(--app-text-muted); font-weight: 700; }
+.pattern-score-decimal { color: var(--app-text-muted); font-size: 16px; font-weight: 700; }
+.pattern-score-bars { color: var(--app-text-muted); font-size: 12px; font-weight: 600; }
+.pattern-slider { width: 100%; margin: 10px 0 2px; accent-color: var(--app-primary); cursor: pointer; }
+.pattern-detail-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pattern-detail-heading strong { font-size: 13px; font-weight: 800; color: var(--app-text); }
+.pattern-detail-help { color: var(--app-text-muted); font-size: 11px; margin-top: 4px; }
 :root[data-theme='dark'] .beta-formula-img {
   filter: invert(1);
 }

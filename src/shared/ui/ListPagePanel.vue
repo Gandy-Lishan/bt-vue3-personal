@@ -2,12 +2,13 @@
 defineProps<{
   title: string
   description: string
+  hideHeader?: boolean
 }>()
 </script>
 
 <template>
   <section class="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
-    <header class="flex flex-col gap-3 border-b border-[var(--app-border)] px-4 py-4 xl:flex-row xl:items-start xl:justify-between">
+    <header v-if="!hideHeader" class="flex flex-col gap-3 border-b border-[var(--app-border)] px-4 py-4 xl:flex-row xl:items-start xl:justify-between">
       <div class="min-w-0">
         <div class="flex min-w-0 flex-wrap items-center gap-2">
           <h2 class="text-3xl font-semibold leading-tight text-[var(--app-text)]">{{ title }}</h2>
