@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw, type RouteLocationRaw } from 'vue-router'
-import { ArrowDown, ArrowUp, ChevronLeft, Menu, Search, Star, X } from '@lucide/vue'
+import { ArrowDown, ArrowUp, ChevronLeft, LayoutGrid, Menu, Search, Star, Table2, X } from '@lucide/vue'
 import { fetchIndicatorChartData, fetchIndicatorDownloadData } from '@/entities/indicator/api/indicator.api'
 import { isSeasonalityIndicatorType, pruneStandaloneDetailChartData } from '@/entities/indicator/model/indicator.chart'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
@@ -30,9 +30,11 @@ import type {
 // Aliased: this page already has a local `downloadCsv` that fetches and prepares rows.
 import { downloadCsv as downloadCsvFile, toCsv } from '@/shared/utils/csv'
 import DetailSearchSidebar from '@/shared/ui/DetailSearchSidebar.vue'
+import type { ListExplorerViewMode } from '@/shared/ui/list-page.types'
 import { useSortedPagedRows } from './composables/useSortedPagedRows'
 import CftcDataNotice from './ui/CftcDataNotice.vue'
 import ConstituentConditionsTable from './ui/ConstituentConditionsTable.vue'
+import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
 import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
@@ -105,6 +107,14 @@ const relatedRows = ref<Indicator[]>([])
 const isRelatedLoading = ref(false)
 let relatedRequestId = 0
 let relatedLoadedForId = ''
+const relatedViewMode = ref<ListExplorerViewMode>('table')
+
+const isCompactRelated = ref(false)
+let compactRelatedQuery: MediaQueryList | null = null
+
+function updateCompactRelatedState() {
+  isCompactRelated.value = compactRelatedQuery?.matches ?? false
+}
 
 const {
   page: relatedPage,
@@ -976,12 +986,22 @@ onMounted(() => {
   updateMobileState()
   mobileQuery.addEventListener('change', updateMobileState)
 
+  // Compact breakpoint auto-switches Related Charts to card view
+  compactRelatedQuery = window.matchMedia('(max-width: 767px)')
+  updateCompactRelatedState()
+  compactRelatedQuery.addEventListener('change', updateCompactRelatedState)
+
   window.addEventListener('resize', updateSidebarHeight)
   void nextTick(observeDetailContent)
 })
 
+watch(isCompactRelated, (compact) => {
+  if (compact) relatedViewMode.value = 'cards'
+})
+
 onBeforeUnmount(() => {
   mobileQuery?.removeEventListener('change', updateMobileState)
+  compactRelatedQuery?.removeEventListener('change', updateCompactRelatedState)
   window.removeEventListener('resize', updateSidebarHeight)
   detailResizeObserver?.disconnect()
 })
@@ -1367,7 +1387,34 @@ watch(activeTab, (tab) => {
             </div>
 
             <div v-else-if="activeTab === 'related'" class="p-3 md:p-5">
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <p class="text-sm text-[var(--app-text-muted)]">
+                  Indicators related to {{ detail?.title || indicatorId }}.
+                </p>
+                <div class="flex shrink-0 items-center gap-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
+                  <button
+                    class="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-semibold transition"
+                    :class="relatedViewMode === 'table' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                    type="button"
+                    :aria-pressed="relatedViewMode === 'table'"
+                    @click="relatedViewMode = 'table'"
+                  >
+                    <Table2 :size="14" /> Table
+                  </button>
+                  <button
+                    class="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-semibold transition"
+                    :class="relatedViewMode === 'cards' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                    type="button"
+                    :aria-pressed="relatedViewMode === 'cards'"
+                    @click="relatedViewMode = 'cards'"
+                  >
+                    <LayoutGrid :size="14" /> Card
+                  </button>
+                </div>
+              </div>
+
               <IndicatorListTable
+                v-if="relatedViewMode === 'table'"
                 :indicators="pagedRelatedRows"
                 :loading="isRelatedLoading"
                 :columns="relatedChartColumns"
@@ -1376,6 +1423,15 @@ watch(activeTab, (tab) => {
                 :sort-direction="relatedSortDirection"
                 @open="openIndicator"
                 @sort="handleRelatedSort"
+              />
+              <IndicatorCardGrid
+                v-else
+                :indicators="pagedRelatedRows"
+                :loading="isRelatedLoading"
+                :columns="relatedChartColumns"
+                :show-favorite="false"
+                :show-updated="true"
+                @open="openIndicator"
               />
 
               <IndicatorPagination
