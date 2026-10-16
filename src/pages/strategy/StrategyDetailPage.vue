@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
   ChevronLeft,
   FileText,
   Image as ImageIcon,
   LineChart,
+  Menu,
+  Search,
   Star,
+  X,
 } from '@lucide/vue'
 import {
   addStrategyFavorite,
@@ -65,6 +68,17 @@ const activePerformanceId = ref('')
 const favoriteLoading = ref(false)
 let abortController: AbortController | null = null
 let chartAbortController: AbortController | null = null
+
+// Mobile detection for sidebar sheet pattern
+const isMobile = ref(false)
+let mobileQuery: MediaQueryList | null = null
+const isSidebarSheetOpen = ref(false)
+
+function updateMobileState() {
+  isMobile.value = mobileQuery?.matches ?? false
+}
+
+const currentStrategyLabel = computed(() => selectedRow.value?.modelName ?? '')
 
 const selectedUrl = computed(() => queryText(route.query.url) || queryText(route.params.url))
 const routeName = computed(() => queryText(route.query.name))
@@ -398,7 +412,14 @@ watch(
   },
 )
 
+onMounted(() => {
+  mobileQuery = window.matchMedia('(max-width: 1279px)')
+  updateMobileState()
+  mobileQuery.addEventListener('change', updateMobileState)
+})
+
 onBeforeUnmount(() => {
+  mobileQuery?.removeEventListener('change', updateMobileState)
   abortController?.abort()
   chartAbortController?.abort()
 })
@@ -409,6 +430,7 @@ onBeforeUnmount(() => {
     <main class="px-[var(--page-gutter)] pb-8 pt-6">
       <section class="grid items-start gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
         <DetailSearchSidebar
+          v-if="!isMobile"
           class="order-2 xl:order-1"
           v-model="listSearchQuery"
           title="Strategy List"
@@ -430,6 +452,17 @@ onBeforeUnmount(() => {
             </button>
           </template>
         </DetailSearchSidebar>
+
+        <!-- Mobile: Select Strategy button (replaces sidebar) -->
+        <button
+          v-if="isMobile"
+          class="order-1 mb-3 flex w-full items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-left transition hover:border-[var(--app-primary)]"
+          type="button"
+          @click="isSidebarSheetOpen = true"
+        >
+          <Menu :size="20" class="text-[var(--app-text-secondary)]" />
+          <span class="flex-1 text-sm font-medium text-[var(--app-text)] truncate">{{ currentStrategyLabel || 'Select Strategy' }}</span>
+        </button>
 
         <section class="order-1 min-w-0 space-y-3 xl:order-2">
           <section v-if="!selectedUrl" class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-8 text-sm text-[var(--app-text-muted)]">
@@ -673,6 +706,107 @@ onBeforeUnmount(() => {
           </template>
         </section>
       </section>
+
+      <!-- Mobile sidebar drawer -->
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition duration-300"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition duration-200"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="isMobile && isSidebarSheetOpen"
+            class="fixed inset-0 z-50"
+          >
+            <!-- Backdrop -->
+            <div
+              class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              @click="isSidebarSheetOpen = false"
+            />
+
+            <!-- Drawer content (left slide-in) -->
+            <Transition
+              enter-active-class="transition duration-300 transform"
+              enter-from-class="-translate-x-full"
+              enter-to-class="translate-x-0"
+              leave-active-class="transition duration-200 transform"
+              leave-from-class="translate-x-0"
+              leave-to-class="-translate-x-full"
+            >
+              <div class="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[var(--app-surface)] shadow-xl overflow-y-auto">
+                <!-- Drawer header -->
+                <div class="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 flex items-center justify-between">
+                  <h2 class="text-base font-semibold text-[var(--app-text)]">Strategy List</h2>
+                  <button
+                    @click="isSidebarSheetOpen = false"
+                    class="p-2 rounded-md text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]"
+                    aria-label="Close filters"
+                  >
+                    <X :size="20" />
+                  </button>
+                </div>
+
+                <!-- Search + list -->
+                <div class="p-2">
+                  <!-- Search input -->
+                  <label class="mb-4 flex h-10 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3">
+                    <Search :size="18" class="shrink-0 text-[var(--app-text-muted)]" />
+                    <input
+                      v-model="listSearchQuery"
+                      class="ml-2 min-w-0 flex-1 bg-transparent text-sm text-[var(--app-text)] outline-none placeholder:text-[var(--app-text-muted)]"
+                      placeholder="Search strategies..."
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
+
+                  <!-- Item list -->
+                  <div class="space-y-0">
+                    <RouterLink
+                      v-for="item in sidebarItems"
+                      :key="item.id"
+                      :to="item.to"
+                      class="flex items-center gap-2 border-b border-[var(--app-border-muted)] px-3 py-2.5 text-sm leading-5"
+                      :class="item.active ? 'border-l-4 border-l-[var(--app-primary)] bg-[var(--app-primary-soft)] pl-2 font-semibold' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                      @click="isSidebarSheetOpen = false"
+                    >
+                      <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+                      <!-- Favorite star -->
+                      <button
+                        class="shrink-0 transition"
+                        :class="item.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-favorite)]'"
+                        type="button"
+                        :title="item.favorite ? 'Remove favorite strategy' : 'Add favorite strategy'"
+                        :aria-label="item.favorite ? 'Remove favorite strategy' : 'Add favorite strategy'"
+                        @click.prevent="toggleSidebarFavorite(String(item.id))"
+                      >
+                        <Star :size="16" :fill="item.favorite ? 'var(--app-favorite)' : 'transparent'" />
+                      </button>
+                    </RouterLink>
+                    <p v-if="!sidebarItems.length" class="py-4 text-center text-sm text-[var(--app-text-muted)]">
+                      No strategies found
+                    </p>
+                  </div>
+                </div>
+
+                <!-- App Download CTA -->
+                <div class="sticky bottom-0 border-t border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                  <div class="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
+                    <p class="text-sm font-semibold">Get the full experience in our app</p>
+                    <p class="mt-1 text-xs opacity-90">Real-time signals · Strategy management</p>
+                    <button class="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600">
+                      Download Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </Transition>
+      </Teleport>
     </main>
   </div>
 </template>
