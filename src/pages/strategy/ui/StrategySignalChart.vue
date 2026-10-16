@@ -30,6 +30,15 @@ let themeObserver: MutationObserver | null = null
 const chartElement = ref<HTMLDivElement | null>(null)
 const hasSeries = computed(() => props.series.some((series) => series.points.length))
 
+// Chart-specific narrow breakpoint: fold axis titles, navigator, etc. on phones only.
+const compactChartBreakpoint = '(max-width: 640px)'
+const isCompactChart = ref(false)
+let compactQuery: MediaQueryList | null = null
+
+function updateCompactChartState() {
+  isCompactChart.value = compactQuery?.matches ?? false
+}
+
 type RangeId = '3M' | '6M' | 'YTD' | '1Y' | '3Y' | '5Y' | '10Y' | '15Y' | '20Y' | 'All'
 
 const rangeOptions: Array<{ id: RangeId; label: string; unit?: 'month' | 'year' | 'ytd'; count?: number }> = [
@@ -240,6 +249,7 @@ function renderChart() {
     return
   }
 
+  const isCompact = isCompactChart.value
   const theme = indicatorChartTheme()
   const palette = strategyChartPalette(theme)
   const textColor = theme.textSecondary
@@ -256,13 +266,13 @@ function renderChart() {
     },
     chart: {
       ...baseHighchartsChartOptions(theme),
-      height: chartSize(560),
+      height: chartSize(isCompact ? 350 : 560),
       // Equal gutters so both symbol titles sit the same distance from the
       // container edge. Highcharts reserves the rest of each margin itself.
       spacingLeft: chartSize(8),
-      spacingRight: chartSize(8),
-      spacingTop: chartSize(8),
-      spacingBottom: chartSize(10),
+      spacingRight: chartSize(isCompact ? 8 : 8),
+      spacingTop: chartSize(isCompact ? 4 : 8),
+      spacingBottom: chartSize(isCompact ? 4 : 10),
       zooming: {
         type: 'x',
       },
@@ -271,7 +281,7 @@ function renderChart() {
       text: undefined,
     },
     credits: {
-      enabled: true,
+      enabled: !isCompact,
       text: 'SENTIMENTRADER',
       href: '#',
       // Tucked into the plot area's bottom-right corner rather than below the axis.
@@ -294,25 +304,32 @@ function renderChart() {
     },
     legend: {
       enabled: true,
-      align: 'center',
-      verticalAlign: 'top',
-      layout: 'horizontal',
-      itemDistance: chartSize(26),
-      margin: chartSize(46),
-      symbolWidth: chartSize(34),
+      align: isCompact ? 'left' : 'center',
+      verticalAlign: isCompact ? 'bottom' : 'top',
+      layout: isCompact ? 'vertical' : 'horizontal',
+      itemDistance: chartSize(isCompact ? 8 : 26),
+      margin: chartSize(isCompact ? 12 : 46),
+      symbolWidth: chartSize(isCompact ? 20 : 34),
+      itemMarginTop: chartSize(isCompact ? 2 : 0),
       x: 0,
-      y: chartSize(28),
+      y: isCompact ? -4 : chartSize(28),
       itemStyle: {
         color: textColor,
-        fontSize: chartFontSize(11),
+        fontSize: chartFontSize(isCompact ? 10 : 11),
         fontWeight: '600',
       },
       itemHoverStyle: {
         color: primaryColor,
       },
     },
-    navigator: chartNavigatorOptions(theme, navigatorData),
-    scrollbar: chartScrollbarOptions(theme),
+    navigator: {
+      ...chartNavigatorOptions(theme, navigatorData),
+      enabled: !isCompact,
+    },
+    scrollbar: {
+      ...chartScrollbarOptions(theme),
+      enabled: !isCompact,
+    },
     xAxis: {
       type: 'datetime',
       ordinal: false,
@@ -321,10 +338,10 @@ function renderChart() {
       gridLineDashStyle: 'Dot',
       lineColor: borderColor,
       tickColor: borderColor,
-      tickPixelInterval: chartSize(150),
+      tickPixelInterval: chartSize(isCompact ? 80 : 150),
       labels: {
         format: "{value:%b '%y}",
-        style: { color: textColor, fontSize: chartFontSize(11) },
+        style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 11) },
       },
       crosshair: highchartsCrosshairOptions(),
       events: {
@@ -339,10 +356,12 @@ function renderChart() {
     // when touching either axis.
     yAxis: [
       {
-        title: {
-          text: props.series[0]?.symbol,
-          style: { color: textColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
-        },
+        title: isCompact
+          ? undefined
+          : {
+              text: props.series[0]?.symbol,
+              style: { color: textColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
+            },
         opposite: true,
         offset: 0,
         gridLineWidth: 1,
@@ -351,21 +370,23 @@ function renderChart() {
         lineWidth: 0,
         minPadding: 0.1,
         maxPadding: 0.1,
-        tickPixelInterval: chartSize(44),
+        tickPixelInterval: chartSize(isCompact ? 36 : 44),
         labels: {
           // Mirror of the left axis' `x: -8`. Highcharts only auto-reserves room
           // for labels on non-opposite axes, so this axis needs it spelled out.
           align: 'left',
           reserveSpace: true,
-          x: chartSize(8),
-          style: { color: textColor, fontSize: chartFontSize(10) },
+          x: chartSize(isCompact ? 4 : 8),
+          style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
         },
       },
       {
-        title: {
-          text: twoAxis ? props.series[1]?.symbol : '',
-          style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
-        },
+        title: isCompact
+          ? undefined
+          : {
+              text: twoAxis ? props.series[1]?.symbol : '',
+              style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
+            },
         opposite: false,
         visible: twoAxis,
         offset: 0,
@@ -375,10 +396,10 @@ function renderChart() {
         lineWidth: 0,
         minPadding: 0.1,
         maxPadding: 0.1,
-        tickPixelInterval: chartSize(44),
+        tickPixelInterval: chartSize(isCompact ? 36 : 44),
         labels: {
-          x: chartSize(-8),
-          style: { color: textColor, fontSize: chartFontSize(10) },
+          x: chartSize(isCompact ? -4 : -8),
+          style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
         },
       },
     ],
@@ -436,20 +457,31 @@ function observeThemeChanges() {
 }
 
 watch(
-  () => [props.series, props.loading],
+  () => [props.series, props.loading, isCompactChart.value],
   () => {
     void nextTick(renderChart)
   },
   { deep: true },
 )
 
+watch(isCompactChart, () => {
+  void nextTick(renderChart)
+})
+
 onMounted(() => {
   observeThemeChanges()
+  if (typeof window !== 'undefined') {
+    compactQuery = window.matchMedia(compactChartBreakpoint)
+    updateCompactChartState()
+    compactQuery.addEventListener('change', updateCompactChartState)
+  }
   void nextTick(renderChart)
 })
 
 onBeforeUnmount(() => {
   themeObserver?.disconnect()
+  compactQuery?.removeEventListener('change', updateCompactChartState)
+  compactQuery = null
   destroyChart()
 })
 </script>
@@ -533,6 +565,12 @@ onBeforeUnmount(() => {
 
 .strategy-signal-chart {
   min-height: calc(560px * var(--chart-ui-scale, 1));
+}
+
+@media (max-width: 640px) {
+  .strategy-signal-chart {
+    min-height: calc(350px * var(--chart-ui-scale, 1));
+  }
 }
 
 @media (max-width: 1280px) {
