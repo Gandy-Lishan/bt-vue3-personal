@@ -1314,17 +1314,6 @@ function setGrowthYearSort(key: GrowthYearColumnKey) {
   growthYearSort.direction = key === 'windowReturn' ? 'desc' : 'asc'
 }
 
-function ariaSortFor(key: DayResultColumnKey | SpecificBreakdownColumnKey | GrowthYearColumnKey) {
-  // Determine which sort state to use based on key
-  let currentSort: { key: string; direction: SortDirection }
-  if (key in dayResultSort) currentSort = dayResultSort
-  else if (key in specificBreakdownSort) currentSort = specificBreakdownSort
-  else currentSort = growthYearSort
-
-  if (currentSort.key !== key) return 'none'
-  return currentSort.direction === 'asc' ? 'ascending' : 'descending'
-}
-
 function specificBreakdownSortValue(row: SpecificDayBreakdownRow, key: SpecificBreakdownColumnKey) {
   if (key === 'day') return row.dayKey
   return row[key]
@@ -1976,67 +1965,19 @@ function downloadGrowthYearCsv() {
                   </button>
                 </header>
 
-                <!-- Desktop: table -->
-                <div v-if="!isMobile" class="day-month-results__table-wrap">
-                  <table class="day-month-results-table">
-                    <thead>
-                      <tr>
-                        <th
-                          v-for="column in dayTableColumns"
-                          :key="column.key"
-                          scope="col"
-                          :aria-sort="ariaSortFor(column.key)"
-                        >
-                          <button type="button" @click="setDayResultSort(column.key)">
-                            {{ column.label }}
-                            <span v-if="dayResultSort.key === column.key">{{ dayResultSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                          </button>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-if="loading">
-                        <td :colspan="dayTableColumns.length" class="day-month-results__empty">Loading daily results...</td>
-                      </tr>
-                      <tr v-else-if="!sortedDayResultRows.length">
-                        <td :colspan="dayTableColumns.length" class="day-month-results__empty">No daily results</td>
-                      </tr>
-                      <template v-else>
-                        <tr v-for="row in sortedDayResultRows" :key="row.day">
-                          <td v-for="column in dayTableColumns" :key="column.key" :class="dayCellClass(row, column.key)">
-                            {{ dayCellText(row, column.key) }}
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Mobile: cards -->
-                <div v-else class="space-y-2">
-                  <article
-                    v-for="row in sortedDayResultRows"
-                    :key="row.day"
-                    class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
-                  >
-                    <div class="flex justify-between items-center">
-                      <span class="text-sm font-semibold text-[var(--app-text)]">Day {{ row.day }}</span>
-                      <span
-                        class="text-sm font-bold"
-                        :class="dayCellClass(row, 'averageReturn')"
-                      >
-                        {{ dayCellText(row, 'averageReturn') }}
-                      </span>
-                    </div>
-                    <div class="mt-2 text-xs">
-                      <div class="flex justify-between">
-                        <span class="text-[var(--app-text-muted)]">Positive Rate</span>
-                        <span class="font-semibold" :class="dayCellClass(row, 'percentPositive')">{{ dayCellText(row, 'percentPositive') }}</span>
-                      </div>
-                    </div>
-                  </article>
-                  <p v-if="loading" class="text-center text-sm text-[var(--app-text-muted)] py-4">Loading daily results...</p>
-                  <p v-else-if="!sortedDayResultRows.length" class="text-center text-sm text-[var(--app-text-muted)] py-4">No daily results</p>
+                <div class="day-month-results__table-wrap">
+                  <SeasonalityDataTable
+                    :columns="dayTableColumns"
+                    :rows="sortedDayResultRows"
+                    :loading="loading"
+                    empty-message="No daily results"
+                    :sort-key="dayResultSort.key"
+                    :sort-direction="dayResultSort.direction"
+                    :row-key="(row) => row.day"
+                    :cell-text="dayCellText"
+                    :cell-class="dayCellClass"
+                    @sort="setDayResultSort"
+                  />
                 </div>
               </section>
             </div>
@@ -2127,71 +2068,19 @@ function downloadGrowthYearCsv() {
                   </button>
                 </header>
 
-                <!-- Desktop: table -->
-                <div v-if="!isMobile" class="specific-day-results__table-wrap">
-                  <table class="specific-day-results-table">
-                    <thead>
-                      <tr>
-                        <th
-                          v-for="column in specificBreakdownColumns"
-                          :key="column.key"
-                          scope="col"
-                          :aria-sort="ariaSortFor(column.key)"
-                        >
-                          <button type="button" @click="setSpecificBreakdownSort(column.key)">
-                            {{ column.label }}
-                            <span v-if="specificBreakdownSort.key === column.key">{{ specificBreakdownSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                          </button>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-if="loading">
-                        <td :colspan="specificBreakdownColumns.length" class="specific-day-results__empty">Loading daily breakdown...</td>
-                      </tr>
-                      <tr v-else-if="!sortedSpecificBreakdownRows.length">
-                        <td :colspan="specificBreakdownColumns.length" class="specific-day-results__empty">No daily breakdown</td>
-                      </tr>
-                      <template v-else>
-                        <tr v-for="row in sortedSpecificBreakdownRows" :key="row.dayLabel">
-                          <td
-                            v-for="column in specificBreakdownColumns"
-                            :key="column.key"
-                            :class="specificBreakdownCellClass(row, column.key)"
-                          >
-                            {{ specificBreakdownCellText(row, column.key) }}
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Mobile: cards -->
-                <div v-else class="space-y-2">
-                  <article
-                    v-for="row in sortedSpecificBreakdownRows"
-                    :key="row.dayLabel"
-                    class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
-                  >
-                    <div class="flex justify-between items-center">
-                      <span class="text-sm font-semibold text-[var(--app-text)]">{{ row.dayLabel }}</span>
-                      <span
-                        class="text-sm font-bold"
-                        :class="specificBreakdownCellClass(row, 'averageReturn')"
-                      >
-                        {{ specificBreakdownCellText(row, 'averageReturn') }}
-                      </span>
-                    </div>
-                    <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span class="text-[var(--app-text-muted)]">Positive Rate</span>
-                        <p class="font-semibold" :class="specificBreakdownCellClass(row, 'percentPositive')">{{ specificBreakdownCellText(row, 'percentPositive') }}</p>
-                      </div>
-                    </div>
-                  </article>
-                  <p v-if="loading" class="text-center text-sm text-[var(--app-text-muted)] py-4">Loading daily breakdown...</p>
-                  <p v-else-if="!sortedSpecificBreakdownRows.length" class="text-center text-sm text-[var(--app-text-muted)] py-4">No daily breakdown</p>
+                <div class="specific-day-results__table-wrap">
+                  <SeasonalityDataTable
+                    :columns="specificBreakdownColumns"
+                    :rows="sortedSpecificBreakdownRows"
+                    :loading="loading"
+                    empty-message="No daily breakdown"
+                    :sort-key="specificBreakdownSort.key"
+                    :sort-direction="specificBreakdownSort.direction"
+                    :row-key="(row) => row.dayLabel"
+                    :cell-text="specificBreakdownCellText"
+                    :cell-class="specificBreakdownCellClass"
+                    @sort="setSpecificBreakdownSort"
+                  />
                 </div>
               </section>
             </div>
@@ -2451,75 +2340,19 @@ function downloadGrowthYearCsv() {
                     />
                   </div>
 
-                  <!-- Desktop: table -->
-                  <div v-if="!isMobile" class="growth-year-results__table-wrap">
-                    <table class="growth-year-results-table">
-                      <thead>
-                        <tr>
-                          <th
-                            v-for="column in growthYearColumns"
-                            :key="column.key"
-                            scope="col"
-                            :aria-sort="ariaSortFor(column.key)"
-                          >
-                            <button type="button" @click="setGrowthYearSort(column.key)">
-                              {{ column.label }}
-                              <span v-if="growthYearSort.key === column.key">{{ growthYearSort.direction === 'asc' ? '↑' : '↓' }}</span>
-                            </button>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-if="loading">
-                          <td :colspan="growthYearColumns.length" class="growth-year-results__empty">Loading yearly results...</td>
-                        </tr>
-                        <tr v-else-if="!sortedGrowthYearRows.length">
-                          <td :colspan="growthYearColumns.length" class="growth-year-results__empty">No yearly results</td>
-                        </tr>
-                        <template v-else>
-                          <tr v-for="row in sortedGrowthYearRows" :key="row.year">
-                            <td
-                              v-for="column in growthYearColumns"
-                              :key="column.key"
-                              :class="growthYearCellClass(row, column.key)"
-                            >
-                              {{ growthYearCellText(row, column.key) }}
-                            </td>
-                          </tr>
-                        </template>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <!-- Mobile: cards -->
-                  <div v-else class="space-y-2 mt-3">
-                    <article
-                      v-for="row in sortedGrowthYearRows"
-                      :key="row.year"
-                      class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
-                    >
-                      <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-[var(--app-text)]">{{ row.year }}</span>
-                        <span
-                          class="text-sm font-bold"
-                          :class="growthYearCellClass(row, 'windowReturn')"
-                        >
-                          {{ growthYearCellText(row, 'windowReturn') }}
-                        </span>
-                      </div>
-                      <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span class="text-[var(--app-text-muted)]">Start Date</span>
-                          <p class="font-semibold text-[var(--app-text)]">{{ growthYearCellText(row, 'startDate') }}</p>
-                        </div>
-                        <div>
-                          <span class="text-[var(--app-text-muted)]">End Date</span>
-                          <p class="font-semibold text-[var(--app-text)]">{{ growthYearCellText(row, 'endDate') }}</p>
-                        </div>
-                      </div>
-                    </article>
-                    <p v-if="loading" class="text-center text-sm text-[var(--app-text-muted)] py-4">Loading yearly results...</p>
-                    <p v-else-if="!sortedGrowthYearRows.length" class="text-center text-sm text-[var(--app-text-muted)] py-4">No yearly results</p>
+                  <div class="growth-year-results__table-wrap">
+                    <SeasonalityDataTable
+                      :columns="growthYearColumns"
+                      :rows="sortedGrowthYearRows"
+                      :loading="loading"
+                      empty-message="No yearly results"
+                      :sort-key="growthYearSort.key"
+                      :sort-direction="growthYearSort.direction"
+                      :row-key="(row) => row.year"
+                      :cell-text="growthYearCellText"
+                      :cell-class="growthYearCellClass"
+                      @sort="setGrowthYearSort"
+                    />
                   </div>
                 </div>
               </section>
