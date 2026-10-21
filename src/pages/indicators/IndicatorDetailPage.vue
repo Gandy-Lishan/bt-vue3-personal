@@ -108,6 +108,25 @@ const isRelatedLoading = ref(false)
 let relatedRequestId = 0
 let relatedLoadedForId = ''
 const relatedViewMode = ref<ListExplorerViewMode>('table')
+const researchViewMode = ref<ListExplorerViewMode>('table')
+
+// Detail tab mobile behavior matches StrategyPage: 767px breakpoint
+const isRelatedMobile = ref(false)
+let relatedMobileQuery: MediaQueryList | null = null
+
+function updateRelatedMobileState() {
+  isRelatedMobile.value = relatedMobileQuery?.matches ?? false
+}
+
+function researchPostUrl(post: Indicator): string | undefined {
+  const raw = post.raw ?? {}
+  return typeof raw.url === 'string' ? raw.url : undefined
+}
+
+function researchPostDate(post: Indicator): string {
+  const raw = post.raw ?? {}
+  return formatIndicatorDate(raw.date ?? post.updatedAt ?? '')
+}
 
 const {
   page: relatedPage,
@@ -979,16 +998,25 @@ onMounted(() => {
   updateMobileState()
   mobileQuery.addEventListener('change', updateMobileState)
 
+  // Related Charts mobile behavior matches StrategyPage (767px)
+  relatedMobileQuery = window.matchMedia('(max-width: 767px)')
+  updateRelatedMobileState()
+  relatedMobileQuery.addEventListener('change', updateRelatedMobileState)
+
   window.addEventListener('resize', updateSidebarHeight)
   void nextTick(observeDetailContent)
 })
 
-watch(isMobile, (mobile) => {
-  if (mobile) relatedViewMode.value = 'cards'
+watch(isRelatedMobile, (mobile) => {
+  if (mobile) {
+    relatedViewMode.value = 'cards'
+    researchViewMode.value = 'cards'
+  }
 })
 
 onBeforeUnmount(() => {
   mobileQuery?.removeEventListener('change', updateMobileState)
+  relatedMobileQuery?.removeEventListener('change', updateRelatedMobileState)
   window.removeEventListener('resize', updateSidebarHeight)
   detailResizeObserver?.disconnect()
 })
@@ -1353,7 +1381,31 @@ watch(activeTab, (tab) => {
             </div>
 
             <div v-else-if="activeTab === 'research'" class="p-3 md:p-5">
+              <div class="mb-4 flex items-center justify-end">
+                <div class="hidden md:flex shrink-0 items-center gap-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
+                  <button
+                    class="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-semibold transition"
+                    :class="researchViewMode === 'table' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                    type="button"
+                    :aria-pressed="researchViewMode === 'table'"
+                    @click="researchViewMode = 'table'"
+                  >
+                    <Table2 :size="14" /> Table
+                  </button>
+                  <button
+                    class="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-semibold transition"
+                    :class="researchViewMode === 'cards' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
+                    type="button"
+                    :aria-pressed="researchViewMode === 'cards'"
+                    @click="researchViewMode = 'cards'"
+                  >
+                    <LayoutGrid :size="14" /> Card
+                  </button>
+                </div>
+              </div>
+
               <IndicatorListTable
+                v-if="researchViewMode === 'table'"
                 :indicators="pagedResearchRows"
                 :loading="false"
                 :columns="researchPostColumns"
@@ -1362,8 +1414,35 @@ watch(activeTab, (tab) => {
                 :sort-direction="researchSortDirection"
                 @sort="handleResearchSort"
               />
+              <div v-else class="grid gap-3 sm:grid-cols-2">
+                <article
+                  v-for="post in pagedResearchRows"
+                  :key="post.id"
+                  class="min-w-0 overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--app-surface-soft)] hover:shadow-md"
+                >
+                  <a
+                    v-if="researchPostUrl(post)"
+                    class="line-clamp-2 text-left text-sm font-semibold leading-5 text-[var(--app-primary)] transition hover:underline"
+                    :href="researchPostUrl(post)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {{ post.name }}
+                  </a>
+                  <span v-else class="line-clamp-2 text-sm font-semibold leading-5 text-[var(--app-text)]">
+                    {{ post.name }}
+                  </span>
+                  <p class="mt-1.5 text-xs text-[var(--app-text-muted)]">
+                    Published {{ researchPostDate(post) }}
+                  </p>
+                </article>
+                <p v-if="!pagedResearchRows.length" class="col-span-full py-8 text-center text-sm text-[var(--app-text-muted)]">
+                  No research posts found.
+                </p>
+              </div>
 
               <IndicatorPagination
+                v-if="!(isRelatedMobile && researchViewMode === 'cards')"
                 class="mt-4"
                 :page="researchPage"
                 :page-count="researchPageCount"
@@ -1378,7 +1457,7 @@ watch(activeTab, (tab) => {
                 <p class="text-sm text-[var(--app-text-muted)]">
                   Indicators related to {{ detail?.title || indicatorId }}.
                 </p>
-                <div class="flex shrink-0 items-center gap-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
+                <div class="hidden md:flex shrink-0 items-center gap-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1">
                   <button
                     class="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-semibold transition"
                     :class="relatedViewMode === 'table' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
@@ -1422,7 +1501,7 @@ watch(activeTab, (tab) => {
               />
 
               <IndicatorPagination
-                v-if="!(isMobile && relatedViewMode === 'cards')"
+                v-if="!(isRelatedMobile && relatedViewMode === 'cards')"
                 class="mt-4"
                 :page="relatedPage"
                 :page-count="relatedPageCount"
