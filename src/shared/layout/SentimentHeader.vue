@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Bell,
@@ -16,7 +16,7 @@ import {
   Sun,
   User,
 } from '@lucide/vue'
-import { canAccessNavigationItem } from '@/shared/auth/permission'
+import { hasAuthenticatedCookie, canAccessNavigationItem, getCurrentAccessLevels } from '@/shared/auth/permission'
 import { useTheme } from '@/shared/theme/theme'
 import HeaderSearchAutocomplete from './HeaderSearchAutocomplete.vue'
 
@@ -31,6 +31,17 @@ interface NavItem {
 
 const route = useRoute()
 const { isDarkTheme, themeToggleLabel, toggleThemeMode } = useTheme()
+
+// Reactive auth state — refreshes on route change so nav updates after login/logout
+const isAuthenticated = ref(hasAuthenticatedCookie())
+const accessLevelsSnapshot = ref(getCurrentAccessLevels())
+
+function refreshAuthState() {
+  isAuthenticated.value = hasAuthenticatedCookie()
+  accessLevelsSnapshot.value = getCurrentAccessLevels()
+}
+
+watch(() => route.path, refreshAuthState)
 // The light logo is dark artwork; the dark theme needs the white variant instead.
 const lightLogoUrl = 'https://cdn.prod.website-files.com/650486dd4239644e595569c1/650486dd4239644e59556a01_ST%20Logo.png'
 const logoUrl = computed(() => (isDarkTheme.value ? '/avatar-sentimen-dark.png' : lightLogoUrl))
@@ -58,7 +69,7 @@ const accountItems: NavItem[] = [
   { label: 'Manage Password', keyPath: '3-3', path: 'https://users.sentimentrader.com/users/account/mypassword/', external: true },
   { label: 'Contact Support', keyPath: '3-4', path: 'https://users.sentimentrader.com/users/account/support/', external: true },
   { label: 'Status Page', keyPath: '3-5', path: 'http://status.sentimentrader.com/', external: true },
-  { label: 'Log out', keyPath: '3-6', path: '/404' },
+  { label: 'Log out', keyPath: '3-6', path: '/logout' },
 ]
 
 const navItems: NavItem[] = [
@@ -159,10 +170,12 @@ const navItems: NavItem[] = [
 ]
 
 function permittedNavItem(item: NavItem): NavItem | null {
+  const levels = accessLevelsSnapshot.value
+  const authenticated = isAuthenticated.value
   const subMenu = item.subMenu?.filter((subItem) =>
-    canAccessNavigationItem(subItem.path, subItem.permissions ?? item.permissions, subItem.external),
+    canAccessNavigationItem(subItem.path, subItem.permissions ?? item.permissions, subItem.external, levels, authenticated),
   )
-  const parentAllowed = canAccessNavigationItem(item.path, item.permissions, item.external)
+  const parentAllowed = canAccessNavigationItem(item.path, item.permissions, item.external, levels, authenticated)
 
   if (!parentAllowed && !subMenu?.length) return null
   return subMenu ? { ...item, subMenu } : item
@@ -194,6 +207,13 @@ function firstPath(item: NavItem) {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
+        <RouterLink
+          v-if="!isAuthenticated"
+          to="/pricing"
+          class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)]"
+        >
+          Pricing
+        </RouterLink>
         <a class="relative inline-flex items-center justify-center rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]" href="/notifications" aria-label="Notifications">
           <Bell :size="18" />
           <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff4b63] px-1 text-[0.625rem] font-normal text-white">8</span>

@@ -238,6 +238,40 @@ const router = createRouter({
     { path: '/watchlist', redirect: '/my-stuff/watchlist' },
     { path: '/stuff_contact', redirect: '/my-stuff/concierge' },
     {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/pages/system/LoginPage.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/logout',
+      name: 'logout',
+      beforeEnter: async () => {
+        try { await (await import('@/shared/api/stApi')).logout() } catch {}
+        document.cookie = 'sentimen_session=; path=/; Max-Age=0'
+        document.cookie = 'devbt2Userid=; path=/; Max-Age=0'
+        return { path: '/login', replace: true }
+      },
+    },
+    {
+      path: '/pricing',
+      name: 'pricing',
+      component: () => import('@/pages/pricing/PricingPage.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/checkout',
+      name: 'checkout',
+      component: () => import('@/pages/checkout/CheckoutPage.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/checkout-success',
+      name: 'checkout-success',
+      component: () => import('@/pages/checkout/CheckoutSuccessPage.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/404',
       name: 'unauthorized',
       component: () => import('@/pages/system/UnauthorizedPage.vue'),

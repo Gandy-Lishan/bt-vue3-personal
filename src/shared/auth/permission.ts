@@ -143,7 +143,7 @@ function hasFullAccess(accessLevels: string[]) {
   return hasAnyAccess(accessLevels, fullAccessLevels)
 }
 
-function hasAuthenticatedCookie() {
+export function hasAuthenticatedCookie() {
   return Boolean(readCookie(SENTIMEN_SESSION_COOKIE) || readCookie(DEVBT2_USER_ID_COOKIE))
 }
 
@@ -177,7 +177,7 @@ export function getRoutePermissionDecision(
   const normalizedPath = normalizePath(path)
 
   if (normalizedPath === '/404') return { allowed: true }
-  if (!isAuthenticated) return { allowed: false, redirectPath: '/404' }
+  if (!isAuthenticated) return { allowed: false, redirectPath: '/login' }
   if (!accessLevels.length) return { allowed: true }
 
   if (normalizedPath.includes('/notifications')) {
@@ -212,9 +212,9 @@ export function getRoutePermissionDecision(
   return { allowed: true }
 }
 
-export function canAccessNavigationItem(path: string, requiredLevels?: string[], external = false) {
-  const accessLevels = getCurrentAccessLevels()
-  const isAuthenticated = hasAuthenticatedCookie()
+export function canAccessNavigationItem(path: string, requiredLevels?: string[], external = false, overrideAccessLevels?: string[], overrideIsAuthenticated?: boolean) {
+  const accessLevels = overrideAccessLevels ?? getCurrentAccessLevels()
+  const isAuthenticated = overrideIsAuthenticated ?? hasAuthenticatedCookie()
 
   if (requiredLevels?.length) {
     if (!isAuthenticated) return false
@@ -259,12 +259,15 @@ export function installRouterPermissionGuard(router: Router) {
     prepareLegacyAuthCookies()
     syncBacktestUserStorage()
 
+    // Public routes don't need auth check
+    if ((to.meta as Record<string, unknown>)?.public) return true
+
     const decision = getRoutePermissionDecision(to.path)
     if (decision.allowed) return true
     if (to.path === decision.redirectPath) return true
 
     return {
-      path: decision.redirectPath ?? '/404',
+      path: decision.redirectPath ?? '/login',
       query: to.fullPath === '/' ? undefined : { redirect: to.fullPath },
       replace: true,
     }
