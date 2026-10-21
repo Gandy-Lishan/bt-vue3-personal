@@ -68,11 +68,51 @@ export interface CreateAccountRequest {
   country: string
   plan_code: string
   coupon_code?: string
+  captcha: string
+  trading_strategy_tags?: string[]
+  trading_strategy_other?: string
+  source?: string
+  medium?: string
+  campaign?: string
+  irclickid?: string
+  terms: boolean
+}
+
+export interface CreateAccountCwRequest {
+  email: string
+  password: string
+  first_name: string
+  last_name: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  country: string
+  plan_code: string
+  coupon_code?: string
+  captcha: string
+  trading_strategy_tags?: string[]
+  trading_strategy_other?: string
+  source?: string
+  medium?: string
+  campaign?: string
+  irclickid?: string
   terms: boolean
 }
 
 export async function createAccount(req: CreateAccountRequest) {
   const { data } = await api.post('/recurly/accounts', req)
+  return data as {
+    success: boolean
+    purchase?: { account_id: string; invoice_id: string }
+    identify?: { email: string; account_code: string }
+    error?: string
+    errors?: Array<Record<string, string>>
+  }
+}
+
+export async function createAccountCw(req: CreateAccountCwRequest) {
+  const { data } = await api.post('/recurly/accountsCw', req)
   return data as {
     success: boolean
     purchase?: { account_id: string; invoice_id: string }

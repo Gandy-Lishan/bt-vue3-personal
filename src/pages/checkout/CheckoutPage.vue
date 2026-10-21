@@ -40,30 +40,36 @@
             <div>
               <h2 class="text-lg font-semibold text-[var(--app-text)]">Billing Information</h2>
               <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                <div class="sm:col-span-2">
+                <div v-if="!isCwPlan" class="sm:col-span-2">
                   <label class="mb-1 block text-sm font-medium text-[var(--app-text-secondary)]">Card Information</label>
-                  <div ref="cardContainerRef" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2" :class="{ 'border-red-500': cardError }"></div>
+                  <div
+                    ref="cardContainerRef"
+                    data-testid="card-container"
+                    class="recurly-card-container overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] shadow-sm outline-none transition-colors hover:border-[var(--app-primary)] focus-within:border-[var(--app-primary)]"
+                    style="height: 44px;"
+                    :class="{ 'border-red-500 bg-red-50': cardError }"
+                  ></div>
                   <p v-if="cardError" class="mt-1 text-xs text-red-500">{{ cardError }}</p>
                 </div>
                 <div class="sm:col-span-2">
                   <label class="mb-1 block text-sm font-medium text-[var(--app-text-secondary)]">Address</label>
-                  <input v-model="form.address" type="text" required data-recurly="address1" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="Address" />
+                  <input v-model="form.address" type="text" :required="!isCwPlan" data-recurly="address1" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="Address" />
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium text-[var(--app-text-secondary)]">City</label>
-                  <input v-model="form.city" type="text" required data-recurly="city" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="City" />
+                  <input v-model="form.city" type="text" :required="!isCwPlan" data-recurly="city" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="City" />
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium text-[var(--app-text-secondary)]">State / Province</label>
-                  <input v-model="form.state" type="text" required data-recurly="state" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="State / Province" />
+                  <input v-model="form.state" type="text" :required="!isCwPlan" data-recurly="state" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="State / Province" />
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium text-[var(--app-text-secondary)]">Postal Code</label>
-                  <input v-model="form.zip" type="text" required data-recurly="postal_code" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="Postal Code" />
+                  <input v-model="form.zip" type="text" :required="!isCwPlan" data-recurly="postal_code" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" placeholder="Postal Code" />
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium text-[var(--app-text-secondary)]">Country</label>
-                  <select v-model="form.country" required data-recurly="country" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
+                  <select v-model="form.country" :required="!isCwPlan" data-recurly="country" class="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
                     <option value="">Select one…</option>
                     <option v-for="c in countries" :key="c.alpha2" :value="c.alpha2">{{ c.country }}</option>
                   </select>
@@ -83,7 +89,7 @@
 
             <button
               type="submit"
-              :disabled="submitting || !isCardValid"
+              :disabled="submitting || (!isCwPlan && !isCardValid)"
               class="w-full rounded-md bg-[var(--app-primary)] px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {{ submitting ? 'Processing…' : 'Sign Up Now' }}
@@ -107,7 +113,7 @@
               <hr class="border-[var(--app-border)]" />
 
               <!-- Coupon -->
-              <div class="flex gap-2">
+              <div v-if="!appliedCoupon" class="flex gap-2">
                 <input
                   v-model="couponCode"
                   type="text"
@@ -123,14 +129,8 @@
                 </button>
               </div>
 
-              <div v-if="appliedCoupon" class="flex items-center justify-between text-xs">
-                <span class="text-[var(--app-text-secondary)]">
-                  Coupon: {{ appliedCoupon.label_as || appliedCoupon.name }}
-                  <button @click="removeCoupon" class="ml-1 text-red-500 hover:underline">×</button>
-                </span>
-                <span v-if="couponDiscountDisplay" class="text-[var(--app-positive)]">
-                  {{ couponDiscountDisplay }}
-                </span>
+              <div v-if="appliedCoupon" class="text-xs text-[var(--app-text-secondary)]">
+                Coupon: {{ appliedCoupon.label_as || appliedCoupon.name }}
               </div>
 
               <hr class="border-[var(--app-border)]" />
@@ -162,8 +162,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPlan, getCoupon, createAccount, type Plan, type Coupon } from '@/shared/api/stApi'
+import { getPlan, getCoupon, createAccount, createAccountCw, type Plan, type Coupon } from '@/shared/api/stApi'
 import { useRecurlyCard } from '@/shared/composables/useRecurlyCard'
+import { useRecaptcha } from '@/shared/composables/useRecaptcha'
 // @ts-ignore
 import isoCountries from 'iso-3166-1'
 
@@ -174,6 +175,9 @@ const redirectAfterCheckout = computed(() => route.query.redirect as string | un
 // Recurly card element — non-reactive lifecycle managed in composable
 const cardContainerRef = ref<HTMLElement | null>(null)
 const { isCardValid, cardError, formError: cardFormError, getToken } = useRecurlyCard(cardContainerRef)
+
+// Google reCAPTCHA v3 (used by both regular and CW checkout)
+const { executeRecaptcha } = useRecaptcha()
 
 const formRef = ref<HTMLFormElement | null>(null)
 
@@ -240,12 +244,13 @@ const autoCouponByCode: Record<string, string> = {
   'everything-monthly': 'ny50',
 }
 
-const hiddenCouponDiscountPlans = new Set([
-  'everything-monthly-bf',
-  'everything-monthly-ny',
-  'everything-monthly-nyf',
-  'everything-monthly',
-])
+// Recurly returns plan codes like "code-everything-monthly".
+// Strip the "code-" prefix for display / coupon mapping lookups.
+function planShortCode(code: string): string {
+  return code.startsWith('code-') ? code.slice(5) : code
+}
+
+const shortCode = computed(() => plan.value ? planShortCode(plan.value.code) : '')
 
 // ── Helpers (mirroring original CartSide.tsx) ────────────────────────
 function formatNum(n: number): string {
@@ -271,31 +276,31 @@ function intervalText(intervalUnit: string, intervalLength: number): string {
   return `${intervalLength} ${intervalUnit}`
 }
 
-// ── Computed Summary fields ──────────────────────────────────────────
+// ── Computed Summary fields ─────────────────────────────────────────
 const planPrice = computed(() => {
   if (!plan.value) return '$0'
-  const hardcoded = planPriceByCode[plan.value.code]
+  const hardcoded = planPriceByCode[shortCode.value]
   if (hardcoded) return hardcoded
   return `$${formatNum(plan.value.amount)} / ${intervalText(plan.value.interval_unit, plan.value.interval_length)}`
 })
 
 const subtotal = computed(() => {
   if (!plan.value) return '$0'
-  const hardcoded = subtotalByCode[plan.value.code]
+  const hardcoded = subtotalByCode[shortCode.value]
   if (hardcoded) return hardcoded
   return `$${formatNum(plan.value.amount)}`
 })
 
 const trialDiscount = computed(() => {
   if (!plan.value) return '-$0'
-  const hardcoded = trialDiscountByCode[plan.value.code]
+  const hardcoded = trialDiscountByCode[shortCode.value]
   if (hardcoded) return hardcoded
   return `-${subtotal.value}`
 })
 
 const trialLabel = computed(() => {
   if (!plan.value) return 'Trial'
-  if (['everything-monthly-aas', 'research-monthly-fnj'].includes(plan.value.code)) {
+  if (['everything-monthly-aas', 'research-monthly-fnj'].includes(shortCode.value)) {
     return 'Trial (15 Days)'
   }
   const length = plan.value.trial_length ?? 0
@@ -304,14 +309,6 @@ const trialLabel = computed(() => {
 
 const isPercentCoupon = computed(() => appliedCoupon.value?.discount_type === 'percent')
 const isFixedCoupon = computed(() => appliedCoupon.value && !isPercentCoupon.value && appliedCoupon.value.amount > 0)
-
-const couponDiscountDisplay = computed(() => {
-  if (!plan.value || !appliedCoupon.value) return null
-  if (hiddenCouponDiscountPlans.has(plan.value.code)) return null
-  if (isPercentCoupon.value) return `${appliedCoupon.value!.percent}%`
-  if (isFixedCoupon.value) return `-$${formatNum(appliedCoupon.value!.amount)}`
-  return null
-})
 
 const couponDiscountFixed = computed(() => {
   if (!isFixedCoupon.value) return ''
@@ -327,6 +324,9 @@ const couponValue = computed(() => appliedCoupon.value?.amount || 0)
 
 const total = computed(() => {
   if (!plan.value) return '$0'
+  // Original project: if trial_length > 0, checkout total is always $0.00
+  if (plan.value.trial_length && plan.value.trial_length > 0) return '$0.00'
+
   const base = numericFromCurrencyString(subtotal.value)
   if (!appliedCoupon.value) return formatCurrency(base)
 
@@ -339,7 +339,11 @@ const total = computed(() => {
   return formatCurrency(base - discount)
 })
 
-const isEverythingMonthly = computed(() => plan.value?.code === 'everything-monthly')
+const isEverythingMonthly = computed(() => shortCode.value === 'everything-monthly')
+
+// CW (Credit Watch) plans use /api/recurly/accountsCw — no Recurly.js card token required.
+const cwPlanSuffixes = ['-cw', '-ad']
+const isCwPlan = computed(() => cwPlanSuffixes.some((suffix) => shortCode.value.endsWith(suffix)))
 
 // ── Coupon handling ──────────────────────────────────────────────────
 async function applyCouponByCode(code: string) {
@@ -360,27 +364,28 @@ async function applyCoupon() {
   await applyCouponByCode(couponCode.value)
 }
 
-function removeCoupon() {
-  appliedCoupon.value = null
-  couponCode.value = ''
-}
-
 // ── Submit ───────────────────────────────────────────────────────────
 async function onSubmit() {
   submitting.value = true
 
-  if (!isCardValid.value) {
+  if (!isCwPlan.value && !isCardValid.value) {
     cardError.value = 'Card number is invalid'
     submitting.value = false
     return
   }
 
   try {
-    // Step 1: Generate token via Recurly.js
-    const tokenId = await getToken(formRef.value!)
+    // Step 1: Execute Google reCAPTCHA v3 (required by both endpoints)
+    const captchaToken = await executeRecaptcha('signupAction')
 
-    // Step 2: POST to backend with token_id
-    const res = await createAccount({
+    // Step 2: Generate token via Recurly.js for regular plans
+    let tokenId = ''
+    if (!isCwPlan.value) {
+      tokenId = await getToken(formRef.value!)
+    }
+
+    // Step 3: Common checkout payload fields
+    const basePayload = {
       first_name: form.first_name,
       last_name: form.last_name,
       email: form.email,
@@ -392,9 +397,14 @@ async function onSubmit() {
       country: form.country,
       plan_code: plan.value!.code,
       coupon_code: appliedCoupon.value?.code,
-      token_id: tokenId,
+      captcha: captchaToken,
       terms: form.terms,
-    })
+    }
+
+    // Step 4: Route to the correct endpoint
+    const res = isCwPlan.value
+      ? await createAccountCw(basePayload)
+      : await createAccount({ ...basePayload, token_id: tokenId })
 
     if (res.error) {
       errorState.value = res.error
@@ -405,7 +415,7 @@ async function onSubmit() {
       return
     }
 
-    // Step 3: Redirect to success page with original-project query params
+    // Step 5: Redirect to success page with original-project query params
     const query = buildSuccessQuery()
     router.replace(`/checkout-success?${new URLSearchParams(query).toString()}`)
   } catch (e: any) {
@@ -465,7 +475,7 @@ onMounted(async () => {
     plan.value = await getPlan(planCode)
 
     // Auto-apply plan-specific coupons (mirrors CartSide.tsx on mount)
-    const autoCoupon = autoCouponByCode[plan.value.code]
+    const autoCoupon = autoCouponByCode[planShortCode(plan.value.code)]
     if (autoCoupon) {
       await applyCouponByCode(autoCoupon)
     }
@@ -476,3 +486,43 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style>
+/* Ensure Recurly CardElement iframe fills its container */
+.recurly-card-container iframe {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Override Recurly v4 CSS defaults on any element inside the container */
+.recurly-card-container.recurly-hosted-field,
+.recurly-card-container.recurly-element,
+.recurly-card-container.recurly-hosted-field-focus,
+.recurly-card-container.recurly-element-focus,
+.recurly-card-container iframe.recurly-hosted-field,
+.recurly-card-container iframe.recurly-element,
+.recurly-card-container iframe.recurly-hosted-field-focus,
+.recurly-card-container iframe.recurly-element-focus,
+.recurly-card-container > div,
+.recurly-card-container > div.recurly-element,
+.recurly-card-container > div.recurly-hosted-field {
+  height: 44px !important;
+  margin-top: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Focus state — matches other inputs' focus:border-[var(--app-primary)] */
+.recurly-card-container.recurly-focused {
+  border-color: var(--app-primary) !important;
+}
+</style>

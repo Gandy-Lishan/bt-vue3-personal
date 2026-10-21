@@ -33,3 +33,8 @@ tmp/
 
 # Local env secrets
 .env
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/

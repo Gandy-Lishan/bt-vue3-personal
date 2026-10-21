@@ -16,7 +16,7 @@ import {
   Sun,
   User,
 } from '@lucide/vue'
-import { hasAuthenticatedCookie, canAccessNavigationItem, getCurrentAccessLevels } from '@/shared/auth/permission'
+import { hasAuthenticatedCookie, canAccessNavigationItem, getCurrentAccessLevels, getCurrentUsername } from '@/shared/auth/permission'
 import { useTheme } from '@/shared/theme/theme'
 import HeaderSearchAutocomplete from './HeaderSearchAutocomplete.vue'
 
@@ -35,10 +35,12 @@ const { isDarkTheme, themeToggleLabel, toggleThemeMode } = useTheme()
 // Reactive auth state — refreshes on route change so nav updates after login/logout
 const isAuthenticated = ref(hasAuthenticatedCookie())
 const accessLevelsSnapshot = ref(getCurrentAccessLevels())
+const currentUsername = ref(getCurrentUsername())
 
 function refreshAuthState() {
   isAuthenticated.value = hasAuthenticatedCookie()
   accessLevelsSnapshot.value = getCurrentAccessLevels()
+  currentUsername.value = getCurrentUsername()
 }
 
 watch(() => route.path, refreshAuthState)
@@ -277,6 +279,9 @@ function firstPath(item: NavItem) {
             <ChevronDown :size="14" />
           </button>
           <div class="invisible absolute right-0 top-full z-30 mt-1 min-w-[220px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
+            <div class="border-b border-[var(--chrome-border-muted)] px-3 pb-2 mb-1">
+              <p class="truncate text-sm font-medium text-[var(--chrome-text)]">{{ currentUsername }}</p>
+            </div>
             <component
               :is="item.external ? 'a' : 'RouterLink'"
               v-for="item in accountItems"

@@ -43,7 +43,7 @@
           </ul>
 
           <RouterLink
-            :to="{ name: 'checkout', query: { plan: plan.code } }"
+            :to="checkoutLink(plan.code)"
             class="mt-6 rounded-md bg-[var(--app-primary)] px-4 py-2.5 text-center text-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
             Try Free for 14 Days
@@ -62,8 +62,17 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 
+const route = useRoute()
 const billingCycle = ref<'monthly' | 'annual'>('monthly')
+const redirectTarget = computed(() => route.query.redirect as string | undefined)
+
+function checkoutLink(planCode: string) {
+  const query: Record<string, string> = { plan: planCode }
+  if (redirectTarget.value) query.redirect = redirectTarget.value
+  return { name: 'checkout', query }
+}
 
 interface PlanCard {
   code: string

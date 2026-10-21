@@ -1,30 +1,29 @@
 /**
  * useRecurlyCard — Vue 3 composable for Recurly.js CardElement (v4).
  *
+ * Mirrors the original Next.js project's usage of @recurly/react-recurly CardElement.
+ * The combined CardElement renders card number, expiry, and CVV in one hosted field,
+ * with default placeholders matching the original checkout form.
+ *
  * Recurly v4 API pattern:
- *   1. window.recurly.configure({ publicKey })  // once globally
+ *   1. window.recurly.configure({ publicKey })
  *   2. const elements = window.recurly.Elements()
  *   3. const card = elements.CardElement(opts).attach(container)
- *   4. window.recurly.token(elements, form, callback)  // 3-arg signature
+ *   4. window.recurly.token(elements, form, callback)
  *
  * CRITICAL:
  * - Recurly instances stored as plain variables (NEVER ref/reactive)
  * - Card container must always exist in DOM (no v-if)
- * - configure() is called here on first invocation, cached thereafter
  */
 import type { Ref } from 'vue'
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, watch, onBeforeUnmount, nextTick } from 'vue'
 
 declare global {
   interface Window {
     recurly: {
       configure: (config: { publicKey: string }) => void
       Elements: () => ElementsInstance
-      token: (
-        elements: ElementsInstance,
-        form: HTMLFormElement,
-        callback: (err: RecurlyError | null, token: TokenPayload | null) => void
-      ) => void
+      token: (...args: any[]) => void
     }
   }
 }
@@ -52,7 +51,7 @@ interface RecurlyError {
 
 const RECURLY_PUBLIC_KEY = import.meta.env.VITE_RECURLY_PUBLIC_API_KEY || ''
 
-// Module-level singleton: configure once, cache the Elements instance
+// Module-level singleton
 let globalElements: ElementsInstance | null = null
 let globalConfigured = false
 
@@ -65,7 +64,7 @@ function ensureConfigured() {
 }
 
 export function useRecurlyCard(containerRef: Ref<HTMLElement | null>) {
-  // ── Plain variables (non-reactive) ──────────────────────────────
+  // ── Plain variables (non-reactive) ─────────────────────────────
   let cardElement: CardElement | null = null
 
   // ── Reactive UI state ────────────────────────────────────────────
@@ -74,63 +73,105 @@ export function useRecurlyCard(containerRef: Ref<HTMLElement | null>) {
   const isLoading = ref(false)
   const formError = ref('')
 
-  onMounted(async () => {
-    await nextTick()
+  // Vue template refs are assigned *after* the component mounts.
+  let attached = false
+  let stopWatching: (() => void) | null = null
+  stopWatching = watch(containerRef, async (el) => {
+    if (!el || attached) return
 
     const recurly = (window as any).recurly
     if (!recurly) {
       formError.value = 'Payment system failed to load. Please refresh.'
+      stopWatching!()
       return
     }
     if (!RECURLY_PUBLIC_KEY) {
       formError.value = 'Payment configuration error.'
+      stopWatching!()
       return
+    }
+
+    // Wait for next Vue tick + a paint cycle so the container has
+    // been laid out and has real dimensions before Recurly attaches.
+    await nextTick()
+    await new Promise<void>((r) => requestAnimationFrame(() => r()))
+
+    // Guard against a container that is somehow still 0×0
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) {
+      // Try once more after another paint cycle
+      await new Promise<void>((r) => requestAnimationFrame(() => r()))
+      const rect2 = el.getBoundingClientRect()
+      if (rect2.width === 0 || rect2.height === 0) {
+        formError.value = 'Payment field failed to initialise — please refresh.'
+        stopWatching!()
+        return
+      }
     }
 
     ensureConfigured()
     if (!globalElements) {
       formError.value = 'Payment system initialization failed.'
+      stopWatching!()
       return
     }
 
-    // Create CardElement from the shared Elements instance
     cardElement = globalElements.CardElement({
       displayIcon: false,
       style: {
-        fontSize: '14px',
-        fontFamily: 'inherit',
+        fontSize: '16px',
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        color: '#071b4f',
+        placeholder: { color: '#9ca3af' },
+        // Remove Recurly v4 default border/background inside the element
+        border: 'none',
+        background: 'transparent',
+        padding: '0',
+        margin: '0',
+        boxShadow: 'none',
+        borderRadius: '0',
       },
     })
 
-    // Listen for changes
     cardElement.on('change', (state: any) => {
       isCardValid.value = state.valid || false
       cardError.value = state.error || ''
     })
 
-    // Attach to DOM container
-    if (containerRef.value) {
-      cardElement.attach(containerRef.value)
-    }
-  })
+    cardElement.on('focus', () => {
+      el.classList.add('recurly-focused')
+    })
+
+    cardElement.on('blur', () => {
+      el.classList.remove('recurly-focused')
+    })
+
+    cardElement.attach(el)
+    attached = true
+    stopWatching!()
+  }, { immediate: true })
 
   onBeforeUnmount(() => {
     if (cardElement) {
       cardElement.remove()
       cardElement = null
     }
+    attached = false
   })
 
-  // ── Token generation (3-arg signature) ───────────────────────────
+  // ── Token generation ────────────────────────────────────────────
   function getToken(formEl: HTMLFormElement): Promise<string> {
     return new Promise((resolve, reject) => {
-      if (!globalElements || !cardElement) {
+      const recurly = (window as any).recurly
+      if (!recurly || !globalElements || !cardElement) {
         reject(new Error('Card element not initialized'))
         return
       }
 
       isLoading.value = true
 
+      // v4 token() with elements
       recurly.token(globalElements, formEl, (err: RecurlyError | null, token: TokenPayload | null) => {
         isLoading.value = false
         if (err) {
