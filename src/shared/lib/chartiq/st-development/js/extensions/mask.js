@@ -3,12 +3,13 @@
  *	add a mask on screen during loading
  */
  import { CIQ as _CIQ, timezoneJS as _timezoneJS } from "chartiq/js/chartiq.js";
- import store from '@/store'
 
-
+ const getStore = () => {
+   return (typeof CIQ !== "undefined" && CIQ.store) ? CIQ.store : null;
+ };
 
  let __st_js_mask_ = (_exports) => {
- 
+
  /* global _CIQ, _timezoneJS, _SplinePlotter */
  
  var CIQ = typeof _CIQ !== "undefined" ? _CIQ : _exports.CIQ;
@@ -33,13 +34,16 @@ CIQ.addCover = function coverDiv(content='loading'){
 
     console.log('*******SHOW MASK*********\n', content)
 
-    store.commit('chart/SET_CHART_LOADING', {
-        isChartLoading:true,
-        showProgress:false,
-        percentage:0,
-        progressText:content
-    })
-}  
+    const store = getStore();
+    if (store) {
+        store.set_chart_loading({
+            isChartLoading:true,
+            showProgress:false,
+            percentage:0,
+            progressText:content
+        })
+    }
+}
 
 // update test on mask
 CIQ.setCoverText = function(cont){
@@ -59,13 +63,15 @@ CIQ.hideCover = function hide() {
     //     body[0].removeChild(item);
     // }
 
-    store.commit('chart/SET_CHART_LOADING', {
-        isChartLoading:false,
-        showProgress:false,
-        percentage:0,
-        progressText:''
-    })
+    const store = getStore();
+    if (store) {
+        store.set_chart_loading({
+            isChartLoading: false,
+            showProgress: false,
+            percentage: 0,
+            progressText: ''
+        })
+    }
 }
-
 }
 export {__st_js_mask_}

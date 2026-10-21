@@ -3,10 +3,10 @@
  *	contains customized functions related to indicator loading and CSV output file generation
  */
  import { CIQ as _CIQ, timezoneJS as _timezoneJS } from "chartiq/js/chartiq.js";
- import {config} from "@/components/common/chart/st-development/examples/feeds/STDataFeedAccessUrl"
- import { uniqueObjectArray } from '@/utils/formValidate'
- import {capitalizeFirstLetter} from '@/utils'
- import { recoverSymbolOptixUrl,getCoresSymbolDual } from "@/utils/globalFunc";
+ import {config} from "../../examples/feeds/STDataFeedAccessUrl"
+ import { uniqueObjectArray } from '../../../utils/formValidate'
+ import {capitalizeFirstLetter} from '../../../utils'
+ import { recoverSymbolOptixUrl,getCoresSymbolDual } from "../../../utils/globalFunc";
  import {
     getPairData
   } from '@/service/service'

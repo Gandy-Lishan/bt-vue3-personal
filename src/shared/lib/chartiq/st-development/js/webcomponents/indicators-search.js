@@ -3,10 +3,9 @@
  *	customized sentiment searchbar component
  */
 import {CIQ} from "chartiq/js/standard.js"
-import {config as mostPopularItems} from "@/components/common/chart/st-development/examples/data/mostPopularItems"
+import {config as mostPopularItems} from "../../examples/data/mostPopularItems"
 
-import {timeframeTransform} from '@/utils'
-import {createStateFilter} from '@/utils/globalFunc'
+import {timeframeTransform, createStateFilter} from '@/shared/lib/chartiq/utils'
 
 const collator = new Intl.Collator('en');
 function SortArray(x, y){

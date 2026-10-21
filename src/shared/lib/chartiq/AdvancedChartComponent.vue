@@ -1,3 +1,4 @@
+<!-- @ts-nocheck -->
 <!--
   ChartIQEngine.vue — Vue3 Composition API wrapper for ChartIQ v8.3.3
 
@@ -14,27 +15,33 @@
 -->
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { createVNode, render } from 'vue'
 
+// Register <cq-context> as a real Custom Element so Vue treats it as native
+import './cq-context-element'
+
 // ChartIQ
 // @ts-expect-error ChartIQ does not ship with TS declarations
-import { CIQ } from '../st-development/js/components'
-import { getCustomConfig } from '../wrapper/resources'
-import { extendOverwrite } from '../st-development/js/extensions/StudiesExtendOverwrite'
+import { CIQ } from './st-development/js/components'
+import { getCustomConfig } from './resources'
+// @ts-expect-error StudiesExtendOverwrite is a JS file from ChartIQ without type declarations
+import { extendOverwrite } from './st-development/js/extensions/StudiesExtendOverwrite'
+import { setupNProgressStub } from './service-stub'
 
 // Pinia store
 import { useChartIQStore } from '@/entities/chartiq/model/chartiq.store'
+import { createVuexAdapter } from './vuex-adapter'
 
 // Webcomponents (Vue3 versions — adapted from Vue2 originals)
-import ReportsFilter from '../st-development/js/webcomponents/ReportsFilter.vue'
-import ManageLayout from '../wrapper/ManageLayout.vue'
+import ReportsFilter from './st-development/js/webcomponents/ReportsFilter.vue'
+import ManageLayout from './ManageLayout.vue'
 
 // Props
 const props = defineProps<{
   /** Symbol to load on chart creation */
-  symbol?: string
+  symbol?: string | Record<string, unknown>
   /** Custom config override */
   config?: Record<string, unknown>
   /** Whether to restore saved layout */
@@ -43,6 +50,8 @@ const props = defineProps<{
   routeName?: string
   /** Selected strategy index for Strategy Modal */
   selectedStrategyIndex?: number
+  /** Optional callback invoked by ChartIQ when the chart is ready */
+  onChartReady?: () => void
 }>()
 
 const emit = defineEmits<{
@@ -53,7 +62,6 @@ const route = useRoute()
 const chartIQStore = useChartIQStore()
 
 // State
-const container = ref<HTMLElement>()
 const stx = ref<unknown>()
 const uiContextRef = ref<unknown>()
 const isCollapse = ref(false)
@@ -94,11 +102,10 @@ function dialogPortalized(el: Element) {
 
 /**
  * Create chart and UI context.
+ * Receives the container element directly to avoid DOM race conditions
+ * during router navigation.
  */
-function createChartAndUI(config: Record<string, unknown>) {
-  const containerEl = container.value
-  if (!containerEl) throw new Error('ChartIQ container not found')
-
+function createChartAndUI(config: Record<string, unknown>, containerEl: HTMLElement) {
   const chart = new CIQ.UI.Chart()
   const uiContext = chart.createChartAndUI({ container: containerEl, config })
   return uiContext
@@ -207,6 +214,30 @@ function symbolMutationObserver() {
 }
 
 /**
+ * Inject a real DOM <template cq-study-legend> into each <cq-study-legend>.
+ * Vue 3 strips <template> elements from rendered output, but ChartIQ's
+ * StudyLegend.begin() needs a real <template> to clone when adding studies.
+ */
+function injectStudyLegendTemplates() {
+  document.querySelectorAll('cq-study-legend-content').forEach((contentEl) => {
+    // Skip if a real <template cq-study-legend> already exists
+    if (contentEl.querySelector('template[cq-study-legend]')) return
+
+    const tpl = document.createElement('template')
+    tpl.setAttribute('cq-study-legend', '')
+    tpl.innerHTML = `
+      <cq-item>
+        <cq-label></cq-label>
+        <span class="ciq-edit" title="edit study"></span>
+        <div class="ciq-icon ciq-close" title="edit close"></div>
+      </cq-item>
+    `
+    // Insert at the beginning so StudyLegend.find("template[cq-study-legend]") finds it first
+    contentEl.prepend(tpl)
+  })
+}
+
+/**
  * Pattern match resize — adjust drawing objects when chart is resized.
  */
 function resizePatternMatch() {
@@ -240,9 +271,10 @@ async function toogleAISupline() {
   try {
     // @ts-expect-error CIQ.updateSupportLineWithChannelDrawing is a custom extension
     const msg = await CIQ.updateSupportLineWithChannelDrawing({ stxx: CIQ.stxx })
-    chartIQStore.pushToast(msg, 'info')
+    // TODO: Replace with proper toast/notification system
+    console.info('[ChartIQ] AI Support Line:', msg)
   } catch (errMsg: unknown) {
-    chartIQStore.pushToast(String(errMsg), 'error')
+    console.error('[ChartIQ] AI Support Line Error:', errMsg)
   }
   aISuplineloading.value = false
 }
@@ -282,15 +314,28 @@ function initializeChart() {
     chartId: '_advanced-chart',
     symbol: props.symbol,
     restore: props.restore,
+    onChartReady: props.onChartReady,
   })
 
-  if (!container.value) return
+  const containerEl = document.getElementById('cq-context-root') as HTMLElement | null
+  if (!containerEl) return
 
   overrideStudyDef()
-  portalizeContextDialogs(container.value)
+  portalizeContextDialogs(containerEl)
+
+  // Assign store to CIQ BEFORE createChartAndUI so web components can access it
+  ;(CIQ as any).store = createVuexAdapter(chartIQStore as any)
+
+  // Stub nprogress — ChartIQ calls CIQ.nprogress.start()/done() but it's not installed
+  // Pass the actual CIQ object so loadIndicator.js (which imports CIQ from chartiq.js) gets it
+  setupNProgressStub(CIQ as Record<string, unknown>)
 
   window.setTimeout(() => {
-    const uiContext = createChartAndUI(config)
+    const uiContext = createChartAndUI(config, containerEl)
+    uiContextRef.value = uiContext
+
+    // Vue 3 strips <template> elements — inject real ones for ChartIQ
+    injectStudyLegendTemplates()
 
     CIQ.stxx = uiContext.stx
     CIQ.stxx.dontRoll = true
@@ -328,19 +373,51 @@ function initializeChart() {
       node.appendChild(newdiv)
     }
 
-    // Assign store to CIQ for legacy code access
-    ;(CIQ as any).store = chartIQStore
-
     // Emit initialized event
     emit('chart-initialized', { chartEngine: uiContext.stx, uiContext, config })
+
+    // Fallback: if ChartIQ itself did not fire config.onChartReady, call it now.
+    if (typeof config.onChartReady === 'function') {
+      config.onChartReady()
+    }
 
     // Initialize UI features
     initializeToggle(uiContext.stx)
     createResizeListener()
     symbolMutationObserver()
     initializeReportsFilter()
+
+    // Ensure the chart reflects the current symbol prop after initialization.
+    // createChartAndUI loads config.initialSymbol, but if the prop changed
+    // before mount or the initial load failed, explicitly switch to it.
+    if (props.symbol && uiContext.changeSymbol) {
+      uiContext.changeSymbol({ symbol: props.symbol })
+    }
+
+    // Trigger a layout resize once the container has been laid out by the browser.
+    window.requestAnimationFrame(() => {
+      if (CIQ.stxx && CIQ.stxx.resizeChart) {
+        CIQ.stxx.resizeChart()
+        CIQ.stxx.draw()
+      }
+    })
   }, 0)
 }
+
+// When the symbol prop changes after mount, switch the chart to the new symbol.
+watch(
+  () => props.symbol,
+  (newSymbol, oldSymbol) => {
+    if (!newSymbol || newSymbol === oldSymbol) return
+    const uiContext = uiContextRef.value as any
+    if (uiContext?.changeSymbol) {
+      uiContext.changeSymbol({ symbol: newSymbol })
+    } else if (CIQ.stxx) {
+      // Fallback if the uiContext isn't available yet
+      CIQ.stxx.loadChart({ symbol: newSymbol })
+    }
+  },
+)
 
 onMounted(() => {
   initializeChart()
@@ -384,7 +461,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <cq-context ref="container">
+  <cq-context id="cq-context-root">
     <cq-color-picker></cq-color-picker>
 
     <div class="ciq-nav full-screen-hide">
@@ -491,7 +568,7 @@ onBeforeUnmount(() => {
           <!-- Trading Signal (shown on backtester routes) -->
           <cq-info-toggle-dropdown
             class="lastp-group"
-            v-if="!!$route.matched.find((i) => i.path === '/backtester')"
+            v-if="!!route.matched.find((i) => i.path === '/backtester')"
           >
             <cq-toggle class="trading-signal" @click="openModal('first')">
               <svg
@@ -534,9 +611,9 @@ onBeforeUnmount(() => {
           </cq-info-toggle-dropdown>
 
           <!-- AI Trend Insight -->
-          <cq-info-toggle-dropdown
+          <div
             class="lastp-group"
-            v-if="!!$route.matched.find((i) => i.path === '/backtester')"
+            v-if="!!route.matched.find((i) => i.path === '/backtester')"
           >
             <button
               class="ai-supline"
@@ -569,7 +646,7 @@ onBeforeUnmount(() => {
               </svg>
               <div class="ai-supline--tooltip">AI Trend Insight</div>
             </button>
-          </cq-info-toggle-dropdown>
+          </div>
 
           <div
             class="reports-filter-container"
@@ -721,7 +798,7 @@ onBeforeUnmount(() => {
           </cq-info-toggle-dropdown>
 
           <!-- Favorites -->
-          <cq-info-toggle-dropdown class="favBtnContainer">
+          <div class="favBtnContainer">
             <button class="btnFav addFav">
               <div>
                 <svg
@@ -743,7 +820,7 @@ onBeforeUnmount(() => {
                 <span>Add to favorites</span>
               </div>
             </button>
-          </cq-info-toggle-dropdown>
+          </div>
         </div>
       </cq-side-nav>
 
@@ -1115,4 +1192,16 @@ html:not([ciq-last-interaction='touch'])
 .strategy-modal {
   /* Strategy modal container — full styles come from ChartIQ CSS */
 }
+
+/* 【Vue2→Vue3 兼容】Tailwind v4 预置的 .collapse { visibility: collapse } 覆盖了 ChartIQ 菜单的 collapse 状态类 */
+.ciq-menu.collapse {
+  visibility: visible !important;
+}
+
+/* 【Vue2→Vue3 兼容】页面布局的 Tailwind .grid 类导致 ChartIQ 雪碧图规则 .grid span 误匹配工具栏图标
+   使用 ChartIQ CSS 定义的原始坐标覆盖：lastP=-2071, CH=-443, HU=-400, grid=-1443 */
+.lastp-group cq-toggle > span { background-position: -2071px -25px !important; }
+.ch-headsup  cq-toggle > span  { background-position:  -443px -25px !important; }
+.hu-tooltip   cq-toggle > span  { background-position:  -400px -25px !important; }
+.grid-group   cq-toggle > span  { background-position: -1443px -25px; }
 </style>

@@ -6,7 +6,7 @@
 import { CIQ, markers } from "chartiq/js/standard.js";
 import marker from "./markersSample.js";
 import "../../js/advance/highPerformanceMarkers.js"
-import { formatStandardTime } from '@/utils'
+import { formatStandardTime } from '@/shared/utils/time';
 var _css;
 if (
 	typeof define === "undefined" &&

@@ -1,8 +1,7 @@
 import {
 	symbolCsvFileDelete,
-} from '@/service/service'
-import {decodeBase64,encodeBase64} from '@/utils'
-import {createStateFilter,getSymbolInfo} from '@/utils/globalFunc'
+} from '@/shared/lib/chartiq/service-stub'
+import {decodeBase64, encodeBase64, createStateFilter, getSymbolInfo} from '@/shared/lib/chartiq/utils'
 
 const collator = new Intl.Collator('en');
 function SortArray(x, y){

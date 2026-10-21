@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ChartIQ Pinia Store — adapted from Vuex store/modules/chart.js (Vue2 project)
  *
@@ -14,8 +15,67 @@ import { defineStore } from 'pinia'
 import stocksData from '@/assets/stocks_list.json'
 import indexsData from '@/assets/indexes_list.json'
 import indicatorsData from '@/assets/indicatorsWithSymbolList.json'
+import {
+  getFavorite as apiGetFavorite,
+  updateFavorite as apiUpdateFavorite,
+  getAllMySymbolsList as apiGetAllMySymbolsList,
+  getAllMyIndicatorsList as apiGetAllMyIndicatorsList,
+  getPairData as apiGetPairData,
+  getBTV1FavIndicator as apiGetBTV1FavIndicator,
+  obtainBTV1IndicatorsList as apiObtainBTV1IndicatorsList,
+  getForecastList as apiGetForecastList,
+  getSymbollistForecast as apiGetSymbollistForecast,
+} from '@/shared/lib/chartiq/service-stub'
 
 const VITE_DEFAULT_SYMBOL = import.meta.env.VITE_DEFAULT_SYMBOL || 'AAPL'
+
+/**
+ * Format pair data (OHLCV) from API response.
+ * Mirrors Vue2's formatData function.
+ */
+function formatPairData(data: unknown[] | null | undefined): unknown[] {
+  if (!data || !Array.isArray(data) || data.length === 0) return []
+  const newQuotes: Array<Record<string, unknown>> = []
+  const hasOHLCV = 'High' in data[0]
+
+  for (let i = 0; i < data.length; i++) {
+    newQuotes[i] = {}
+    newQuotes[i].DT = formatStandardTime(data[i].DT as string)
+    if (hasOHLCV) {
+      newQuotes[i].Open = data[i].Open
+      newQuotes[i].High = data[i].High
+      newQuotes[i].Low = data[i].Low
+      newQuotes[i].Close = data[i].Close
+      newQuotes[i].Volume = data[i].Volume
+    } else {
+      newQuotes[i].Open = data[i].Close
+      newQuotes[i].High = data[i].Close
+      newQuotes[i].Low = data[i].Close
+      newQuotes[i].Close = data[i].Close
+      if (data[i].Volume) newQuotes[i].Volume = data[i].Volume
+    }
+  }
+  return newQuotes
+}
+
+/**
+ * Format a date string to standard time format.
+ */
+function formatStandardTime(dt: string | undefined): string {
+  if (!dt) return ''
+  try {
+    const d = new Date(dt)
+    const Y = d.getUTCFullYear()
+    const M = String(d.getUTCMonth() + 1).padStart(2, '0')
+    const D = String(d.getUTCDate()).padStart(2, '0')
+    const h = String(d.getUTCHours()).padStart(2, '0')
+    const m = String(d.getUTCMinutes()).padStart(2, '0')
+    const s = String(d.getUTCSeconds()).padStart(2, '0')
+    return `${Y}-${M}-${D} ${h}:${m}:${s}`
+  } catch {
+    return dt
+  }
+}
 
 // Overlay toggles (DOM manipulation — kept as-is for ChartIQ webcomponents)
 function toggleOverlaySelector(selector: string, displayStyle: string) {
@@ -70,6 +130,10 @@ export interface ChartIQState {
   // trades
   trades: unknown[]
 
+  // MA colors (used by loadIndicator.js getColorByCriteriaAndIndex)
+  ma_color_1: string[]
+  ma_color_2: string[]
+
   // MA activation
   activatedMA: Array<{ period: number; url: string }>
   activatedMALayout: unknown[]
@@ -118,6 +182,20 @@ export interface ChartIQState {
   pairDataFreq: string
   exitFrequency: string
   restoreFreq: string
+
+  // symbol/indicator lists (loaded from JSON assets, used by lookup.js, indicators-search.js)
+  stocksList: unknown[]
+  indexsList: unknown[]
+  originIndicatorList: unknown[]
+  technicalCategory: unknown[]
+
+  // user's own symbols & indicators (fetched from API, used by lookup.js, indicators-search.js)
+  mySymbolList: unknown[]
+  mySymbolQuotefeedCache: unknown[]
+  myIndicatorList: unknown[]
+
+  // current date (ai)
+  curDate: string
 }
 
 function defaultState(): ChartIQState {
@@ -158,6 +236,8 @@ function defaultState(): ChartIQState {
     ],
     formateTechnicalList: [],
     trades: [],
+    ma_color_1: ['#FF0000'],
+    ma_color_2: ['#f59e0b'],
     activatedMA: [{ period: 21, url: '' }],
     activatedMALayout: [],
     activatedTechLayout: [],
@@ -185,6 +265,37 @@ function defaultState(): ChartIQState {
     pairDataFreq: 'daily',
     exitFrequency: '',
     restoreFreq: '',
+
+    // symbol/indicator lists from JSON assets
+    stocksList: stocksData,
+    indexsList: indexsData,
+    originIndicatorList: indicatorsData,
+    technicalCategory: [],
+
+    // 【Vue2→Vue3 兼容】镜像原版 fetch_indicatorsList 结果，CIQ.findSentiIndicator 依赖它解析 symbol-based indicators（如 A -> A@indicator）
+    indicatorsList: (() => {
+      const stockSet = new Set(stocksData.map((item: Record<string, unknown>) => item.stock))
+      return indicatorsData.map((item: Record<string, unknown>) => {
+        if (stockSet.has(item.url)) {
+          return {
+            chart_name: `${item.url} Optix`,
+            url: `${item.url}@indicator`,
+            market_symbol: item.market_symbol,
+            type: item.type,
+            updated: item.updated,
+          }
+        }
+        return item
+      })
+    })(),
+
+    // user's own symbols & indicators (empty until fetched from API)
+    mySymbolList: [],
+    mySymbolQuotefeedCache: [],
+    myIndicatorList: [],
+
+    // current date (ai)
+    curDate: '',
   }
 }
 
@@ -288,6 +399,18 @@ export const useChartIQStore = defineStore('chartIQ', {
     // Trades
     set_trades(data: unknown[]) {
       this.trades = data
+    },
+
+    // 【Vue2→Vue3 兼容】照搬原版 Vuex states.js 的 set_isMarkerShown_flag action
+    set_isMarkerShown_flag(val: boolean) {
+      // @ts-ignore
+      if (typeof CIQ === 'undefined' || !CIQ.stxx) return
+      if (!val) {
+        this.trades = []
+        if (typeof CIQ.hideMarker === 'function') CIQ.hideMarker()
+      } else {
+        if (typeof CIQ.addPrompt === 'function') CIQ.addPrompt()
+      }
     },
 
     // Entry data (from backtest)
@@ -417,6 +540,113 @@ export const useChartIQStore = defineStore('chartIQ', {
 
     set_restore_freq(val: string) {
       this.restoreFreq = val
+    },
+
+    // ── Favorites API ────────────────────────────────────────────────
+
+    async get_favorite() {
+      // Already loaded? Skip.
+      if (this.favoriteSymbolList.length > 0 && this.favoriteIndicatorList.length > 0) return
+      const res = await apiGetFavorite()
+      try {
+        const favSymbols = res.favorite_symbol ? JSON.parse(res.favorite_symbol) : []
+        const favIndicators = res.favorite_indicator ? JSON.parse(res.favorite_indicator) : []
+        this.favoriteSymbolList = favSymbols
+        this.favoriteIndicatorList = favIndicators
+      } catch (e) {
+        console.error('[chartiq.store] Error parsing favorite data:', e)
+      }
+    },
+
+    async update_favorite(obj: { indicator: string; symbol: string }) {
+      this.favoriteIndicatorList = JSON.parse(obj.indicator)
+      this.favoriteSymbolList = JSON.parse(obj.symbol)
+      await apiUpdateFavorite(obj.indicator, obj.symbol)
+    },
+
+    // ── My Symbols API ───────────────────────────────────────────────
+
+    async get_mysymbolist() {
+      toggleOverlaySymbol('flex')
+      try {
+        const res = await apiGetAllMySymbolsList()
+        this.mySymbolList = res
+      } finally {
+        toggleOverlaySymbol('none')
+      }
+    },
+
+    // ── My Indicators API ────────────────────────────────────────────
+
+    async get_myindicator() {
+      toggleOverlaySelector('cq-indicators-lookup-filters .overlay', 'flex')
+      try {
+        const btvFavIndi = await apiGetBTV1FavIndicator()
+        this.favoriteIndicatorListBtv1 = btvFavIndi
+        const res = await apiGetAllMyIndicatorsList()
+        this.myIndicatorList = res
+      } finally {
+        toggleOverlaySelector('cq-indicators-lookup-filters .overlay', 'none')
+      }
+    },
+
+    async get_indicator_page_btv1_list() {
+      if (this.indicatorPageBtv1List.length > 0) return
+      const btv1List = await apiObtainBTV1IndicatorsList()
+      this.indicatorPageBtv1List = btv1List
+    },
+
+    // ── OHLCV / Pair Data API ────────────────────────────────────────
+
+    async get_ticker_ohlcv_pairdata(ticker: string) {
+      if (this.tickerOhlcvPairdata[ticker]) {
+        return this.tickerOhlcvPairdata[ticker]
+      }
+      const CIQ = window.CIQ as Record<string, unknown> | undefined
+      const config = (CIQ?.config as Record<string, unknown> | undefined) || {}
+      const initialDate = config.initialDate as Record<string, unknown> | undefined
+      let start: string
+      let end: string
+      if (initialDate?.start && initialDate?.end) {
+        const tsToTime = (config as Record<string, unknown>).timestampToTime as
+          | ((ts: number) => string)
+          | undefined
+        start = tsToTime ? tsToTime(initialDate.start as number) : ''
+        end = tsToTime ? tsToTime(initialDate.end as number) : ''
+      } else {
+        start = ''
+        end = ''
+      }
+      const res = await apiGetPairData(start, end, this.pairDataFreq, ticker)
+      const data = formatPairData(res)
+      this.tickerOhlcvPairdata[ticker] = data
+      return data
+    },
+
+    // ── Forecast API ─────────────────────────────────────────────────
+
+    async get_forecast(symbol: string) {
+      const existing = this.forecastList.find(
+        (item: { symbol: string }) => item.symbol === symbol,
+      )
+      if (existing) return existing.list
+      const res = await apiGetForecastList(this.forecastMarket)
+      const list = res.data || res
+      this.forecastList = [
+        ...this.forecastList,
+        { symbol, list },
+      ]
+      return list
+    },
+
+    async get_symbollist_forecast() {
+      toggleOverlaySymbol('flex')
+      try {
+        const list = await apiGetSymbollistForecast()
+        this.symbollistForecast = list
+      } finally {
+        toggleOverlaySymbol('none')
+      }
     },
 
     /**

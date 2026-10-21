@@ -1,17 +1,19 @@
 /**
- * STDataFeedAccessUrl stub
+ * STDataFeedAccessUrl — ChartIQ 数据源 API 端点配置
  *
- * Original Vue2 project held API endpoint configuration here.
- * These endpoints are used by myIndicatorChartControl.js and loadIndicator.js.
- * Replace with real API URLs when migrating MyIndicator pages.
+ * 【Vue2→Vue3 兼容】从原版 Vue2 项目迁移：
+ *   src/components/common/chart/st-development/examples/feeds/STDataFeedAccessUrl.js
+ *
+ * pairDataUrl 指向外部 bt2api 端点（需要 basic auth）。
+ * 其他端点使用 /dev 代理，Vite 会转发到 stApiTarget。
  */
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || ''
-
 export const config = {
-  indicatorMetadata: `${apiBase}/indicator-metadata`,
-  pairData: `${apiBase}/pair-data`,
-  symbolCsv: `${apiBase}/symbol-csv`,
+  pairDataUrl: 'https://bt2api.sentimentrader.com/st_data/pair_data',
+  indicatorsMetadata: '/dev/st_data/indicators_metadata',
+  indicatorMetadata: '/dev/st_data/indicator_metadata',
+  username: 'sentimentrader_backtest_api',
+  password: 'TAZcbpTmQVAJW4GW3ZMQA1su0ynjqJJsYo6vfkapx',
 
   /**
    * Convert a timestamp (ms) to YYYY-MM-DD string.

@@ -1,13 +1,12 @@
 /**
  * ChartIQ-compatible utility functions
  *
- * Adapted from Vue2 project:
- *   - encodeBase64 from @/utils/index.js
- *   - createStateFilter, getSymbolInfo from @/utils/globalFunc/index.js
+ * 【Vue2→Vue3 兼容】从原版 Vue2 项目迁移而来：
+ *   - encodeBase64 来自 @/utils/index.js
+ *   - createStateFilter, getSymbolInfo 来自 @/utils/globalFunc/index.js
+ *   - SignalCode 类来自 @/utils/cryptoUtils/codeTool.js
  *
- * These functions are needed by ChartIQ webcomponents that we copied from the
- * original project. They are kept local to the chartiq module to avoid
- * polluting the main application.
+ * 这些函数被 ChartIQ 原版 webcomponents 所调用。保持在 chartiq 模块内，避免污染主应用。
  */
 
 // @ts-expect-error CIQ from ChartIQ library
@@ -71,8 +70,8 @@ export function uniqueObjectArray<T extends Record<string, unknown>>(arr: T[]): 
 
 export function getSymbolInfo(url: string): { name: string; url: string; type: string; symbol?: string } {
   const store = (CIQ as any).store
-  const stockList = store?.stocksList ?? []
-  const indexList = store?.indexsList ?? []
+  const stockList = store?.getters?.getStockList ?? store?.state?.chart?.stocksList ?? []
+  const indexList = store?.getters?.getIndexList ?? store?.state?.chart?.indexsList ?? []
 
   const stockName = stockList.find((x: { stock: string }) => x.stock === url)
   const indexName = indexList.find((x: { symbol: string }) => x.symbol === url)
@@ -224,3 +223,305 @@ export function createStateFilter(queryString: string) {
     return score
   }
 }
+
+// ── 【Vue2→Vue3 兼容】Signal 编解码（来自原版 @/utils/cryptoUtils/codeTool.js）──
+// 原版是完整实现，Vue3 初始迁移时用了 stub，此处还原完整逻辑以支持 myIndicatorChartControl.js
+
+class SignalDecodeIDS {
+  ids_dict: Array<(val: string) => any>
+
+  constructor() {
+    this.ids_dict = [
+      this.slow_fast_sl,
+      this.eo_ep,
+      this.over_bought_sold_bound_period,
+      this.ma_category,
+    ]
+  }
+
+  slow_fast_sl(val: string) {
+    const re = /^MACDSlow(-?0?\d*?\.?\d*?)\/MACDFast(-?0?\d*?\.?\d*?)\/MACDSL(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1) return false
+    return {
+      MACDSlow: (RegExp as any).$1,
+      MACDFast: (RegExp as any).$2,
+      MACDSL: (RegExp as any).$3,
+    }
+  }
+
+  eo_ep(val: string) {
+    const re = /^EO(-?0?\d*?\.?\d*?)\/EP(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1) return false
+    return {
+      extreme_optimism: (RegExp as any).$1,
+      extreme_pessimism: (RegExp as any).$2,
+    }
+  }
+
+  over_bought_sold_bound_period(val: string) {
+    const re = /^OBB(-?0?\d*?\.?\d*?)\/OSB(-?0?\d*?\.?\d*?)\/Period(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1) return false
+    return {
+      over_bought_bound: (RegExp as any).$1,
+      over_sold_bound: (RegExp as any).$2,
+      period: (RegExp as any).$3,
+    }
+  }
+
+  ma_category(val: string) {
+    const re = /^(SMA|EMA)$/
+    if (val.search(re) === -1) return false
+    return { ma_category: val }
+  }
+
+  decode(val: string) {
+    let tmp: any
+    for (const func of this.ids_dict) {
+      tmp = func(val)
+      if (tmp) break
+    }
+    return tmp
+  }
+}
+
+class SignalDecodeSC {
+  sc_dict: Array<(val: string) => any>
+
+  constructor() {
+    this.sc_dict = [
+      this.si_period_condition_value,
+      this.si_condition_value,
+      this.rsi_condition_value,
+      this.macd_condition_value,
+      this.ma_condition_period,
+      this.exit_value_period,
+      this.cci_condition_value,
+    ]
+  }
+
+  si_condition_value(val: string) {
+    const re = /^SV\/(-?0?\d*?\.?\d*?)\/(-?0?\d*?\.?\d*?)$/
+    const re_ma = /^SV\/(-?0?\d*?\.?\d*?)\/SVMA(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1 && val.search(re_ma) === -1)
+      return 'The input parameters of the Signal Condition maybe error!'
+    if (val.search(re) !== -1)
+      return { condition: (RegExp as any).$1, value: (RegExp as any).$2 }
+    if (val.search(re_ma) !== -1)
+      return { condition: (RegExp as any).$1, value: (RegExp as any).$2 }
+  }
+
+  si_period_condition_value(val: string) {
+    const re = /^SVMA(-?0?\d*?\.?\d*?)\/(-?0?\d*?\.?\d*?)\/(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1)
+      return 'The input parameters of the Signal Condition maybe error!'
+    return {
+      period: (RegExp as any).$1,
+      condition: (RegExp as any).$2,
+      value: (RegExp as any).$3,
+    }
+  }
+
+  macd_condition_value(val: string) {
+    const re = /^MACDV\/(-?0?\d*?\.?\d*?)\/((-?0?\d*?\.?\d*?)|MACDSL)$/
+    if (val.search(re) === -1)
+      return 'The input parameters of the Signal Condition maybe error!'
+    return {
+      condition: (RegExp as any).$1,
+      value: (RegExp as any).$2,
+    }
+  }
+
+  ma_condition_period(val: string) {
+    const re = /^(SC|MA)(-?0?\d*?\.?\d*?)\/(-?0?\d*?\.?\d*?)\/MA(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1)
+      return 'The input parameters of the Signal Condition maybe error!'
+    if ((RegExp as any).$2 !== '') {
+      return {
+        ma_period: (RegExp as any).$2,
+        condition: (RegExp as any).$3,
+        period: (RegExp as any).$4,
+      }
+    }
+    return {
+      condition: (RegExp as any).$3,
+      period: (RegExp as any).$4,
+    }
+  }
+
+  rsi_condition_value(val: string) {
+    const re = /^RSIV\/(-?0?\d*?\.?\d*?)\/(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1)
+      return 'The input parameters of the Signal Condition maybe error!'
+    return {
+      condition: (RegExp as any).$1,
+      value: (RegExp as any).$2,
+    }
+  }
+
+  cci_condition_value(val: string) {
+    const re = /^CCIV\/(-?0?\d*?\.?\d*?)\/(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1)
+      return 'The input parameters of the Signal Condition maybe error!'
+    return {
+      condition: (RegExp as any).$1,
+      value: (RegExp as any).$2,
+    }
+  }
+
+  exit_value_period(val: string) {
+    const re = /^PTE(-?0?\d*?\.?\d*?)\/LSE(-?0?\d*?\.?\d*?)\/TIM(-?0?\d*?\.?\d*?)$/
+    if (val.search(re) === -1)
+      return 'The input parameters of the Signal Condition maybe error!'
+    return {
+      take_profit: (RegExp as any).$1,
+      stop_loss: (RegExp as any).$2,
+      time_in_market: (RegExp as any).$3,
+    }
+  }
+
+  decode(val: string) {
+    let tmp: any
+    for (const func of this.sc_dict) {
+      tmp = func(val)
+      if (typeof tmp !== 'string') break
+    }
+    return tmp
+  }
+}
+
+/**
+ * Signal decoder/encoder — adapted from Vue2 project's codeTool.js.
+ * Used by myIndicatorChartControl.js for parsing signal codes.
+ *
+ * This is the default export that `import SignalCode from '@/utils/cryptoUtils/codeTool'` expects.
+ */
+export class SignalCode {
+  sc: SignalDecodeSC
+  ids: SignalDecodeIDS
+  backtest_dict: Record<string, (val: string) => any>
+
+  constructor() {
+    this.sc = new SignalDecodeSC()
+    this.ids = new SignalDecodeIDS()
+    this.backtest_dict = {
+      Exit: this.ex,
+      SI: this.si,
+      TI: this.ti,
+      UI: this.ui,
+    }
+  }
+
+  si(val: string) {
+    return { analysis: 'Sentiment', indicator: val }
+  }
+  ui(val: string) {
+    return { analysis: 'User', indicator: val }
+  }
+  ti(val: string) {
+    return { analysis: 'Technical', indicator: val }
+  }
+  ex(val: string) {
+    return { analysis: 'Exit', indicator: val }
+  }
+
+  re_indicator(val: Record<string, string>) {
+    let re_str = ''
+    const val_keys = Object.keys(val)
+    if (val_keys.indexOf('analysis') !== -1 && val_keys.indexOf('indicator') !== -1) {
+      if (val['analysis'] === 'Sentiment') {
+        re_str += 'SI:' + val['indicator'] + ';'
+      } else if (val['analysis'] === 'Technical') {
+        re_str += 'TI:' + val['indicator'] + ';'
+      } else if (val['analysis'] === 'Exit') {
+        re_str += 'Exit:' + val['indicator'] + ';'
+      } else if (val['analysis'] === 'User') {
+        re_str += 'UI:' + val['indicator'] + ';'
+      }
+    }
+    return re_str
+  }
+
+  re_ids(val: Record<string, any>) {
+    const val_keys = Object.keys(val)
+    let re_str = 'IDS:'
+    if (val_keys.indexOf('extreme_optimism') !== -1 && val_keys.indexOf('extreme_pessimism') !== -1) {
+      re_str += 'EO' + val['extreme_optimism'] + '/EP' + val['extreme_pessimism']
+    } else if (val_keys.indexOf('MACDSlow') !== -1 && val_keys.indexOf('MACDFast') !== -1 && val_keys.indexOf('MACDSL') !== -1) {
+      re_str += 'MACDSlow' + val['MACDSlow'] + '/MACDFast' + val['MACDFast'] + '/MACDSL' + val['MACDSL']
+    } else if (val_keys.indexOf('ma_category') !== -1) {
+      re_str += val['ma_category']
+    } else if (val_keys.indexOf('over_bought_bound') !== -1 && val_keys.indexOf('over_sold_bound') !== -1 && val_keys.indexOf('period') !== -1) {
+      re_str += 'OBB' + val['over_bought_bound'] + '/OSB' + val['over_sold_bound'] + '/Period' + val['period']
+    }
+    re_str += ';'
+    return re_str
+  }
+
+  re_sc(val: Record<string, any>) {
+    let re_str = 'SC:'
+    const val_keys = Object.keys(val)
+    if (val['analysis'] === 'Sentiment' || val['analysis'] === 'User') {
+      if (val_keys.indexOf('period') !== -1) {
+        re_str += 'SVMA' + val['period'] + '/' + val['condition'] + '/' + val['value']
+      } else if (val_keys.indexOf('period') === -1) {
+        re_str += 'SV/' + val['condition'] + '/' + val['value']
+      }
+    } else if (val['analysis'] === 'Technical') {
+      if (val['indicator'] === 'Moving Average') {
+        if (val_keys.indexOf('ma_period') === -1) {
+          re_str += 'SC/' + val['condition'] + '/MA' + val['period']
+        } else {
+          re_str += 'MA' + val['ma_period'] + '/' + val['condition'] + '/MA' + val['period']
+        }
+      } else if (val['indicator'] === 'MACD') {
+        if (val['value'] === 'MACDSL') {
+          re_str += 'MACDV/' + val['condition'] + '/MACDSL'
+        } else {
+          re_str += 'MACDV/' + val['condition'] + '/' + val['value']
+        }
+      } else if (val['indicator'] === 'Commodity Channel Index') {
+        re_str += 'CCIV/' + val['condition'] + '/' + val['value']
+      } else if (val['indicator'] === 'Relative Strength Index (RSI)') {
+        re_str += 'RSIV/' + val['condition'] + '/' + val['value']
+      }
+    } else if (val['analysis'] === 'Exit') {
+      const tmp = { take_profit: '', stop_loss: '', time_in_market: '' }
+      Object.assign(tmp, val)
+      re_str += 'PTE' + tmp['take_profit'] + '/LSE' + tmp['stop_loss'] + '/TIM' + tmp['time_in_market']
+    }
+    return re_str
+  }
+
+  encode(val: Record<string, any>) {
+    return this.re_indicator(val) + this.re_ids(val) + this.re_sc(val)
+  }
+
+  decode(val: string) {
+    const re = /(TI|SI|Exit|UI){1}:(.*);IDS:(\S*);SC:(\S*)/
+    if (val.search(re) !== -1) {
+      const d1 = (RegExp as any).$2
+      const d2 = (RegExp as any).$3
+      const d3 = (RegExp as any).$4
+      const indicator = this.backtest_dict[(RegExp as any).$1](d1)
+      const ids = this.ids.decode(d2)
+      const sc = this.sc.decode(d3)
+      if (typeof sc === 'string' || typeof ids === 'string' || typeof indicator === 'string') {
+        return 'The input parameters of the Signal Condition maybe error!'
+      }
+      const tmp: Record<string, any> = {}
+      tmp['ids'] = ids
+      tmp['sc'] = sc
+      tmp['indicator'] = indicator
+      Object.assign(tmp, indicator)
+      Object.assign(tmp, ids)
+      Object.assign(tmp, sc)
+      return tmp
+    }
+    return undefined
+  }
+}
+
+/**
+ * 【Vue2→Vue3 兼容】SignalCode 默认导出 —— 原版 codeTool.js 也是 export default 同名类
+ */
+export default SignalCode

@@ -4,8 +4,7 @@
 // Usage: new MarkersSample(stxx);
 //
 import { CIQ, markers } from "chartiq/js/standard.js";
-import EventBus from "@/event-bus";
-import { formatStandardTime } from '@/utils'
+import { formatStandardTime } from '@/shared/utils/time';
 var _css;
 if (
 	typeof define === "undefined" &&

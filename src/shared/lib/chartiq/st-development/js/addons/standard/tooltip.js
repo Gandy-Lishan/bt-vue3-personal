@@ -1,6 +1,5 @@
 import {CIQ} from "chartiq/js/chartiq.js";
-import { getCoresSymbolDual } from '@/utils/globalFunc'
-import { off } from "process";
+import { getCoresSymbolDual } from '@/shared/lib/chartiq/utils';
 
 let __st_addons_standard_tooltip_ = (_exports) => {
 

@@ -197,6 +197,21 @@ export function smartScannerDetailRequestFromRow(row: SmartScannerRow): SmartSca
   }
 }
 
+/**
+ * 【Vue2→Vue3 兼容】构建原版 Vue2 scanner 详情页 URL 所需的 rowData 对象
+ * 字段名必须大写，与原版 `btv2.sentimentrader.com/scannerai/scannerai_chart` 格式完全一致
+ */
+export function legacySmartScannerRowData(row: SmartScannerRow): Record<string, unknown> {
+  return {
+    id: 'test',
+    Symbol: row.symbol,
+    Date: row.date,
+    _Signal: row.signal,
+    Category: row.category,
+    Direction: row.direction,
+  }
+}
+
 export function parseSmartScannerDetailRequest(value: unknown): SmartScannerDetailRequest | null {
   const parsed = safeJsonParse(value)
   if (!isRecord(parsed)) return null

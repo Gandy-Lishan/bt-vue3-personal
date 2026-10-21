@@ -1,4 +1,4 @@
-import { CIQ } from '@/components/common/chart/st-development/js/components'
+import { CIQ } from '../components.js'
 import {__js_advanced_studies_accumulationDistribution_} from "../advance/studies/accumulationDistribution.js"
 import {__js_advanced_studies_adx_} from "../advance/studies/adx.js"
 import {__js_advanced_studies_alligator_} from "../advance/studies/alligator.js"

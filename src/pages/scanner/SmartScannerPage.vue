@@ -12,7 +12,7 @@ import {
   resetSmartScannerRanges,
   SMART_SCANNER_RANGE_DEFINITIONS,
   smartScannerCsvTable,
-  smartScannerDetailRequestFromRow,
+  legacySmartScannerRowData,
   smartScannerSearchScore,
   smartScannerSignalOptions,
   smartScannerSortValue,
@@ -262,7 +262,7 @@ function openScannerDetail(row: SmartScannerRow) {
   void router.push({
     name: 'smart-stock-scanner-detail',
     query: {
-      rowData: JSON.stringify(smartScannerDetailRequestFromRow(row)),
+      rowData: JSON.stringify(legacySmartScannerRowData(row)),
     },
   })
 }

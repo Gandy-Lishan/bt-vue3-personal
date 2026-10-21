@@ -3,14 +3,13 @@
  *	contains customized functions related to indicator loading and CSV output file generation
  */
  import { CIQ as _CIQ, timezoneJS as _timezoneJS } from "chartiq/js/chartiq.js";
- import {config} from "@/components/common/chart/st-development/examples/feeds/STDataFeedAccessUrl"
- import {maxNumOfStudy,recoverSymbolOptixUrl,getCoresSymbolDual} from '@/utils/globalFunc'
+ import {config} from "../../examples/feeds/STDataFeedAccessUrl"
+ import {maxNumOfStudy,recoverSymbolOptixUrl,getCoresSymbolDual, formatStandardTime} from '@/shared/lib/chartiq/utils'
  import qs from 'querystring'
  import {
     searchIndicator,
     getPairData
-  } from '@/service/service'
-import { formatStandardTime } from '@/utils'
+  } from '@/shared/lib/chartiq/service-stub'
 
  let __st_js_loadIndicator_ = (_exports) => {
  /* global _CIQ, _timezoneJS, _SplinePlotter */

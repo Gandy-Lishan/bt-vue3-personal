@@ -5,7 +5,11 @@
  * Used to draw buy/sell markers on the chart from backtest trade data.
  */
 
-import type { CIQChartEngine } from '@/shared/lib/chartiq/types'
+// Inline type to avoid dependency on deleted types.ts
+type CIQChartEngine = Record<string, unknown> & {
+  layout?: Record<string, unknown>
+  draw?: () => void
+}
 
 export interface BacktestTrade {
   entryDate: string
@@ -60,9 +64,10 @@ export function addBacktestMarkers(
       stx.layout.markerSet[`entry_${trade.entryDate}_${symbolIndex}`] = entryMarker
     }
 
-    // Exit marker (sell — color depends on profit/loss)
+    // Exit marker (sell — color depends on profit/loss if prices available)
     if (trade.exitDate) {
-      const isProfit = (trade.exitPrice ?? 0) >= (trade.entryPrice ?? 0)
+      const hasPrices = trade.exitPrice !== undefined && trade.entryPrice !== undefined
+      const isProfit = hasPrices ? trade.exitPrice >= trade.entryPrice : true // default green if no price data
       const exitColor = isProfit
         ? MARKER_COLORS[`sell_profit${suffix}` as keyof typeof MARKER_COLORS] ?? MARKER_COLORS.sell_profit
         : MARKER_COLORS[`sell_loss${suffix}` as keyof typeof MARKER_COLORS] ?? MARKER_COLORS.sell_loss

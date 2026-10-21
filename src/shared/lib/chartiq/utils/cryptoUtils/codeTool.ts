@@ -1,18 +1,3 @@
-/**
- * SignalCode stub
- *
- * Original Vue2 project had @/utils/cryptoUtils/codeTool.js.
- * Used by myIndicatorChartControl.js for Technical category MyIndicators.
- */
-
-export default class SignalCode {
-  encode(input: Record<string, unknown>): string {
-    console.warn('[ChartIQ stub] SignalCode.encode called:', input)
-    return ''
-  }
-
-  decode(code: string): Record<string, unknown> {
-    console.warn('[ChartIQ stub] SignalCode.decode called:', code)
-    return { indicator: '' }
-  }
-}
+// Vite alias shim — 原版 @/utils/cryptoUtils/codeTool.js 的重定向
+// SignalCode 完整实现在 utils.ts 中
+export { default, SignalCode } from '../../utils'

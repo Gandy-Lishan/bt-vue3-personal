@@ -13367,28 +13367,28 @@ if (!Scroll) {
 };
 
 // customized features
-import {__js_webcomponents_studyContext_} from '@/components/common/chart/st-development/js/webcomponents/studyContext.js'
-import {__js_webcomponents_studyContextDefault_} from '@/components/common/chart/st-development/js/webcomponents/studyContextDefault.js'
-import {__js_webcomponents_studyContextMyindicator} from '@/components/common/chart/st-development/js/webcomponents/studyContextMyindicator.js'
-import {__js_webcomponents_DescriptionContext_} from "@/components/common/chart/st-development/js/webcomponents/descriptionDialog.js"
-import {__js_webcomponents_indicatorsLookup_} from "@/components/common/chart/st-development/js/webcomponents/indicators-search.js"
-import {__js_webcomponents_indicatorsScroll_} from "@/components/common/chart/st-development/js/webcomponents/indicators-scroll.js"
-import {__js_webcomponents_lookup_} from "@/components/common/chart/st-development/js/webcomponents/lookup.js"
-import {__js_webcomponents_loader_} from "@/components/common/chart/st-development/js/webcomponents/loader.js"
-import {__js_webcomponents_reports_lookup_} from "@/components/common/chart/st-development/js/webcomponents/reportsLookup.js"
+import {__js_webcomponents_studyContext_} from '../js/webcomponents/studyContext.js'
+import {__js_webcomponents_studyContextDefault_} from '../js/webcomponents/studyContextDefault.js'
+import {__js_webcomponents_studyContextMyindicator} from '../js/webcomponents/studyContextMyindicator.js'
+import {__js_webcomponents_DescriptionContext_} from "../js/webcomponents/descriptionDialog.js"
+import {__js_webcomponents_indicatorsLookup_} from "../js/webcomponents/indicators-search.js"
+import {__js_webcomponents_indicatorsScroll_} from "../js/webcomponents/indicators-scroll.js"
+import {__js_webcomponents_lookup_} from "../js/webcomponents/lookup.js"
+import {__js_webcomponents_loader_} from "../js/webcomponents/loader.js"
+import {__js_webcomponents_reports_lookup_} from "../js/webcomponents/reportsLookup.js"
 
-import {__st_addons_standard_tooltip_} from "@/components/common/chart/st-development/js/addons/standard/tooltip.js"
-import {__st_addons_standard_fullscreen_} from "@/components/common/chart/st-development/js/addons/standard/fullScreen.js"
-import {__st_addons_standard_rangeslider_} from "@/components/common/chart/st-development/js/addons/standard/rangeSlider.js"
+import {__st_addons_standard_tooltip_} from "../js/addons/standard/tooltip.js"
+import {__st_addons_standard_fullscreen_} from "../js/addons/standard/fullScreen.js"
+import {__st_addons_standard_rangeslider_} from "../js/addons/standard/rangeSlider.js"
 import {__st_js_mask_} from "./extensions/mask.js"
 import {__st_js_loadIndicator_} from "./extensions/loadIndicator.js"
 
 import {__st_js_standard_studies_} from "./standard/studies.js"
-import {__js_standard_studies_medianPrice_} from "@/components/common/chart/st-development/js/standard/studies/standardMedianPrice.js"
-import {__js_standard_studies_momentum_} from "@/components/common/chart/st-development/js/standard/studies/standardMomentum.js"
-import {__js_st_studies_customized_} from "@/components/common/chart/st-development/js/standard/studies/customizedStudies.js"
+import {__js_standard_studies_medianPrice_} from "../js/standard/studies/standardMedianPrice.js"
+import {__js_standard_studies_momentum_} from "../js/standard/studies/standardMomentum.js"
+import {__js_st_studies_customized_} from "../js/standard/studies/customizedStudies.js"
 
-import {__st_js_chartengine_prototype_overwrite_} from "@/components/common/chart/st-development/js/chartEnginePrototypeOverwrite.js"
+import {__st_js_chartengine_prototype_overwrite_} from "../js/chartEnginePrototypeOverwrite.js"
 import {__st_js_indicatorType_} from "./extensions/indicatorType.js"
 import {__st_js_generateCsv_} from "./extensions/generateCsv.js"
 import {__st_js_utils_} from "./extensions/utils.js"
@@ -13396,7 +13396,7 @@ import {__st_js_favsymbol_btn_} from "./extensions/favSymbolBtn.js"
 import {__st_js_maLayout_} from "./extensions/maLayout.js"
 import {__st_js_myindicator_chart_control_} from "./extensions/myIndicatorChartControl.js"
 import {__st_js_cpm_chart_control_} from "./extensions/cpmChartControl.js"
-import {__st_js_marker_drawer_} from "@/components/common/chart/st-development/examples/markers/markerDrawer.js"
+import {__st_js_marker_drawer_} from "../examples/markers/markerDrawer.js"
 import {__st_js_manage_chart_layout_} from "./extensions/manageChartLayout.js"
 
 let _exports = {CIQ};

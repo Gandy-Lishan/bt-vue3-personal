@@ -15,7 +15,7 @@ import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import AppDataTable from '@/shared/ui/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/shared/ui/app-data-table.types'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
-import SmartScannerSignalChart from './ui/SmartScannerSignalChart.vue'
+import SmartScannerChartIQ from './ui/SmartScannerChartIQ.vue'
 
 type DetailTab = 'history' | 'summary'
 
@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="mt-4 grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,0.95fr)]">
-          <SmartScannerSignalChart :detail="detail" :loading="loading" />
+          <SmartScannerChartIQ :detail="detail" :loading="loading" />
 
           <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
             <div class="flex items-start justify-between gap-3">
