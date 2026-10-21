@@ -110,8 +110,18 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
+        'chartiq': fileURLToPath(new URL('./node_modules/chartiq', import.meta.url)),
       },
     },
+    optimizeDeps: {
+      include: ['chartiq/js/chartiq.js'],
+    },
+    build: {
+      commonjsOptions: {
+        include: [/chartiq/, /node_modules/],
+      },
+    },
+    assetsInclude: ['**/*.cur', '**/*.gif'],
     server: {
       proxy,
     },

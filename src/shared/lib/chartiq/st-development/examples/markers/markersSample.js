@@ -1,0 +1,214 @@
+//
+// Sample markers file
+// This file contains functions which create sample markers.  There is a stylesheet which goes along with it as well.
+// Usage: new MarkersSample(stxx);
+//
+import { CIQ, markers } from "chartiq/js/standard.js";
+import EventBus from "@/event-bus";
+import { formatStandardTime } from '@/utils'
+var _css;
+if (
+	typeof define === "undefined" &&
+	typeof module === "object" &&
+	typeof require === "function"
+)
+	_css = require("./markersSample.scss");
+else if (typeof define === "function" && define.amd)
+	define(["./markersSample.scss"], function (m) {
+		_css = m;
+	});
+else if (typeof window !== "undefined")
+	CIQ.loadStylesheet("st-development/components/markers/markersSample.scss");
+if (_css) CIQ.addInternalStylesheet(_css, "markersSample.scss");
+CIQ.activateImports(markers);
+var MarkersSample = function (stx) {
+	this.stx = stx;
+	this.activeLabels = [];
+};
+/**
+ * The specialTypes property provides a lookup of type -> method dictionary
+ * that allows to extend MarketSample#showMarkers functionality with
+ * additional event types not available in this file.
+ * Use #registerType to populate it as it will provide additional extensibility in future
+ */
+MarkersSample.specialTypes = {};
+/**
+ * Registers new prototype method to as type handler be available in #showMarkers
+ * When invoked the registered method will receive type and renderType parameters
+ *
+ * Example: register video event handler
+ *
+ *		MarkersSample.registerType('video', 'showVideoMarkers');
+ *		MarkersSample.prototype.showVideoMarkers = function (type) {
+ *		}
+ *
+ */
+MarkersSample.registerType = function (type, methodName, overwrite) {
+	if (this.specialTypes[type] && !overwrite) {
+		console.error(
+			"ERROR: failed to register event type " +
+				type +
+				". Event already registered"
+		);
+		return;
+	}
+	this.specialTypes[type] = methodName;
+};
+MarkersSample.prototype.processLabelsAndDraw = function (labels) {
+	this.activeLabels = this.activeLabels.concat(labels);
+	this.stx.draw();
+	return labels;
+};
+MarkersSample.prototype.createMarkers = function (label, markerType) {
+	var stx = this.stx,
+		ds = stx.chart.dataSet,
+		t = stx.tickFromDate(stx.chart.endPoints.end);
+	// An example of a data array to drive the marker creation
+	
+	var data = [];
+	if (!markerType) markerType = "Simple";
+	if (!ds) return;
+	while (t && !ds[t]) t--;
+	if (t >= 5)
+		data.push({
+			x: ds[t - 5].DT,
+			type: label,
+			category: "news",
+			headline: "This is a Marker for a News Item"
+		});
+	if (t >= 15)
+		data.push({
+			x: ds[t - 15].DT,
+			type: label,
+			category: "earningsUp",
+			headline: "This is a Marker for Earnings (+)"
+		});
+	if (t >= 25)
+		data.push({
+			x: ds[t - 25].DT,
+			type: label,
+			category: "earningsDown",
+			headline: "This is a Marker for Earnings (-)"
+		});
+	if (t >= 35)
+		data.push({
+			x: ds[t - 35].DT,
+			type: label,
+			category: "dividend",
+			headline: "This is a Marker for Dividends"
+		});
+	if (t >= 45)
+		data.push({
+			x: ds[t - 45].DT,
+			type: label,
+			category: "filing",
+			headline: "This is a Marker for a Filing"
+		});
+	if (t >= 55)
+		data.push({
+			x: ds[t - 55].DT,
+			type: label,
+			category: "split",
+			headline: "This is a Marker for a Split"
+		});
+	var story =
+		"Like all ChartIQ markers, the object itself is managed by the chart, so when you scroll the chart the object moves with you. It is also destroyed automatically for you when the symbol is changed.";
+	// Loop through the data and create markers
+	for (var i = 0; i < data.length; i++) {
+		var datum = data[i];
+		datum.story = story;
+		// Add some additional copy to the first marker to demonstrate the scrollbar
+		if (i == 0)
+			datum.story +=
+				" <br><br> The marker can also accommodate a large amount of text and will allow scrolling if the content does not fit in the available space. Lorem ipsum dolor sit amet, consectetur adipiscing elit. In risus quam, suscipit eu imperdiet sed, finibus vitae neque. Aenean gravida erat vel arcu bibendum pharetra. Nullam arcu nibh, ullamcorper a quam quis, aliquam mollis ex. Nulla lacus ligula, sollicitudin ac lacinia a, tempus nec sem. Aliquam erat volutpat. Phasellus magna mauris, maximus eget imperdiet eu, tincidunt ut neque. Maecenas rutrum nisl sed laoreet placerat. Nunc semper eu diam eget pretium. Fusce est lectus, feugiat nec metus sed, auctor laoreet ligula. Fusce et felis ut quam finibus porttitor. Fusce mollis felis quis velit rutrum laoreet. Maecenas dignissim mattis facilisis. Aenean tempor fermentum dictum.";
+		new CIQ.Marker({
+			stx: stx,
+			label: label,
+			xPositioner: "date",
+			x: datum.x,
+			node: new CIQ.Marker[markerType](datum)
+		});
+	}
+	return label;
+};
+MarkersSample.prototype.createAbstractMarker = function (abstractType) {
+	var stx = this.stx;
+	var abstract = document
+		.querySelector(".stx-marker-templates")
+		.querySelector(".stx-marker.abstract")
+		.cloneNode(true);
+	Object.assign(abstract.style, {
+		"z-index": 30,
+		left: (0.4 * stx.chart.width).toString() + "px"
+	});
+	new CIQ.Marker({
+		stx: stx,
+		xPositioner: "none",
+		yPositioner: "above_candle",
+		label: abstractType,
+		permanent: true,
+		chartContainer: true,
+		node: abstract
+	});
+	return abstractType;
+};
+MarkersSample.prototype.hideMarkers = function () {
+	var stx = this.stx;
+
+	if(window.location.pathname.includes('/backtester')){
+		CIQ.Marker.removeByLabel(CIQ.stxx, 'events');
+	}
+
+	this.activeLabels = [
+		// 'circle',
+		//'events',
+		'triangle_buy','triangle_sell','dot_buy','dot_sell',
+		// dual symbol
+		'triangle_buy_2','triangle_sell_2','dot_buy_2','dot_sell_2'
+	]
+	this.activeLabels.forEach(function (label) {
+		CIQ.Marker.removeByLabel(stx, label);
+	});
+	this.activeLabels = [];
+};
+// 仅用于setMarkerVisibility，和hideMarkers区分开
+MarkersSample.prototype.setMarkerInvisibe = function (markerVisibilityType) {
+	var stx = this.stx;
+	//const dotVisibilityType = markerVisibilityType=='triangle_buy'?'dot_buy':'dot_sell'
+	const visibilityTypeMap = {
+		'triangle_buy': 'dot_buy',
+		'triangle_sell': 'dot_sell',
+		'triangle_buy_2': 'dot_buy_2',
+		'triangle_sell_2': 'dot_sell_2',
+	};
+	const dotVisibilityType = visibilityTypeMap[markerVisibilityType] || null;
+
+	CIQ.Marker.removeByLabel(stx, markerVisibilityType);
+	CIQ.Marker.removeByLabel(stx, dotVisibilityType);
+	this.activeLabels = this.activeLabels.filter(item=>(item!=markerVisibilityType) && (item!=dotVisibilityType))
+
+};
+
+MarkersSample.prototype.showMarkers = function (type, renderType) {
+	// Remove any existing markers
+	if (!type) {
+		return this.hideMarkers();
+	}
+	
+	var specialType = MarkersSample.specialTypes[type];
+	
+	if (specialType) {
+		return this.processLabelsAndDraw(this[specialType](type, renderType));
+	}
+	if (type === "abstract") {
+		return this.processLabelsAndDraw(this.createAbstractMarker("helicopter"));
+	}
+	return this.processLabelsAndDraw(this.createMarkers(type, renderType));
+};
+let marker = { MarkersSample };
+
+// moved CIQ.loadChart,CIQ.addMarker,CIQ.addPrompt,CIQ.removePrompt,CIQ.hideMarker,
+// CIQ.setMarkerVisibility to outer file
+
+// export {CIQ};
+export default marker;

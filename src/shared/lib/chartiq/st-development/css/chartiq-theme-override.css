@@ -1,0 +1,204 @@
+/**
+ * ChartIQ Theme Override — CSS variable mapping
+ *
+ * Maps ChartIQ's native _ciq-night.scss theme to our app's design tokens.
+ * Light mode uses ChartIQ defaults; dark mode maps to --app-* variables.
+ */
+
+/* ===== Light Mode (ChartIQ defaults with minor tweaks) ===== */
+:root {
+  --cq-chart-bg: var(--app-surface, #ffffff);
+  --cq-grid-color: var(--chart-grid, rgba(0, 0, 0, 0.06));
+  --cq-text-primary: var(--app-text, #071b4f);
+  --cq-text-secondary: var(--app-text-secondary, #173267);
+  --cq-text-muted: var(--app-text-muted, #6f7fa8);
+  --cq-border: var(--app-border, #d5e3f7);
+  --cq-border-muted: var(--app-border-muted, #e5eef9);
+  --cq-surface: var(--app-surface, #ffffff);
+  --cq-surface-muted: var(--app-surface-muted, #f6faff);
+  --cq-primary: var(--app-primary, #006cff);
+  --cq-primary-soft: var(--app-primary-soft, #eaf4ff);
+  --cq-positive: var(--app-positive, #047857);
+  --cq-negative: var(--app-negative, #be123c);
+  --cq-nav-bg: var(--app-surface, #ffffff);
+  --cq-menu-bg: var(--app-surface, #ffffff);
+  --cq-menu-hover: var(--app-primary-soft, #eaf4ff);
+  --cq-dialog-overlay: rgba(0, 0, 0, 0.3);
+}
+
+/* ===== Dark Mode ===== */
+:root[data-theme='dark'] {
+  --cq-chart-bg: var(--app-surface, #0f1b2b);
+  --cq-grid-color: var(--chart-grid, rgba(255, 255, 255, 0.06));
+  --cq-text-primary: var(--app-text, #f0f7ff);
+  --cq-text-secondary: var(--app-text-secondary, #d8e8ff);
+  --cq-text-muted: var(--app-text-muted, #9fb2cc);
+  --cq-border: var(--app-border, #29445f);
+  --cq-border-muted: var(--app-border-muted, #20354e);
+  --cq-surface: var(--app-surface, #0f1b2b);
+  --cq-surface-muted: var(--app-surface-muted, #142337);
+  --cq-primary: var(--app-primary, #61b4ff);
+  --cq-primary-soft: var(--app-primary-soft, #102b46);
+  --cq-positive: var(--app-positive, #34d399);
+  --cq-negative: var(--app-negative, #fb7185);
+  --cq-nav-bg: var(--app-surface, #0f1b2b);
+  --cq-menu-bg: var(--app-surface, #0f1b2b);
+  --cq-menu-hover: var(--app-primary-soft, #102b46);
+  --cq-dialog-overlay: rgba(0, 0, 0, 0.6);
+}
+
+/* ===== ChartIQ element overrides ===== */
+
+/* Chart area background */
+.ciq-chart-area {
+  background: var(--cq-chart-bg);
+}
+
+/* Navigation bar */
+.ciq-nav {
+  background: var(--cq-nav-bg);
+  border-bottom: 1px solid var(--cq-border);
+  color: var(--cq-text-primary);
+}
+
+/* Menu items */
+.ciq-menu {
+  color: var(--cq-text-secondary);
+}
+
+.ciq-menu:hover {
+  color: var(--cq-primary);
+}
+
+/* Dropdown menus */
+.ciq-menu-dropdown {
+  background: var(--cq-menu-bg);
+  border: 1px solid var(--cq-border);
+  box-shadow: 0 2px 8px var(--cq-dialog-overlay);
+}
+
+.ciq-item:hover {
+  background: var(--cq-menu-hover);
+}
+
+/* Chart legend */
+.ciq-chart-legend {
+  color: var(--cq-text-primary);
+}
+
+/* Tooltip */
+.stx-hu-sttooltip {
+  color: var(--cq-text-primary);
+}
+
+/* Footer */
+.ciq-footer {
+  background: var(--cq-nav-bg);
+  border-top: 1px solid var(--cq-border);
+  color: var(--cq-text-muted);
+}
+
+/* Side panel */
+.ciq-side-panel {
+  background: var(--cq-surface);
+  border: 1px solid var(--cq-border);
+  color: var(--cq-text-primary);
+}
+
+/* Drawing palette */
+.ciq-drawing-palette {
+  background: var(--cq-surface);
+  border: 1px solid var(--cq-border);
+}
+
+/* Dialogs */
+cq-dialog {
+  background: var(--cq-surface);
+  border: 1px solid var(--cq-border);
+  color: var(--cq-text-primary);
+}
+
+/* Attribution */
+.ciq-attribution {
+  color: var(--cq-text-muted);
+}
+
+/* Toggle buttons */
+.ciq-toggle.activated span {
+  color: var(--cq-primary);
+}
+
+/* Color picker */
+cq-color-picker {
+  --ciq-color-picker-bg: var(--cq-surface);
+  --ciq-color-picker-border: var(--cq-border);
+}
+
+/* ===== ChartIQ night mode overrides ===== */
+/*
+ * ChartIQ uses .ciq-night class on <html> for dark mode.
+ * We map this to :root[data-theme='dark'] via MutationObserver in ChartIQEngine.vue.
+ * The CSS variables above handle the mapping, so we just need to ensure
+ * ChartIQ's built-in .ciq-night class respects our variables.
+ */
+
+.ciq-night .ciq-nav {
+  background: var(--cq-nav-bg);
+  border-color: var(--cq-border);
+  color: var(--cq-text-primary);
+}
+
+.ciq-night .ciq-menu-dropdown {
+  background: var(--cq-menu-bg);
+  border-color: var(--cq-border);
+}
+
+.ciq-night .ciq-item:hover {
+  background: var(--cq-menu-hover);
+}
+
+.ciq-night .cq-chart-legend {
+  color: var(--cq-text-primary);
+}
+
+.ciq-night .ciq-footer {
+  background: var(--cq-nav-bg);
+  border-color: var(--cq-border);
+  color: var(--cq-text-muted);
+}
+
+.ciq-night .ciq-side-panel {
+  background: var(--cq-surface);
+  border-color: var(--cq-border);
+  color: var(--cq-text-primary);
+}
+
+.ciq-night .ciq-chart-area {
+  background: var(--cq-chart-bg);
+}
+
+.ciq-night .ciq-grid {
+  stroke: var(--cq-grid-color);
+}
+
+/* ===== Scrollbar styling ===== */
+.ciq-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ciq-scroll::-webkit-scrollbar-track {
+  background: var(--cq-surface-muted);
+}
+
+.ciq-scroll::-webkit-scrollbar-thumb {
+  background: var(--cq-border);
+  border-radius: 3px;
+}
+
+.ciq-night .ciq-scroll::-webkit-scrollbar-track {
+  background: var(--cq-surface-muted);
+}
+
+.ciq-night .ciq-scroll::-webkit-scrollbar-thumb {
+  background: var(--cq-border-strong, #3a5672);
+}

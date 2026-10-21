@@ -1,0 +1,265 @@
+body .ta_markers-ui {
+	display: inherit;
+}
+
+/* override chartiq.css & ciq-components.scss */
+.stx-marker {
+	/* transform: translateX(10px); */
+}
+/* 设定传统marker和dot样式 */
+.stx-marker.analysis .stx-visual {
+	width: 0 !important;
+    height: 0 !important;
+	border-bottom: 21px #1afa29 solid;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+	background-color: transparent !important;
+
+	position: relative;
+    top: -5px;
+	right: 0px;
+	transform-style: preserve-3d;
+	z-index: 2;
+}
+
+.stx-marker.dividend .stx-visual {
+	width: 0 !important;
+    height: 0 !important;
+	border-top: 21px #d81e06 solid !important;
+    border-left: 12px solid transparent !important;
+    border-right: 12px solid transparent !important;
+	background-color: transparent !important;
+
+	position: relative !important;
+    bottom: 25px !important;
+	right: 0px !important;
+	transform-style: preserve-3d !important;
+	z-index: 2 !important;
+}
+
+.dividend .stx-stem {
+	/* Basic Stems */
+	display: block;
+	height: 22px;
+	width: 50%;
+	float: right;
+	margin-bottom: -18px;
+	border-left: 1px dotted rgb(216 30 6); 
+	position: relative;
+	z-index: 1;
+}
+  
+.analysis .stx-stem {
+	/* Basic Stems */
+	display: block;
+	height: 22px;
+	width: 50%;
+	float: right;
+	margin-bottom: 5px;
+	border-left: 1px dotted rgb(26 250 41); 
+	position: relative;
+	z-index: 1;
+}
+
+.ciq-night .stx-marker.dividend .stx-visual:after {
+	border-top: 14px #fff solid;
+}
+.ciq-night .stx-marker.dividend .stx-visual:hover:after {
+    border-top: 28px #fff solid;
+}
+.ciq-night .stx-marker.dividend.highlight .stx-visual:after {
+	border-top: 28px #fff solid;
+}
+.stx-marker.dividend .stx-visual:after { /* Basic Marker */
+	position:absolute;
+    top: -18.2px;
+    left: -8px;
+	content:"";
+	display:block;
+	height: 0px;
+	width: 0px;
+	opacity: 0;
+	transition: opacity .20s 0s, border .20s 0s, width .20s 0s, height .20s 0s, top .20s 0s, left .20s 0s;
+	box-sizing: border-box;
+
+	border-top: 14px black solid;
+	border-left: 8px solid transparent;
+	border-right: 8px solid transparent;
+	transform: translateZ(-1px)
+}
+.stx-marker.dividend .stx-visual:hover:after {
+    height: 0px;
+    width: 0px;
+    top: -23px;
+    left: -16.8px;
+    opacity: .8;
+    z-index: -999;
+    border-top: 28px black solid;
+    border-left: 17px solid transparent;
+    border-right: 17px solid transparent;
+	transform: translateZ(-1px)
+}
+
+.stx-marker.dividend.highlight .stx-visual:after {
+    height: 0px;
+    width: 0px;
+    top: -23px;
+    left: -16.8px;
+    opacity: .8;
+    z-index: -999;
+    border-top: 28px black solid;
+    border-left: 17px solid transparent;
+    border-right: 17px solid transparent;
+	transform: translateZ(-1px)
+}
+
+.ciq-night .stx-marker.analysis .stx-visual:after {
+	border-bottom: 14px #fff solid;
+}
+.ciq-night .stx-marker.analysis .stx-visual:hover:after {
+    border-bottom: 28px #fff solid;
+}
+.ciq-night .stx-marker.analysis.highlight .stx-visual:after {
+	border-bottom: 28px #fff solid;
+}
+.stx-marker.analysis .stx-visual:after { /* Basic Marker */
+	position:absolute;
+	top: 5px;
+  	left: -8px;
+	content:"";
+	display:block;
+    height: 0px;
+    width: 0px;
+	opacity: 0;
+	transition: opacity .20s 0s, border .20s 0s, width .20s 0s, height .20s 0s, top .20s 0s, left .20s 0s;
+	box-sizing:border-box;
+
+	border-bottom: 14px black solid;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+	transform: translateZ(-1px);
+}
+
+.stx-marker.analysis .stx-visual:hover:after {
+	height: 0px;
+    width: 0px;
+    top: -4px;
+    left: -17px;
+    opacity: .8;
+    z-index: -999;
+    border-bottom: 28px black solid;
+    border-left: 17px solid transparent;
+    border-right: 17px solid transparent;
+	transform: translateZ(-1px);
+}
+
+.stx-marker.analysis.highlight .stx-visual:after {
+	height: 0px;
+    width: 0px;
+    top: -4px;
+    left: -17px;
+    opacity: .8;
+    z-index: -999;
+    border-bottom: 28px black solid;
+    border-left: 17px solid transparent;
+    border-right: 17px solid transparent;
+	transform: translateZ(-1px);
+}
+
+/* 性能模式marker & dot */
+.stx-performance-marker.stx-marker-expand {
+	background: rgba(255, 255, 255, 0.75);
+	width: 200px;
+	max-height: 200px;
+	padding: 11px;
+	opacity: 1;
+	color: #000;
+	display: block;
+	outline: 1px solid rgba(0, 0, 0, 0.15);
+	overflow: auto;
+	position: relative; 
+	bottom: 135px;
+	left: 30px;
+	text-align: left;
+}
+.stx-performance-marker.stx-marker-expand p,
+.stx-performance-marker.stx-marker-expand h4{
+	display: block;
+  	margin: 0; 
+}
+
+
+.stx-marker.analysis p {
+	text-align: left;
+	white-space: pre-line;
+}
+
+.stx-marker.sell .stx-visual {
+	width: 10px !important;
+    height: 10px !important;
+	background-color: #d81e06 !important;
+}
+.stx-marker.buy .stx-visual {
+	width: 10px !important;
+    height: 10px !important;
+	background-color: #1afa29 !important;
+}
+.stx-marker.last-signal .stx-visual {
+	width: 80px !important;
+    height: 30px !important;
+	background-color: #fcf808 !important;
+}
+/************ dual symbol **************/
+.stx-marker.sell-2 .stx-visual {
+	width: 10px !important;
+    height: 10px !important;
+	background-color: #ff5290 !important;
+}
+.stx-marker.buy-2 .stx-visual {
+	width: 10px !important;
+    height: 10px !important;
+	background-color: #92d2cc !important;
+}
+.stx-marker.trade-sell-2 .stx-visual{
+	border-radius: 50% !important;
+	width: 10px !important;
+	height: 10px !important;
+	background-color: #ff5290 !important;
+	background-position: -20px -20px !important;
+}
+.stx-marker.trade-buy-2 .stx-visual{
+	border-radius: 50% !important ;
+	width: 10px !important;
+	height: 10px !important;
+	background-color: #92d2cc !important;
+	background-position: -20px -20px !important;
+}
+/************************************************************/
+
+.stx-marker .stx-stem {
+	/* 这里统一设定高度，但是其他样式比如颜色和y轴偏移量不能改，在js内修改 */
+	height: 22px;
+}
+
+.stx-marker.trade-buy .stx-visual{
+	border-radius: 50% !important ;
+	width: 10px !important;
+	height: 10px !important;
+	background-color: rgb(26 250 41) !important;
+	background-position: -20px -20px !important;
+}
+.stx-marker.trade-sell .stx-visual{
+	border-radius: 50% !important;
+	width: 10px !important;
+	height: 10px !important;
+	background-color: rgb(216 30 6) !important;
+	background-position: -20px -20px !important;
+}
+
+.stx-marker.highlowline .stx-visual {
+	border-radius: 50% !important;
+	width: 8px !important;
+	height: 8px !important;
+	background-color: #5B9BD1 !important;
+	background-position: -16px -16px !important;
+}

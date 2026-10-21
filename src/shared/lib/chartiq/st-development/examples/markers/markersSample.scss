@@ -1,0 +1,368 @@
+.stx-marker.abstract {
+	width: 0;
+	transition: all .2s;
+}
+
+.stx-marker-content .sample {
+	position: absolute;
+	bottom: 0;
+	margin-left: -67px;
+	width: 135px;
+	height: 135px;
+	background: rgba(255, 255, 255, .1);
+	text-align: left;
+	border-radius: 50%;
+	-webkit-transition: width 0.2s 0s, height 0.2s 0s, border-radius 0.2s 0s, margin 0.2s 0s, background 0.5s;
+	transition: width 0.2s 0s, height 0.2s 0s, border-radius 0.2s 0s, margin 0.2s 0s, background 0.5s;
+}
+
+.sample:hover {
+	width: 250px;
+	margin-left: -125px;
+	border-radius: 5px;
+	background: #fff;
+	-webkit-transition: width 0.2s .5s, height 0.2s .5s, border-radius 0.2s .5s, margin 0.2s .5s, background 1s;
+	transition: width 0.2s .5s, height 0.2s .5s, border-radius 0.2s .5s, margin 0.2s .5s, background 1s;
+}
+
+.sample .text {
+	position: absolute;
+	font-size: 11px;
+	left: 160px;
+	width: 80px;
+	bottom: 13px;
+	opacity: 0;
+	line-height: 13px;
+	-webkit-transition: opacity 0s 0s;
+	-moz-transition: opacity 0s 0s;
+	transition: opacity 0s 0s;
+}
+
+.sample:hover .text {
+	opacity: 1;
+	-webkit-transition: opacity 0.4s .7s;
+	-moz-transition: opacity 0.4s .7s;
+	transition: opacity 0.4s .7s;
+}
+
+[stage] {
+	position: absolute;
+	left: 10px;
+	bottom: 10px;
+	width: 115px;
+	height: 115px;
+	background: #e8e8e8;
+	border-radius: 50%;
+	-webkit-transition: width 0.2s 0s, height 0.2s 0s, border-radius 0.2s 0s, margin 0.2s 0s, background 0.2s;
+	transition: width 0.2s 0s, height 0.2s 0s, border-radius 0.2s 0s, margin 0.2s 0s, background 0.2s;
+}
+
+.sample:hover [stage] {
+	width: 135px;
+	border-radius: 5px;
+	background: #e8e8e8;
+	-webkit-transition: width 0.2s .5s, height 0.2s .5s, border-radius 0.2s .5s, margin 0.2s .5s, background 0.2s;
+	transition: width 0.2s .5s, height 0.2s .5s, border-radius 0.2s .5s, margin 0.2s .5s, background 0.2s;
+}
+
+@-webkit-keyframes heli-hover {
+	0% {
+		-webkit-transform: rotate(0deg) translateY(0px);
+	}
+	35% {
+		-webkit-transform: rotate(6deg) translateY(-70px);
+	}
+	80% {
+		-webkit-transform: rotate(-4deg) translateY(0px);
+	}
+	100% {
+		-webkit-transform: translateY(0px);
+	}
+}
+
+@keyframes heli-hover {
+	0% {
+		transform: rotate(0deg) translateY(0px);
+	}
+	35% {
+		transform: rotate(6deg) translateY(-70px);
+	}
+	80% {
+		transform: rotate(-4deg) translateY(0px);
+	}
+	100% {
+		transform: translateY(0px);
+	}
+}
+
+[helicopter] {
+	position: absolute;
+	margin-left: -5px;
+	margin-bottom: 5px;
+	left: -10px;
+	bottom: 15px;
+	width: 145px;
+	height: 55px;
+	-webkit-transition: margin 0.75s;
+	transition: margin 0.75s;
+}
+
+.sample:hover [helicopter] {
+	margin-left: 0px;
+	margin-bottom: 0;
+	-webkit-animation: heli-hover 6s ease-in-out infinite;
+	/* Chrome, Safari, Opera */
+	animation: heli-hover 6s ease-in-out infinite;
+	/* Standard syntax */
+}
+
+[propeller] {
+	position: absolute;
+	top: 2px;
+	left: 30px;
+	width: 0px;
+	perspective: 500px;
+	-webkit-perspective: 500px;
+	z-index: 1;
+}
+
+@keyframes spinner {
+	from {
+		transform: rotateY(0deg);
+	}
+	to {
+		transform: rotateY(-360deg);
+	}
+}
+
+@-webkit-keyframes spinner {
+	from {
+		-webkit-transform: rotateY(0deg);
+	}
+	to {
+		-webkit-transform: rotateY(-360deg);
+	}
+}
+
+[spinner] {
+	-webkit-animation: spinner 1s linear infinite;
+	/* Chrome, Safari, Opera */
+	animation: spinner 1s linear infinite;
+	/* Standard syntax */
+	-webkit-transform-style: preserve-3d;
+	transform-style: preserve-3d;
+}
+
+[spinner] div {
+	position: absolute;
+	background: #999;
+	width: 80px;
+	height: 4px;
+}
+/* 
+[heli-body] {
+	position: absolute;
+	left: 0;
+	width: 145px;
+	height: 55px;
+	position: absolute;
+	background: url(img/helicopter.png) no-repeat center;
+	z-index: 2;
+} */
+
+/* backteser edge forecast marker node style */
+$bullish-color: #9be5b0;
+$bearish-color: #e9c0c0;
+$bullish-hover: #62e687;
+$bearish-hover: #eba8a8;
+.forecast {
+	position: absolute;
+	opacity: .9;
+	text-align: center;
+	width: 15px; /* Marker 的宽度 */
+    height: 15px; /* Marker 的高度 */
+	color: #606060;
+	padding: 5px;
+	z-index: 1;
+	.forecast__marker-background{
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		border-radius: 50%;
+		z-index: 2;
+		transition: background 0.3s; /* 背景颜色过渡 */
+	}
+	.forecast__marker-stem {
+		z-index: 1;
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%); /* 水平居中 */
+		width: 3px; /* 虚线的宽度 */
+		height: 30px; /* 虚线的高度 */
+		border-left: 1px dashed rgba(0, 0, 0, 0.8); /* 垂直虚线样式 */
+	}
+	.forecast__marker-tooltip {
+		position: absolute;
+		bottom: 60px; /* 悬浮框相对 Marker 的位置 */
+		left: 50%;
+		transform: translateX(-50%);
+		border: 1px solid #ccc; /* 悬浮框的边框 */
+		border-radius: 20px; /* 悬浮框的圆角 */
+		padding: 10px; /* 悬浮框的内边距 */
+		opacity: 0; /* 初始状态为透明 */
+		visibility: hidden; /* 初始状态不可见 */
+		transition: opacity 0.3s ease, visibility 0.3s; /* 过渡效果 */
+		min-width: 250px;
+
+		box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+		transition: opacity 0.2s 0s, visibility 0.2s 0s;
+	}
+	&::after {
+		content: ""; /* 伪元素需要 content 属性 */
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		border-radius: 50%;
+		transition: transform 0.2s 0s, opacity 0.2s 0s, border 0.2s 0s;
+	}
+	&.bullish {
+		margin-bottom: -35px;
+		.forecast__marker-background{
+			background: $bullish-color;
+		}
+		.forecast__marker-stem {
+			bottom: 100%;
+		}
+		.forecast__marker-tooltip {
+			background: $bullish-color;
+		}
+		:hover {
+			.forecast__marker-background {
+				background: $bullish-hover;
+			}
+		}
+	}
+	&.bearish {
+		margin-bottom: 35px;
+		.forecast__marker-background{
+			background: $bearish-color;
+		}
+		.forecast__marker-stem {
+			top: 100%;
+		}
+		.forecast__marker-tooltip {
+			background: $bearish-color;
+		}
+		:hover {
+			.forecast__marker-background {
+				background: $bearish-hover
+			}
+		}
+	}
+	&:hover {
+		z-index: 2;
+		.forecast__marker-tooltip {
+			opacity: 1; /* 鼠标悬浮时变为不透明 */
+			visibility: visible; /* 鼠标悬浮时可见 */
+		}
+		&::after {
+			transform: scale(1.8);
+			border: 1px solid #0a0505;
+			opacity: .2;
+		}
+	}
+	&.hidden {
+		display: none;
+	}
+}
+
+/* scanner marker node style */
+.myMes {
+	position: absolute;
+	opacity: .8;
+	text-align: center;
+	width: 176px;
+	height: 24px;
+	line-height: 24px;
+	color: #606060;
+	margin-bottom: 35px;
+	background: #ffd28f;
+	background-size: contain;
+	border-radius: 4px;
+  }
+  .myMes:before {
+	border: solid;
+	border-color: #ffd28f transparent;
+	border-width: 11px 6px 0 6px;
+	bottom: -10px;
+	content: "";
+	left: 80px;
+	position: absolute;
+	z-index: 99;
+  }
+
+.myEvents {
+	position: absolute;
+	text-align: center;
+	width: 40px;
+	height: 30px;
+	line-height: 20px;
+	color: white;
+	margin-bottom: 35px;
+  }
+  
+  .myEvents.hoverMarker {
+	/* background-color: #5000fc;
+	border: 2px solid black; */
+	background: url(highlowlineTag.svg) center center no-repeat;
+	padding-right: 10px;
+	background-size: contain;
+  }
+  
+  /*  create some rudimentary styling for our tooltip class */
+  .tooltip {
+	display: none;
+	position: relative;
+  }
+  
+  .hoverMarker:hover .tooltip {
+    background: #5B9BD1;
+    border-radius: 5px;
+    bottom: 70px;
+    color: #fff;
+    display: block;
+    opacity: .8;
+    left: -104px;
+    padding: 5px 15px;
+    position: absolute;
+    z-index: 98;
+    width: 214px;
+  }
+  
+  .hoverMarker:hover .tooltip:before {
+	border: solid;
+	border-color: #5B9BD1 transparent;
+	opacity: .8;
+	border-width: 11px 6px 0 6px;
+	bottom: -10px;
+	content: "";
+	left: 50%;
+	position: absolute;
+	z-index: 99;
+  }
+
+  /* Draw support line and parallel channel */
+  .horizontalLabel {
+	position: absolute;
+	right: 20px;
+	text-align: center;
+	width: 200px;
+	height: 30px;
+	line-height: 20px;
+	color: black;
+	margin-bottom: 4px;
+  }

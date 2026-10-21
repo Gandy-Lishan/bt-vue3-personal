@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "./mobile.css";
 
+/* ChartIQ v8.3.3 styles */
+@import "../lib/chartiq/st-development/css/stx-chart.css";
+@import "../lib/chartiq/st-development/css/chartiq-theme-override.css";
+
 :root {
   /*
    * 14px rather than the 16px default, so the interface fits a smaller laptop screen.

@@ -19,6 +19,7 @@
     "@lucide/vue": "^1.44.0",
     "@types/crypto-js": "^4.2.2",
     "algoliasearch": "^5.59.0",
+    "chartiq": "file:chartiq-8.3.3.tgz",
     "crypto-js": "^4.2.0",
     "highcharts": "^13.0.2",
     "html-to-image": "^1.11.13",
