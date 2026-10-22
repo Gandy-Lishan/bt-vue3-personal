@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
 import type { AppDataTableColumn } from './app-data-table.types'
 
 const props = withDefaults(
@@ -8,12 +9,20 @@ const props = withDefaults(
     rows: Array<Record<string, unknown>>
     loading?: boolean
     emptyMessage?: string
+    sortKey?: string
+    sortDirection?: 'asc' | 'desc'
   }>(),
   {
     loading: false,
     emptyMessage: 'No rows found',
+    sortKey: '',
+    sortDirection: 'asc',
   },
 )
+
+const emit = defineEmits<{
+  sort: [key: string]
+}>()
 
 const tableColspan = computed(() => Math.max(1, props.columns.length))
 
@@ -37,6 +46,11 @@ function cellClass(column: AppDataTableColumn, row: Record<string, unknown>) {
 function badgeClass(column: AppDataTableColumn, row: Record<string, unknown>) {
   return column.badgeClass?.(row[column.key], row) ?? ''
 }
+
+function sortIcon(column: AppDataTableColumn) {
+  if (props.sortKey !== column.key) return ArrowUpDown
+  return props.sortDirection === 'asc' ? ArrowUp : ArrowDown
+}
 </script>
 
 <template>
@@ -52,8 +66,22 @@ function badgeClass(column: AppDataTableColumn, row: Record<string, unknown>) {
               class="box-border px-3 py-2.5"
               :class="alignClass(column)"
               :style="{ minWidth: column.minWidth ? `calc(${column.minWidth}px * var(--fixed-ui-scale, 1))` : undefined }"
+              :aria-sort="column.sortable && props.sortKey === column.key ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
             >
-              {{ column.label }}
+              <button
+                v-if="column.sortable"
+                class="inline-flex w-full items-center gap-1 transition hover:text-[var(--app-primary)]"
+                :class="[
+                  props.sortKey === column.key ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]',
+                  column.align === 'right' ? 'justify-end' : column.align === 'center' ? 'justify-center' : 'justify-start',
+                ]"
+                type="button"
+                @click="emit('sort', column.key)"
+              >
+                <span>{{ column.label }}</span>
+                <component :is="sortIcon(column)" :size="13" aria-hidden="true" />
+              </button>
+              <span v-else>{{ column.label }}</span>
             </th>
           </tr>
         </thead>

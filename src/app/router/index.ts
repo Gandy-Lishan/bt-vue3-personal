@@ -183,6 +183,13 @@ const router = createRouter({
       component: () => import('@/pages/seasonality/SeasonalityPage.vue'),
     },
     {
+      path: '/swing_trading_dashboard',
+      name: 'swing-trading-dashboard',
+      // The migrated dashboard intentionally remains an Options API JavaScript SFC.
+      // @ts-expect-error vue-tsc does not emit a declaration for JavaScript-only Vue SFCs.
+      component: () => import('@/pages/swing-trading/SwingTradingDashboardPage.vue'),
+    },
+    {
       path: '/cpm',
       redirect: '/cpm/list',
     },
