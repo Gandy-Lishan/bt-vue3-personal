@@ -1,0 +1,271 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { ChevronDown, Eye, LoaderCircle, Pencil, Play, Plus, RefreshCw, Search, Star, Trash2, X } from '@lucide/vue'
+import { deleteMyScreen, fetchMyScreenResult, fetchMyScreens, saveMyScreen, updateMyScreenFavorite } from '@/entities/my-stuff/api/my-screen.api'
+import type { MyScreenCondition, MyScreenDirection, MyScreenMode, MyScreenRow, MyScreenRunResult, MyScreenSubmitPayload } from '@/entities/my-stuff/model/my-screen.types'
+import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
+
+type WorkspaceTab = 'saved' | 'build'
+type BuilderMode = 'create' | 'edit' | 'view'
+
+const categories = ['S&P 500', 'NDX', 'Energy', 'Staples', 'Utilities', 'Materials', 'Industrials', 'Financials', 'Real Estate', 'Technology', 'Health Care', 'Discretionary', 'Communication Services', 'Custom']
+const signalOptions = [
+  { label: 'Trend Score', value: 'TrendScore' },
+  { label: 'Historical Volatility (20-Day)', value: 'HV20' },
+  { label: 'Historical Volatility (60-Day)', value: 'HV60' },
+  { label: 'Symbol Close', value: 'Close' },
+  { label: 'Daily Return', value: 'Change' },
+  { label: 'Relative Strength Index (RSI)', value: 'RSI' },
+  { label: 'Symbol Close 200-Day Moving Average', value: 'SMA200' },
+  { label: 'Symbol Close 100-Day Moving Average', value: 'SMA100' },
+  { label: 'Symbol Close 50-Day Moving Average', value: 'SMA50' },
+  { label: 'Symbol Close 20-Day Moving Average', value: 'SMA20' },
+  { label: 'Symbol Close 10-Day Moving Average', value: 'SMA10' },
+  { label: 'Symbol Close 5-Day Moving Average', value: 'SMA5' },
+  { label: 'Symbol Optix 50-Day Moving Average', value: 'Optix50' },
+  { label: 'Symbol Optix 20-Day Moving Average', value: 'Optix20' },
+  { label: 'Symbol Optix 10-Day Moving Average', value: 'Optix10' },
+  { label: 'Symbol Optix 5-Day Moving Average', value: 'Optix5' },
+  { label: 'Symbol Optix', value: 'Optix' },
+  { label: 'Symbol Close All-Time High', value: 'SATH' },
+  { label: 'Symbol Close All-Time Low', value: 'SATL' },
+  { label: 'Symbol Close 52-Week High', value: 'S52WH' },
+  { label: 'Symbol Close 52-Week Low', value: 'S52WL' },
+  { label: 'Symbol Close 13-Week High', value: 'S13WH' },
+  { label: 'Symbol Close 13-Week Low', value: 'S13WL' },
+  { label: 'Symbol Close 4-Week High', value: 'S4WH' },
+  { label: 'Symbol Close 4-Week Low', value: 'S4WL' },
+]
+const patternOptions = [
+  ['triple_tap', 'Triple Tap'], ['rounding_bottom', 'Rounding Bottom'], ['descending_channel', 'Descending Channel'],
+  ['ascending_channel', 'Ascending Channel'], ['head_and_shoulder_bottom', 'Head and Shoulders Bottom'],
+  ['head_and_shoulder_top', 'Head and Shoulders Top'], ['double_bottom', 'Double Bottom'], ['double_top', 'Double Top'],
+] as const
+const dateOptions = [{ value: 0, label: 'Current bar' }, { value: -1, label: 'Previous bar' }, { value: -2, label: '2 bars ago' }, { value: -3, label: '3 bars ago' }, { value: -4, label: '4 bars ago' }]
+const comparisonOptions = [{ value: 0, label: 'Greater than (>)' }, { value: 1, label: 'Equal to (=)' }, { value: 2, label: 'Less than (<)' }]
+
+const abortController = new AbortController()
+const activeTab = ref<WorkspaceTab>('saved')
+const builderMode = ref<BuilderMode>('create')
+const records = ref<MyScreenRow[]>([])
+const selectedRecord = ref<MyScreenRow | null>(null)
+const runResult = ref<MyScreenRunResult | null>(null)
+const listLoading = ref(false)
+const running = ref(false)
+const actionUrl = ref('')
+const query = ref('')
+const resultQuery = ref('')
+const resultSort = ref('')
+const page = ref(1)
+const resultPage = ref(1)
+const notice = ref('')
+const error = ref('')
+const expandedIds = ref(new Set<string>())
+const pageSize = 10
+
+function blankCondition(): MyScreenCondition { return { signal: 'TrendScore', condition: 0, value: '7', date: 0 } }
+const draft = reactive({
+  name: '', category: 'S&P 500', direction: 'Long' as MyScreenDirection, mode: 'criteria' as MyScreenMode,
+  relation: 0, pattern: 'head_and_shoulder_top', tickers: '', conditions: [blankCondition()] as MyScreenCondition[],
+})
+
+const filteredRecords = computed(() => {
+  const term = query.value.trim().toLowerCase()
+  return records.value.filter((row) => !term || [row.name, row.category, row.direction, row.description.join(' ')].some((value) => value.toLowerCase().includes(term)))
+})
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredRecords.value.length / pageSize)))
+const pagedRecords = computed(() => filteredRecords.value.slice((page.value - 1) * pageSize, page.value * pageSize))
+const resultColumns = computed(() => runResult.value?.rows[0] ? Object.keys(runResult.value.rows[0]).filter((key) => !key.startsWith('Date')) : [])
+const filteredResultRows = computed(() => {
+  const term = resultQuery.value.trim().toLowerCase()
+  const rows = (runResult.value?.rows ?? []).filter((row) => !term || Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(term)))
+  const [key, direction] = resultSort.value.split(':')
+  if (!key || !direction) return rows
+  return [...rows].sort((left, right) => {
+    const a = left[key]
+    const b = right[key]
+    const aNumber = Number(a)
+    const bNumber = Number(b)
+    const comparison = Number.isFinite(aNumber) && Number.isFinite(bNumber) ? aNumber - bNumber : String(a ?? '').localeCompare(String(b ?? ''))
+    return direction === 'asc' ? comparison : -comparison
+  })
+})
+const resultPageCount = computed(() => Math.max(1, Math.ceil(filteredResultRows.value.length / pageSize)))
+const pagedResultRows = computed(() => filteredResultRows.value.slice((resultPage.value - 1) * pageSize, resultPage.value * pageSize))
+const validationMessage = computed(() => {
+  if (!draft.name.trim()) return 'Give this screen a clear name.'
+  if (draft.category === 'Custom' && !tickerList().length) return 'Add at least one ticker for a custom universe.'
+  if (draft.mode === 'criteria' && draft.conditions.some((condition) => !condition.signal || !String(condition.value).trim())) return 'Complete every rule before running the screen.'
+  return ''
+})
+
+watch(query, () => { page.value = 1 })
+watch([resultQuery, resultSort], () => { resultPage.value = 1 })
+watch(() => draft.relation, (value) => {
+  if (value === 0) draft.conditions.splice(1)
+  else if (draft.conditions.length === 1) draft.conditions.push(blankCondition())
+})
+
+function tickerList() { return draft.tickers.split(/[\s,;]+/).map((item) => item.trim().toUpperCase()).filter(Boolean) }
+function conditionLabel(condition: MyScreenCondition) {
+  const signal = signalOptions.find((item) => item.value === condition.signal)?.label ?? condition.signal
+  const comparison = comparisonOptions.find((item) => item.value === condition.condition)?.label.replace(/ \(.+\)/, '') ?? '='
+  const date = dateOptions.find((item) => item.value === condition.date)?.label ?? 'Current bar'
+  return `${date}: ${signal} ${comparison.toLowerCase()} ${condition.value}`
+}
+function descriptionText(row: MyScreenRow) { return row.description.join(' ').replace(/<[^>]+>/g, '') || 'No rule description' }
+function showNotice(message: string) { notice.value = message; window.setTimeout(() => { if (notice.value === message) notice.value = '' }, 3500) }
+function resetDraft() {
+  Object.assign(draft, { name: '', category: 'S&P 500', direction: 'Long', mode: 'criteria', relation: 0, pattern: 'head_and_shoulder_top', tickers: '' })
+  draft.conditions = [blankCondition()]
+  selectedRecord.value = null
+  runResult.value = null
+  builderMode.value = 'create'
+  resultQuery.value = ''
+  resultSort.value = ''
+}
+function startNew() { resetDraft(); activeTab.value = 'build' }
+function loadIntoDraft(row: MyScreenRow) {
+  selectedRecord.value = row
+  Object.assign(draft, {
+    name: row.name, category: row.category, direction: row.direction, mode: row.systemPattern ? 'pattern' : 'criteria',
+    relation: row.conditions.length > 1 ? (row.relation || 1) : 0, pattern: row.systemPattern || 'head_and_shoulder_top', tickers: row.tickers.join(', '),
+  })
+  draft.conditions = row.conditions.length ? row.conditions.map((item) => ({ ...item })) : [blankCondition()]
+}
+function editRecord(row: MyScreenRow) { loadIntoDraft(row); builderMode.value = 'edit'; runResult.value = null; activeTab.value = 'build' }
+async function viewRecord(row: MyScreenRow) {
+  loadIntoDraft(row); builderMode.value = 'view'; runResult.value = null; activeTab.value = 'build'; actionUrl.value = row.url
+  try { runResult.value = await fetchMyScreenResult(row.url, row, abortController.signal) }
+  catch { showNotice('Screen results could not be loaded.') }
+  finally { actionUrl.value = '' }
+}
+function toggleExpanded(row: MyScreenRow) {
+  const next = new Set(expandedIds.value); next.has(row.id) ? next.delete(row.id) : next.add(row.id); expandedIds.value = next
+}
+async function loadRecords() {
+  listLoading.value = true; error.value = ''
+  try { records.value = await fetchMyScreens(abortController.signal) }
+  catch (cause) { records.value = []; error.value = cause instanceof Error ? cause.message : 'Unable to load screens.' }
+  finally { listLoading.value = false }
+}
+async function removeRecord(row: MyScreenRow) {
+  if (!window.confirm(`Delete “${row.name}”?`)) return
+  actionUrl.value = row.url
+  try { await deleteMyScreen(row.url, abortController.signal); showNotice(`Deleted “${row.name}”.`); await loadRecords() }
+  catch { showNotice('Screen could not be deleted.') }
+  finally { actionUrl.value = '' }
+}
+async function toggleFavorite(row: MyScreenRow) {
+  actionUrl.value = row.url
+  try { await updateMyScreenFavorite(row.url, !row.favorite, abortController.signal); row.favorite = !row.favorite }
+  catch { showNotice('Favorite could not be updated.') }
+  finally { actionUrl.value = '' }
+}
+function buildPayload(): MyScreenSubmitPayload {
+  const descriptions = draft.mode === 'pattern'
+    ? [`Common Pattern: ${patternOptions.find(([value]) => value === draft.pattern)?.[1] ?? draft.pattern}`]
+    : draft.conditions.map(conditionLabel)
+  const signals = draft.mode === 'pattern'
+    ? [{ signal: patternOptions.find(([value]) => value === draft.pattern)?.[1] ?? draft.pattern, condition: 1, value: 1 }]
+    : draft.conditions.map(({ signal, condition, value }) => ({ signal, condition, value }))
+  return {
+    name: draft.name.trim(), category: draft.category, direction: draft.direction,
+    relation: draft.mode === 'pattern' || draft.conditions.length === 1 ? 0 : draft.relation,
+    score: draft.mode === 'criteria' && draft.relation === 1 ? draft.conditions.length : 1,
+    start_date: '2005-01-01', end_date: '2050-01-01', signals: JSON.stringify(signals),
+    description: JSON.stringify(descriptions), dates: JSON.stringify(draft.conditions.map((item) => item.date)),
+    ...(draft.category === 'Custom' ? { sector_lists: JSON.stringify(tickerList()) } : {}),
+    ...(draft.mode === 'pattern' ? { system_pattern: draft.pattern } : {}),
+  }
+}
+async function runScreen() {
+  if (validationMessage.value) { showNotice(validationMessage.value); return }
+  running.value = true
+  try {
+    const result = await saveMyScreen(buildPayload(), builderMode.value === 'edit' ? selectedRecord.value?.url : '', abortController.signal)
+    if (![211, 213, 214].includes(result.code)) { showNotice(result.message || 'Screen could not be run.'); return }
+    runResult.value = result; builderMode.value = 'view'; showNotice('Screen completed successfully.'); await loadRecords()
+    const updated = records.value.find((row) => row.url === result.url); if (updated) selectedRecord.value = updated
+  } catch { showNotice('Screen could not be run. Please try again.') }
+  finally { running.value = false }
+}
+function formatCell(value: unknown) {
+  if (value === null || value === undefined || value === '') return '—'
+  const number = Number(value)
+  if (Number.isFinite(number) && typeof value !== 'boolean') return Number(number.toFixed(2)).toLocaleString()
+  return String(value)
+}
+
+onMounted(loadRecords)
+onBeforeUnmount(() => abortController.abort())
+</script>
+
+<template>
+  <div class="pb-4">
+    <div v-if="notice" class="mx-4 mt-4 flex items-center justify-between rounded-md border border-[var(--app-border-muted)] bg-[var(--app-primary-soft)] px-3 py-2 text-sm font-semibold"><span>{{ notice }}</span><button type="button" @click="notice = ''"><X :size="16" /></button></div>
+    <nav class="flex overflow-x-auto border-b border-[var(--app-border)] px-4" aria-label="My Screen workspace tabs">
+      <button class="screen-tab" :class="{ 'screen-tab--active': activeTab === 'saved' }" type="button" @click="activeTab = 'saved'">Screens List <span class="screen-count">{{ listLoading ? '…' : records.length }}</span></button>
+      <button class="screen-tab" :class="{ 'screen-tab--active': activeTab === 'build' }" type="button" @click="activeTab = 'build'">Build &amp; Result</button>
+    </nav>
+
+    <div v-show="activeTab === 'saved'">
+      <div class="grid gap-2 border-b border-[var(--app-border)] px-4 py-3 md:grid-cols-[minmax(240px,1fr)_auto_auto]">
+        <label class="screen-input flex items-center"><Search :size="15" class="mr-2 text-[var(--app-text-muted)]" /><input v-model="query" class="w-full bg-transparent outline-none" placeholder="Search screens" /></label>
+        <button class="screen-secondary" type="button" @click="loadRecords"><RefreshCw :size="16" :class="{ 'animate-spin': listLoading }" />Refresh</button>
+        <button class="screen-secondary" type="button" @click="startNew"><Plus :size="16" />Create new Screen</button>
+      </div>
+      <div v-if="error" class="mx-4 mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }} <button class="font-bold underline" @click="loadRecords">Retry</button></div>
+      <div class="p-4">
+        <section class="overflow-hidden rounded-md border border-[var(--app-border-muted)]">
+          <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse text-left text-[0.8125rem]">
+              <thead class="bg-[var(--app-surface-muted)] text-[0.68rem] font-semibold uppercase text-[var(--app-text-muted)]"><tr><th class="w-10 px-2 py-2.5"></th><th class="px-3 py-2.5">Name</th><th class="px-3 py-2.5">Universe</th><th class="px-3 py-2.5">Direction</th><th class="px-3 py-2.5">Last signal</th><th class="px-3 py-2.5">Screen rules</th><th class="px-3 py-2.5 text-center">Actions</th></tr></thead>
+              <tbody>
+                <tr v-if="listLoading"><td colspan="7" class="h-36 text-center text-[var(--app-text-muted)]">Loading screens...</td></tr>
+                <tr v-else-if="!pagedRecords.length"><td colspan="7" class="h-36 text-center text-[var(--app-text-muted)]">No screens found. Create one to get started.</td></tr>
+                <template v-for="row in pagedRecords" :key="row.id">
+                  <tr class="border-t border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] hover:bg-[var(--app-surface-hover)]">
+                    <td class="px-2 py-3"><button class="screen-icon" type="button" @click="toggleExpanded(row)"><ChevronDown :size="16" :class="{ '-rotate-90': !expandedIds.has(row.id) }" /></button></td>
+                    <td class="px-3 py-3"><button class="font-extrabold text-[var(--app-primary)] hover:underline" type="button" @click="viewRecord(row)">{{ row.name }}</button><span v-if="row.systemPattern" class="mt-1 block text-xs text-[var(--app-text-muted)]">Common pattern</span></td>
+                    <td class="px-3 py-3 font-semibold">{{ row.category }}</td><td class="px-3 py-3"><span class="screen-pill">{{ row.direction }}</span></td>
+                    <td class="px-3 py-3">{{ row.lastSignalDate || '—' }}</td><td class="max-w-sm px-3 py-3 text-[var(--app-text-secondary)]"><span class="line-clamp-2">{{ descriptionText(row) }}</span></td>
+                    <td class="px-3 py-3"><div class="flex justify-center gap-1"><button class="screen-icon" title="Favorite" @click="toggleFavorite(row)"><Star :size="15" :class="row.favorite ? 'fill-amber-400 text-amber-500' : ''" /></button><button class="screen-icon" title="View results" @click="viewRecord(row)"><LoaderCircle v-if="actionUrl === row.url" :size="15" class="animate-spin" /><Eye v-else :size="15" /></button><button class="screen-icon" title="Edit screen" @click="editRecord(row)"><Pencil :size="15" /></button><button class="screen-icon text-[var(--app-negative)]" title="Delete screen" @click="removeRecord(row)"><Trash2 :size="15" /></button></div></td>
+                  </tr>
+                  <tr v-if="expandedIds.has(row.id)" class="border-t border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]"><td colspan="7" class="px-5 py-4"><div class="grid gap-3 md:grid-cols-2"><div><p class="screen-eyebrow">Screen definition</p><p class="mt-1 text-sm font-semibold">{{ descriptionText(row) }}</p></div><div><p class="screen-eyebrow">Symbols</p><p class="mt-1 text-sm">{{ row.category === 'Custom' ? (row.tickers.join(', ') || 'No symbols saved') : `All symbols in ${row.category}` }}</p></div></div></td></tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <footer class="border-t border-[var(--app-border)] px-4 py-3"><IndicatorPagination :page="page" :page-count="pageCount" :total="filteredRecords.length" item-label="screens" @change="page = $event" /></footer>
+        </section>
+      </div>
+    </div>
+
+    <div v-show="activeTab === 'build'" class="space-y-4 p-4">
+      <section class="screen-builder">
+        <header class="flex flex-col gap-3 border-b border-[var(--app-border-muted)] p-5 md:flex-row md:items-start md:justify-between"><div><p class="screen-eyebrow">{{ builderMode === 'create' ? 'New screen' : builderMode === 'edit' ? 'Editing screen' : 'Screen configuration' }}</p><h3 class="mt-1 text-xl font-extrabold">Screen Builder</h3><p class="mt-1 text-sm text-[var(--app-text-muted)]">Choose a universe, describe the rule in plain steps, then run it.</p></div><button class="screen-secondary" type="button" @click="startNew"><Plus :size="16" />Start fresh</button></header>
+        <div class="grid gap-5 p-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.55fr)]">
+          <div class="space-y-5">
+            <section class="screen-panel"><div class="screen-step"><span>1</span><div><h4>Name &amp; universe</h4><p>Where should this screen look?</p></div></div><div class="mt-4 grid gap-3 md:grid-cols-2"><label class="screen-field"><span>Screen name</span><input v-model="draft.name" placeholder="e.g. Oversold large caps" /></label><label class="screen-field"><span>Direction</span><select v-model="draft.direction"><option>Long</option><option>Short</option></select></label><label class="screen-field md:col-span-2"><span>Universe</span><select v-model="draft.category"><option v-for="category in categories" :key="category">{{ category }}</option></select><small>Pick a market group, or choose Custom to paste your own ticker list.</small></label><label v-if="draft.category === 'Custom'" class="screen-field md:col-span-2"><span>Custom tickers</span><textarea v-model="draft.tickers" rows="3" placeholder="AAPL, MSFT, NVDA" /><small>Separate symbols with commas, spaces, or new lines.</small></label></div></section>
+            <section class="screen-panel"><div class="screen-step"><span>2</span><div><h4>Screen method</h4><p>Build rules or choose a chart pattern.</p></div></div><div class="mt-4 grid grid-cols-2 gap-2"><button class="screen-choice" :class="{ 'screen-choice--active': draft.mode === 'criteria' }" @click="draft.mode = 'criteria'">Rule builder</button><button class="screen-choice" :class="{ 'screen-choice--active': draft.mode === 'pattern' }" @click="draft.mode = 'pattern'">Common pattern</button></div>
+              <div v-if="draft.mode === 'criteria'" class="mt-4 space-y-3"><label class="screen-field"><span>How should two rules work together?</span><select v-model.number="draft.relation"><option :value="0">One rule only</option><option :value="1">AND — both rules must match</option><option :value="2">OR — either rule may match</option></select></label><article v-for="(condition, index) in draft.conditions" :key="index" class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-4"><p class="mb-3 text-sm font-extrabold">Rule {{ index + 1 }}</p><div class="grid gap-3 md:grid-cols-2"><label class="screen-field md:col-span-2"><span>Measure</span><select v-model="condition.signal"><option v-for="option in signalOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label><label class="screen-field"><span>Comparison</span><select v-model.number="condition.condition"><option v-for="option in comparisonOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label><label class="screen-field"><span>Value or another measure</span><input v-model="condition.value" list="screen-value-options" placeholder="e.g. 7 or SMA20" /></label><label class="screen-field md:col-span-2"><span>When</span><select v-model.number="condition.date"><option v-for="option in dateOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label></div></article><datalist id="screen-value-options"><option v-for="option in signalOptions" :key="option.value" :value="option.label" /></datalist></div>
+              <label v-else class="screen-field mt-4"><span>Pattern</span><select v-model="draft.pattern"><option v-for="option in patternOptions" :key="option[0]" :value="option[0]">{{ option[1] }}</option></select><small>The screen finds symbols currently matching this technical formation.</small></label>
+            </section>
+          </div>
+          <aside class="screen-panel h-fit xl:sticky xl:top-4"><div class="screen-step"><span>3</span><div><h4>Review &amp; run</h4><p>Check the screen before saving.</p></div></div><dl class="mt-5 space-y-4 text-sm"><div><dt class="screen-eyebrow">Name</dt><dd class="mt-1 font-bold">{{ draft.name || 'Untitled screen' }}</dd></div><div><dt class="screen-eyebrow">Universe</dt><dd class="mt-1 font-bold">{{ draft.category }}<span v-if="draft.category === 'Custom'"> · {{ tickerList().length }} symbols</span></dd></div><div><dt class="screen-eyebrow">Direction</dt><dd class="mt-1"><span class="screen-pill">{{ draft.direction }}</span></dd></div><div><dt class="screen-eyebrow">Logic</dt><dd class="mt-1 space-y-1 font-semibold"><template v-if="draft.mode === 'pattern'">{{ patternOptions.find(option => option[0] === draft.pattern)?.[1] }}</template><template v-else><p v-for="(condition, index) in draft.conditions" :key="index">{{ conditionLabel(condition) }}</p></template></dd></div></dl><p v-if="validationMessage" class="mt-5 rounded-md bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-700">{{ validationMessage }}</p><button class="screen-run mt-5" type="button" :disabled="running || Boolean(validationMessage)" @click="runScreen"><LoaderCircle v-if="running" :size="17" class="animate-spin" /><Play v-else :size="17" />{{ running ? 'Running screen...' : selectedRecord && builderMode === 'edit' ? 'Save & run screen' : 'Run screen' }}</button></aside>
+        </div>
+      </section>
+
+      <section class="screen-builder">
+        <header class="border-b border-[var(--app-border-muted)] p-5"><p class="screen-eyebrow">Results</p><h3 class="mt-1 text-xl font-extrabold">Screen Result</h3><p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ selectedRecord?.name || draft.name || 'Run a screen to see matching symbols.' }}</p></header>
+        <template v-if="runResult?.rows.length"><div class="grid gap-2 border-b border-[var(--app-border-muted)] p-4 md:grid-cols-[minmax(220px,1fr)_220px]"><label class="screen-input flex items-center"><Search :size="15" class="mr-2" /><input v-model="resultQuery" class="w-full bg-transparent outline-none" placeholder="Search result rows" /></label><select v-model="resultSort" class="screen-input"><option value="">Sort by: Default</option><template v-for="column in resultColumns" :key="column"><option :value="`${column}:asc`">{{ column }}: Low to high</option><option :value="`${column}:desc`">{{ column }}: High to low</option></template></select></div><div class="overflow-x-auto"><table class="min-w-full border-collapse text-left text-[0.8125rem]"><thead class="bg-[var(--app-surface-muted)] text-[0.68rem] font-semibold uppercase text-[var(--app-text-muted)]"><tr><th v-for="column in resultColumns" :key="column" class="whitespace-nowrap px-3 py-2.5">{{ column }}</th></tr></thead><tbody><tr v-for="(row, index) in pagedResultRows" :key="index" class="border-t border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)]"><td v-for="column in resultColumns" :key="column" class="whitespace-nowrap px-3 py-3" :class="column === 'Symbol' ? 'font-extrabold text-[var(--app-primary)]' : ''">{{ formatCell(row[column]) }}<span v-if="column.includes('%') && row[column] !== null && row[column] !== undefined">%</span></td></tr></tbody></table></div><footer class="border-t border-[var(--app-border)] px-4 py-3"><IndicatorPagination :page="resultPage" :page-count="resultPageCount" :total="filteredResultRows.length" item-label="matches" @change="resultPage = $event" /></footer></template>
+        <div v-else class="flex min-h-56 flex-col items-center justify-center px-6 text-center"><Search :size="34" class="text-[var(--app-primary)]" /><h4 class="mt-3 text-base font-extrabold">No result rows yet</h4><p class="mt-1 max-w-md text-sm text-[var(--app-text-muted)]">Build and run a screen above, or open a saved screen from the list.</p></div>
+      </section>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.screen-tab{display:flex;height:3.5rem;flex-shrink:0;align-items:center;border-bottom:2px solid transparent;padding:0 .75rem;font-size:.875rem;font-weight:700;color:var(--app-text);transition:.2s}.screen-tab:hover{color:var(--app-primary)}.screen-tab--active{border-color:var(--app-primary);color:var(--app-primary)}.screen-count{margin-left:.5rem;border-radius:999px;background:var(--app-primary-soft-alt);padding:.125rem .5rem;font-size:.75rem}.screen-input{height:2.25rem;min-width:0;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:0 .625rem;font-size:.8125rem}.screen-secondary{display:inline-flex;height:2.25rem;align-items:center;justify-content:center;gap:.375rem;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:0 .75rem;font-size:.8125rem;font-weight:700;color:var(--app-text-secondary)}.screen-secondary:hover{border-color:var(--app-primary-hover);color:var(--app-primary)}.screen-icon{display:inline-flex;height:1.875rem;width:1.875rem;align-items:center;justify-content:center;border-radius:.375rem;color:var(--app-text-secondary)}.screen-icon:hover{background:var(--app-primary-soft);color:var(--app-primary)}.screen-pill{display:inline-flex;border-radius:.375rem;background:var(--app-primary-soft);padding:.2rem .5rem;font-size:.75rem;font-weight:800;color:var(--app-primary)}.screen-eyebrow{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--app-text-muted)}.screen-builder,.screen-panel{border:1px solid var(--app-border-muted);border-radius:.5rem;background:var(--app-surface)}.screen-step{display:flex;align-items:center;gap:.75rem}.screen-step>span{display:flex;height:2rem;width:2rem;flex:none;align-items:center;justify-content:center;border-radius:999px;background:var(--app-primary);font-size:.8rem;font-weight:900;color:white}.screen-step h4{font-size:.9rem;font-weight:800}.screen-step p{font-size:.75rem;color:var(--app-text-muted)}.screen-panel{padding:1rem}.screen-field{display:flex;min-width:0;flex-direction:column;gap:.35rem}.screen-field>span{font-size:.75rem;font-weight:800;color:var(--app-text-secondary)}.screen-field input,.screen-field select,.screen-field textarea{width:100%;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:.58rem .65rem;font-size:.8125rem;outline:none}.screen-field input:focus,.screen-field select:focus,.screen-field textarea:focus{border-color:var(--app-primary);box-shadow:0 0 0 2px var(--app-primary-soft)}.screen-field small{font-size:.7rem;color:var(--app-text-muted)}.screen-choice{border:1px solid var(--app-border);border-radius:.375rem;padding:.65rem;font-size:.8125rem;font-weight:800;color:var(--app-text-secondary)}.screen-choice--active{border-color:var(--app-primary);background:var(--app-primary-soft);color:var(--app-primary)}.screen-run{display:flex;width:100%;height:2.75rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.4rem;background:var(--app-primary);font-size:.875rem;font-weight:900;color:white}.screen-run:hover:not(:disabled){background:var(--app-primary-hover)}.screen-run:disabled{cursor:not-allowed;opacity:.5}
+</style>

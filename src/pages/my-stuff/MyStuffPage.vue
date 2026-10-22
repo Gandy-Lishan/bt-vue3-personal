@@ -11,7 +11,6 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
-  X,
 } from '@lucide/vue'
 import {
   copyMySignal,
@@ -28,6 +27,10 @@ import { useSortedPagedRows, type SortableValue } from '@/pages/indicators/compo
 import type { IndicatorTableColumnKind } from '@/entities/indicator/model/indicator.table'
 import MySignalTable from './ui/MySignalTable.vue'
 import SignalPreviewModal from './ui/SignalPreviewModal.vue'
+import MyIndicatorTable from './ui/MyIndicatorTable.vue'
+import IndicatorPreviewModal from './ui/IndicatorPreviewModal.vue'
+import MyScreenWorkspace from './ui/MyScreenWorkspace.vue'
+import { fetchMyIndicators, type MyIndicatorRow } from '@/entities/my-stuff/api/user-indicator.api'
 
 type MyStuffSection = 'signals' | 'indicators' | 'screens' | 'watchlist' | 'concierge'
 
@@ -48,8 +51,12 @@ const activeSection = computed<MyStuffSection>(() => {
 })
 const activeConfig = computed(() => sections.find((item) => item.key === activeSection.value) ?? sections[0])
 const isSignals = computed(() => activeSection.value === 'signals')
+const isIndicators = computed(() => activeSection.value === 'indicators')
+const isScreens = computed(() => activeSection.value === 'screens')
 
 const listKind = ref<MySignalListKind>('mine')
+/** Flips to true after copying a signal, so fresh copies sort to the top by create date. */
+const sortCopiesFirst = ref(false)
 const rows = ref<MySignalRow[]>([])
 const loading = ref(false)
 const actionLoading = ref(false)
@@ -60,9 +67,14 @@ const timeframe = ref('')
 const pageSize = 10
 const emailAlerts = ref(false)
 const subscriptionLoading = ref(false)
-const editorOpen = ref(false)
-const editorRow = ref<MySignalRow | null>(null)
 const previewRow = ref<MySignalRow | null>(null)
+const indicatorRows = ref<MyIndicatorRow[]>([])
+const indicatorLoading = ref(false)
+const indicatorError = ref('')
+const indicatorQuery = ref('')
+const indicatorCategory = ref('')
+const indicatorTimeframe = ref('')
+const previewIndicator = ref<MyIndicatorRow | null>(null)
 
 const timeframeOptions = computed(() => Array.from(new Set(rows.value.map((row) => row.timeframe).filter((value) => value && value !== '-'))).sort())
 const filteredRows = computed(() => {
@@ -82,6 +94,7 @@ const signalSortOptions = [
 ]
 
 function mySignalSortValue(row: MySignalRow, key: string): SortableValue {
+  if (key === 'createDate') return row.createDate ? Date.parse(row.createDate) : null
   if (key === 'lastSignalDate') return row.lastSignalDate ? Date.parse(row.lastSignalDate) : null
   if (key === 'barsSinceSignal') return row.barsSinceSignal
   if (key === 'currentReturn') return row.currentReturn
@@ -93,10 +106,33 @@ function mySignalSortValue(row: MySignalRow, key: string): SortableValue {
 
 const signalTable = useSortedPagedRows<MySignalRow>(filteredRows, mySignalSortValue, pageSize)
 
-/** Default listing order: newest signal first, matching the previous default sort. */
+const indicatorCategories = computed(() => [...new Set(indicatorRows.value.map((row) => row.category))].sort())
+const indicatorTimeframes = computed(() => [...new Set(indicatorRows.value.map((row) => row.timeframe).filter((value) => value !== '-'))].sort())
+const filteredIndicators = computed(() => {
+  const term = indicatorQuery.value.trim().toLowerCase()
+  return indicatorRows.value.filter((row) =>
+    (!term || [row.name, row.category, ...row.included.map((item) => item.name)].some((value) => value.toLowerCase().includes(term)))
+    && (!indicatorCategory.value || row.category === indicatorCategory.value)
+    && (!indicatorTimeframe.value || row.timeframe === indicatorTimeframe.value),
+  )
+})
+const indicatorTable = useSortedPagedRows<MyIndicatorRow>(filteredIndicators, (row, key) => {
+  if (key === 'createdAt') return Date.parse(row.createdAt) || null
+  if (key === 'name') return row.name
+  if (key === 'category') return row.category
+  if (key === 'timeframe') return row.timeframe
+  return null
+}, pageSize)
+indicatorTable.setSort({ key: 'createdAt', kind: 'date' }, 'desc')
+
+/** Default listing order: Last signal first, except right after a copy, when the freshest copies lead. */
 function applyDefaultSort() {
   signalTable.reset()
-  signalTable.setSort({ key: 'lastSignalDate', kind: 'date' }, 'desc')
+  if (listKind.value === 'mine' && sortCopiesFirst.value) {
+    signalTable.setSort({ key: 'createDate', kind: 'date' }, 'desc')
+  } else {
+    signalTable.setSort({ key: 'lastSignalDate', kind: 'date' }, 'desc')
+  }
 }
 
 applyDefaultSort()
@@ -157,6 +193,29 @@ async function loadRows() {
   }
 }
 
+async function loadIndicators() {
+  if (!isIndicators.value) return
+  indicatorLoading.value = true
+  indicatorError.value = ''
+  try {
+    indicatorRows.value = await fetchMyIndicators(abortController.signal)
+  } catch (error) {
+    indicatorRows.value = []
+    indicatorError.value = error instanceof Error ? error.message : 'Unable to load indicators.'
+  } finally {
+    indicatorLoading.value = false
+  }
+}
+
+function resetIndicatorFilters() {
+  indicatorQuery.value = ''
+  indicatorCategory.value = ''
+  indicatorTimeframe.value = ''
+  indicatorTable.setPage(1)
+}
+function handleIndicatorSort(key: string) { indicatorTable.sort({ key, kind: 'text' }) }
+function openIndicatorBuilder() { void router.push({ name: 'my-indicator-new' }) }
+
 async function loadSubscription() {
   try {
     emailAlerts.value = await fetchMySignalSubscription(abortController.signal)
@@ -187,12 +246,23 @@ function showNotice(message: string) {
 function resetFilters() {
   query.value = ''
   timeframe.value = ''
+  sortCopiesFirst.value = false
   applyDefaultSort()
 }
 
+function switchList(kind: MySignalListKind) {
+  if (listKind.value === kind) return
+  // Switching tabs drops the "fresh copies first" ordering with it.
+  sortCopiesFirst.value = false
+  listKind.value = kind
+}
+
 function openEditor(row: MySignalRow | null = null) {
-  editorRow.value = row
-  editorOpen.value = true
+  if (row) {
+    void router.push({ name: 'my-signal-edit', params: { id: row.id } })
+    return
+  }
+  void router.push({ name: 'my-signal-new' })
 }
 
 function viewFromPreview(row: MySignalRow) {
@@ -211,6 +281,9 @@ async function handleCopy(row: MySignalRow) {
     await copyMySignal(row, abortController.signal)
     showNotice(`Copied “${row.name}”.`)
     listKind.value = 'mine'
+    // Fresh copies lead the list until the tab or filters reset the ordering.
+    sortCopiesFirst.value = true
+    applyDefaultSort()
     await loadRows()
   } catch {
     showNotice('Signal could not be copied.')
@@ -254,9 +327,11 @@ watch(listKind, () => {
 watch([query, timeframe], () => { signalTable.setPage(1) })
 watch(() => route.params.section, (value) => {
   if (typeof value === 'string' && !sections.some((item) => item.key === value)) void router.replace('/my-stuff/signals')
+  if (value === 'indicators' && !indicatorRows.value.length) void loadIndicators()
 })
+watch([indicatorQuery, indicatorCategory, indicatorTimeframe], () => indicatorTable.setPage(1))
 
-onMounted(() => { void Promise.all([loadRows(), loadSubscription()]) })
+onMounted(() => { void Promise.all([loadRows(), loadSubscription(), loadIndicators()]) })
 onBeforeUnmount(() => abortController.abort())
 </script>
 
@@ -269,7 +344,7 @@ onBeforeUnmount(() => abortController.abort())
     :show-view-mode-toggle="false"
   >
     <template #sidebar>
-      <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
+      <aside class="h-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
         <RouterLink
           v-for="section in sections"
           :key="section.key"
@@ -297,11 +372,15 @@ onBeforeUnmount(() => abortController.abort())
       <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-emerald-500" /><span><strong>{{ triggeredCount }}</strong> triggered</span></span>
       <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-violet-500" /><span><strong>{{ positiveCount }}</strong> positive</span></span>
     </template>
+    <template v-else-if="isIndicators" #summary>
+      <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-violet-500" /><span><strong>{{ indicatorRows.length }}</strong> indicators</span></span>
+      <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-sky-500" /><span><strong>{{ indicatorCategories.length }}</strong> categories</span></span>
+    </template>
 
     <template v-if="isSignals" #tabs>
       <div class="flex items-center justify-between gap-3 border-b border-[var(--app-border)] px-4 pt-1">
         <div class="flex">
-          <button v-for="tab in [{ key: 'mine', label: 'My Signals' }, { key: 'library', label: 'Signal Library' }]" :key="tab.key" class="border-b-2 px-4 py-3 text-sm font-extrabold transition" :class="listKind === tab.key ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text)]'" type="button" @click="listKind = tab.key as MySignalListKind">{{ tab.label }}</button>
+          <button v-for="tab in [{ key: 'mine', label: 'My Signals' }, { key: 'library', label: 'Signal Library' }]" :key="tab.key" class="border-b-2 px-4 py-3 text-sm font-extrabold transition" :class="listKind === tab.key ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-muted)] hover:text-[var(--app-text)]'" type="button" @click="switchList(tab.key as MySignalListKind)">{{ tab.label }}</button>
         </div>
         <button class="mb-1 inline-flex h-9 items-center gap-1.5 rounded-md bg-[var(--app-primary)] px-3 text-sm font-extrabold text-white hover:bg-[var(--app-primary-hover)]" type="button" @click="openEditor()"><Plus :size="17" />New Signal</button>
       </div>
@@ -316,6 +395,15 @@ onBeforeUnmount(() => abortController.abort())
         <button v-if="listKind === 'mine'" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] px-3 text-sm font-bold text-[var(--app-primary)] hover:bg-[var(--app-primary-soft)] disabled:opacity-50" type="button" :disabled="actionLoading" @click="handleRunAll"><Play :size="15" />Run All</button>
       </div>
     </template>
+    <template v-else-if="isIndicators" #filters>
+      <div class="grid gap-2 border-b border-[var(--app-border-muted)] px-4 py-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.4fr)_210px_180px_auto_auto]">
+        <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5"><Search :size="16" class="mr-2 text-[var(--app-text-muted)]" /><input v-model="indicatorQuery" class="w-full bg-transparent text-sm outline-none" placeholder="Search indicators..." /></label>
+        <select v-model="indicatorCategory" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm"><option value="">All Categories</option><option v-for="option in indicatorCategories" :key="option">{{ option }}</option></select>
+        <select v-model="indicatorTimeframe" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm"><option value="">All Timeframes</option><option v-for="option in indicatorTimeframes" :key="option">{{ option }}</option></select>
+        <button class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] px-3 text-sm font-bold text-[var(--app-text-secondary)] hover:bg-[var(--app-surface-soft)]" type="button" @click="resetIndicatorFilters"><RefreshCw :size="15" />Reset</button>
+        <button class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-[var(--app-primary)] px-3 text-sm font-extrabold text-white hover:bg-[var(--app-primary-hover)]" type="button" @click="openIndicatorBuilder"><Plus :size="17" />New Indicator</button>
+      </div>
+    </template>
 
     <template v-if="isSignals" #notice>
       <div v-if="errorMessage" class="mx-4 mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ errorMessage }} <button class="ml-2 font-extrabold underline" type="button" @click="loadRows">Retry</button></div>
@@ -323,27 +411,19 @@ onBeforeUnmount(() => abortController.abort())
     </template>
 
     <div v-if="isSignals" class="pb-1"><MySignalTable :rows="pagedRows" :loading="loading" :library="listKind === 'library'" :sort-key="signalTable.sortKey.value" :sort-direction="signalTable.sortDirection.value" @sort="handleTableSort" @preview="previewRow = $event" @edit="openEditor" @copy="handleCopy" @delete="handleDelete" /></div>
-    <div v-else class="flex min-h-[420px] flex-col items-center justify-center px-6 text-center"><component :is="activeConfig.icon" :size="42" class="text-[var(--app-primary)]" /><h3 class="mt-4 text-xl font-extrabold">{{ activeConfig.label }}</h3><p class="mt-2 max-w-md text-sm text-[var(--app-text-muted)]">The My Stuff framework is ready. This workspace will be implemented after My Signal.</p></div>
+    <div v-else-if="isIndicators" class="pb-1">
+      <div v-if="indicatorError" class="mx-4 mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ indicatorError }} <button class="ml-2 font-extrabold underline" type="button" @click="loadIndicators">Retry</button></div>
+      <MyIndicatorTable class="m-4" :rows="indicatorTable.pagedRows.value" :loading="indicatorLoading" :sort-key="indicatorTable.sortKey.value" :sort-direction="indicatorTable.sortDirection.value" @sort="handleIndicatorSort" @preview="previewIndicator = $event" />
+    </div>
+    <MyScreenWorkspace v-else-if="isScreens" />
+    <div v-else class="flex min-h-[420px] flex-col items-center justify-center px-6 text-center"><component :is="activeConfig.icon" :size="42" class="text-[var(--app-primary)]" /><h3 class="mt-4 text-xl font-extrabold">{{ activeConfig.label }}</h3><p class="mt-2 max-w-md text-sm text-[var(--app-text-muted)]">This workspace is coming soon.</p></div>
 
     <template v-if="isSignals" #footer><IndicatorPagination :page="activePage" :page-count="pageCount" :total="filteredRows.length" item-label="signals" @change="setActivePage" /></template>
+    <template v-else-if="isIndicators" #footer><IndicatorPagination :page="indicatorTable.page.value" :page-count="indicatorTable.pageCount.value" :total="filteredIndicators.length" item-label="indicators" @change="indicatorTable.setPage" /></template>
 
     <template #overlays>
       <SignalPreviewModal v-if="previewRow" :row="previewRow" :library="listKind === 'library'" :busy="actionLoading" @close="previewRow = null" @view="viewFromPreview" @copy="copyFromPreview" />
-      <Teleport to="body">
-        <div v-if="editorOpen" class="fixed inset-0 z-50 flex justify-end bg-[var(--app-overlay)]" @click.self="editorOpen = false">
-          <section class="flex h-full w-full max-w-xl flex-col bg-[var(--app-surface)] shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="signal-editor-title">
-            <header class="flex items-start justify-between border-b border-[var(--app-border)] px-6 py-5"><div><p class="text-xs font-extrabold uppercase tracking-wide text-[var(--app-primary)]">My Signal</p><h2 id="signal-editor-title" class="mt-1 text-2xl font-extrabold">{{ editorRow ? 'Edit Signal' : 'Create New Signal' }}</h2><p class="mt-1 text-sm text-[var(--app-text-muted)]">Set the basics first, then build the trigger conditions.</p></div><button class="flex h-9 w-9 items-center justify-center rounded-md hover:bg-[var(--app-surface-soft)]" type="button" aria-label="Close" @click="editorOpen = false"><X :size="20" /></button></header>
-            <div class="flex-1 overflow-y-auto p-6">
-              <ol class="space-y-5">
-                <li class="rounded-lg border border-[var(--app-primary)] bg-[var(--app-primary-soft)] p-4"><div class="flex items-center gap-3"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--app-primary)] text-xs font-black text-white">1</span><div><h3 class="font-extrabold">Basics</h3><p class="text-xs text-[var(--app-text-muted)]">Name, symbol and timeframe</p></div></div><div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs font-bold">Name<input class="mt-1 h-10 w-full rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm" :value="editorRow?.name ?? ''" placeholder="e.g. SPY Trend Breakout" /></label><label class="text-xs font-bold">Symbol<input class="mt-1 h-10 w-full rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm" :value="editorRow?.symbol ?? 'SPY'" /></label><label class="text-xs font-bold sm:col-span-2">Timeframe<select class="mt-1 h-10 w-full rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm"><option>Daily</option><option>Weekly</option><option>Monthly</option></select></label></div></li>
-                <li class="rounded-lg border border-[var(--app-border)] p-4"><div class="flex items-center gap-3"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--app-surface-muted)] text-xs font-black">2</span><div><h3 class="font-extrabold">Trigger Logic</h3><p class="text-xs text-[var(--app-text-muted)]">Choose how multiple conditions work together</p></div></div></li>
-                <li class="rounded-lg border border-[var(--app-border)] p-4"><div class="flex items-center gap-3"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--app-surface-muted)] text-xs font-black">3</span><div><h3 class="font-extrabold">Conditions</h3><p class="text-xs text-[var(--app-text-muted)]">Sentiment, symbol and technical conditions</p></div></div><div v-if="editorRow" class="mt-4 rounded-md bg-[var(--app-surface-soft)] p-3 text-sm text-[var(--app-text-secondary)]">{{ editorRow.description }}</div></li>
-              </ol>
-            </div>
-            <footer class="flex items-center justify-between border-t border-[var(--app-border)] px-6 py-4"><span class="text-xs text-[var(--app-text-muted)]">Condition builder follows in the next implementation step.</span><button class="rounded-md border border-[var(--app-border)] px-4 py-2 text-sm font-bold" type="button" @click="editorOpen = false">Close</button></footer>
-          </section>
-        </div>
-      </Teleport>
+      <IndicatorPreviewModal v-if="previewIndicator" :row="previewIndicator" @close="previewIndicator = null" />
     </template>
   </ListExplorerPage>
 </template>
