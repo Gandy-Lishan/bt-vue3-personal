@@ -55,6 +55,7 @@ function normalizeRow(raw: Record<string, unknown>, index: number): MySignalRow 
     symbol: String(raw.symbol ?? '-'),
     timeframe: String(raw.timeframe ?? '-'),
     description: descriptionText(raw.description) || 'No trigger description',
+    createDate: String(raw.create_date ?? ''),
     lastSignalDate: lastSignalDate === '2099-12-31' ? '' : lastSignalDate,
     barsSinceSignal: numberOrNull(raw.bars_since_signal),
     currentReturn: numberOrNull(raw.current_return),

@@ -7,6 +7,7 @@ export interface MySignalRow {
   symbol: string
   timeframe: string
   description: string
+  createDate: string
   lastSignalDate: string
   barsSinceSignal: number | null
   currentReturn: number | null

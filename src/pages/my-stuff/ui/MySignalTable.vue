@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, ArrowUpDown, Copy, MoreHorizontal, Pencil, Settings2, Trash2 } from '@lucide/vue'
+import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Pencil, Settings2, Trash2 } from '@lucide/vue'
 import type { MySignalRow } from '@/entities/my-stuff/model/my-signal.types'
 
 const props = withDefaults(defineProps<{
@@ -100,9 +100,8 @@ function formatReturn(value: number | null) {
               <div class="flex justify-end gap-1">
                 <button class="signal-action" type="button" aria-label="Signal preview" title="Signal Preview" @click="emit('preview', row)"><Settings2 :size="16" /></button>
                 <button v-if="!library" class="signal-action" type="button" aria-label="Edit signal" title="Edit" @click="emit('edit', row)"><Pencil :size="16" /></button>
-                <button class="signal-action" type="button" aria-label="Copy signal" title="Copy" @click="emit('copy', row)"><Copy :size="16" /></button>
+                <button v-if="library" class="signal-action" type="button" aria-label="Copy signal" title="Copy" @click="emit('copy', row)"><Copy :size="16" /></button>
                 <button v-if="!library" class="signal-action signal-action--danger" type="button" aria-label="Delete signal" title="Delete" @click="emit('delete', row)"><Trash2 :size="16" /></button>
-                <button v-else class="signal-action" type="button" aria-label="More actions" title="More"><MoreHorizontal :size="16" /></button>
               </div>
             </td>
           </tr>
