@@ -20,6 +20,46 @@ const router = createRouter({
       component: () => import('@/pages/search/SearchPage.vue'),
     },
     {
+      path: '/MR/blog/:slug',
+      name: 'report-detail',
+      component: () => import('@/pages/reports/ReportDetailPage.vue'),
+    },
+    {
+      path: '/MR/tags/:blogTag/:page?',
+      name: 'reports-by-tag',
+      component: () => import('@/pages/reports/ReportPage.vue'),
+    },
+    {
+      path: '/MR/archived_reports/:year/:page?',
+      name: 'daily-report-archives',
+      component: () => import('@/pages/reports/ReportPage.vue'),
+    },
+    {
+      path: '/MR/old_archived_reports/:year/:page?',
+      name: 'old-daily-report-archives',
+      component: () => import('@/pages/reports/ReportPage.vue'),
+    },
+    {
+      path: '/MR/active_studies',
+      name: 'active-studies',
+      component: () => import('@/pages/reports/ActiveStudiesPage.vue'),
+    },
+    {
+      path: '/MR/minutes',
+      name: 'minutes',
+      component: () => import('@/pages/reports/MinutesPage.vue'),
+    },
+    {
+      path: '/MR/archived_studies',
+      name: 'archived-studies',
+      component: () => import('@/pages/reports/ArchivedStudiesPage.vue'),
+    },
+    {
+      path: '/MR/:pathMatch(.*)*',
+      name: 'reports',
+      component: () => import('@/pages/reports/ReportPage.vue'),
+    },
+    {
       path: '/strategy',
       name: 'strategy',
       component: () => import('@/pages/strategy/StrategyPage.vue'),
@@ -154,6 +194,21 @@ const router = createRouter({
     {
       path: '/my-stuff',
       redirect: '/my-stuff/signals',
+    },
+    {
+      path: '/my-stuff/signals/new',
+      name: 'my-signal-new',
+      component: () => import('@/pages/my-stuff/SignalBuilderPage.vue'),
+    },
+    {
+      path: '/my-stuff/signals/:id/edit',
+      name: 'my-signal-edit',
+      component: () => import('@/pages/my-stuff/SignalBuilderPage.vue'),
+    },
+    {
+      path: '/my-stuff/indicators/new',
+      name: 'my-indicator-new',
+      component: () => import('@/pages/my-stuff/IndicatorBuilderPage.vue'),
     },
     {
       path: '/my-stuff/:section?',
