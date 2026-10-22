@@ -174,6 +174,9 @@ export interface CreateMyIndicatorPayload {
   combine_type: string
   benchmark: string
   next_process: string
+  mul_indicator?: string
+  indicator_weight?: string
+  tech_code?: string
 }
 
 export async function createMyIndicator(payload: CreateMyIndicatorPayload, signal?: AbortSignal) {
@@ -184,6 +187,38 @@ export async function createMyIndicator(payload: CreateMyIndicatorPayload, signa
   if (!response.ok || Number(result.code ?? response.status) >= 400) {
     const existing = result.data && typeof result.data === 'object' ? String((result.data as Record<string, unknown>).name ?? '') : ''
     throw new Error(existing ? `The same indicator formula already exists as “${existing}”.` : String(result.message ?? result.error ?? 'Unable to save the indicator.'))
+  }
+  return result
+}
+
+export async function updateMyIndicator(url: string, payload: CreateMyIndicatorPayload, signal?: AbortSignal) {
+  const body = new FormData()
+  Object.entries(payload).forEach(([key, value]) => body.append(key, String(value)))
+  const query = new URLSearchParams({ url })
+  const response = await fetch(`/dev/my_indicator/update_record?${query.toString()}`, { method: 'PUT', body, signal })
+  const result = await response.json().catch(() => ({})) as Record<string, unknown>
+  if (!response.ok || Number(result.code ?? response.status) >= 400) {
+    throw new Error(String(result.message ?? result.error ?? 'Unable to update the indicator.'))
+  }
+  return result
+}
+
+export async function fetchRelatedMyIndicatorBacktestCount(url: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ url })
+  const response = await fetch(`/dev/my_indicator/relate_backtests/?${query.toString()}`, { signal })
+  if (!response.ok) throw new Error('Unable to check related backtests.')
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>
+  const data = payload.data && typeof payload.data === 'object' ? payload.data as Record<string, unknown> : payload
+  if (Number.isFinite(Number(data.count))) return Number(data.count)
+  return Array.isArray(data.results) ? data.results.length : 0
+}
+
+export async function deleteMyIndicator(url: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ url })
+  const response = await fetch(`/dev/my_indicator/del_record/?${query.toString()}`, { method: 'DELETE', signal })
+  const result = await response.json().catch(() => ({})) as Record<string, unknown>
+  if (!response.ok || Number(result.code ?? response.status) >= 400) {
+    throw new Error(String(result.message ?? result.error ?? 'Unable to delete the indicator.'))
   }
   return result
 }

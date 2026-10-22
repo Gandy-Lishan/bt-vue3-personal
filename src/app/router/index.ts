@@ -218,6 +218,11 @@ const router = createRouter({
       component: () => import('@/pages/my-stuff/IndicatorBuilderPage.vue'),
     },
     {
+      path: '/my-stuff/indicators/edit',
+      name: 'my-indicator-edit',
+      component: () => import('@/pages/my-stuff/IndicatorBuilderPage.vue'),
+    },
+    {
       path: '/my-stuff/:section?',
       name: 'my-stuff',
       component: () => import('@/pages/my-stuff/MyStuffPage.vue'),

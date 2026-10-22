@@ -2,8 +2,8 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Settings2, Trash2 } from '@lucide/vue'
 import type { MyIndicatorRow } from '@/entities/my-stuff/api/user-indicator.api'
 
-const props = withDefaults(defineProps<{ rows: MyIndicatorRow[]; loading: boolean; sortKey?: string; sortDirection?: 'asc' | 'desc' }>(), { sortKey: '', sortDirection: 'asc' })
-const emit = defineEmits<{ sort: [key: string]; preview: [row: MyIndicatorRow] }>()
+const props = withDefaults(defineProps<{ rows: MyIndicatorRow[]; loading: boolean; sortKey?: string; sortDirection?: 'asc' | 'desc'; deletingId?: string }>(), { sortKey: '', sortDirection: 'asc', deletingId: '' })
+const emit = defineEmits<{ sort: [key: string]; preview: [row: MyIndicatorRow]; edit: [row: MyIndicatorRow]; delete: [row: MyIndicatorRow] }>()
 const columns = [
   { key: 'name', label: 'Name', sortable: true }, { key: 'category', label: 'Categories', sortable: true },
   { key: 'timeframe', label: 'Timeframe', sortable: true }, { key: 'included', label: 'Indicators included', sortable: false },
@@ -13,7 +13,7 @@ function sortIcon(key: string) { return props.sortKey !== key ? ArrowUpDown : pr
 function compactTransform(value: string) {
   return value.replace('Simple Moving Average', 'SMA').replace('Exponential Moving Average', 'EMA').replace('Rate of Change', 'ROC').replace('Symbol ', '')
 }
-function componentSummary(item: MyIndicatorRow['included'][number]) { return [item.name, compactTransform(item.transform)].filter(Boolean).join(' · ') + (item.weight ? ` × ${item.weight}` : '') }
+function componentSummary(item: MyIndicatorRow['included'][number]) { return [item.name, compactTransform(item.transform), item.weight].filter(Boolean).join(' ') }
 function relationshipSymbol(row: MyIndicatorRow) { return row.relationship === '−' ? '−' : row.relationship === '÷' ? '÷' : row.relationship === '+' || row.relationship === 'Weighted sum' ? '＋' : '' }
 function includedSummary(row: MyIndicatorRow) { return row.included.map(componentSummary).join(` ${relationshipSymbol(row)} `) }
 </script>
@@ -33,10 +33,10 @@ function includedSummary(row: MyIndicatorRow) { return row.included.map(componen
           <td class="px-4 py-2.5 font-extrabold">{{ row.name }}</td>
           <td class="px-4 py-2.5 text-[var(--app-text-secondary)]">{{ row.category }}</td><td class="px-4 py-2.5 text-[var(--app-text-secondary)]">{{ row.timeframe }}</td>
           <td class="min-w-[360px] px-4 py-2.5">
-            <p v-if="row.included.length" class="included-summary" :title="includedSummary(row)"><template v-for="(item, index) in row.included" :key="`${item.url}-${index}`"><span v-if="index" class="included-relationship">{{ relationshipSymbol(row) }}</span><span class="included-name">{{ item.name }}</span><span v-if="item.transform"> · {{ compactTransform(item.transform) }}</span><span v-if="item.weight"> × {{ item.weight }}</span></template></p>
+            <p v-if="row.included.length" class="included-summary" :title="includedSummary(row)"><template v-for="(item, index) in row.included" :key="`${item.url}-${index}`"><span v-if="index && relationshipSymbol(row)" class="included-relationship">{{ relationshipSymbol(row) }}</span><span class="included-condition"><span class="included-name">{{ item.name }}</span><span v-if="item.transform">{{ compactTransform(item.transform) }}</span><span v-if="item.weight">{{ item.weight }}</span></span></template></p>
             <span v-else class="text-[var(--app-text-muted)]">-</span>
           </td>
-          <td class="px-4 py-2.5"><div class="flex justify-end gap-1"><button class="indicator-action" type="button" title="Indicator Preview" aria-label="Indicator preview" @click="emit('preview', row)"><Settings2 :size="16" /></button><button class="indicator-action" type="button" title="Edit (coming next)" disabled><Pencil :size="16" /></button><button class="indicator-action indicator-action--danger" type="button" title="Delete (coming next)" disabled><Trash2 :size="16" /></button></div></td>
+          <td class="px-4 py-2.5"><div class="flex justify-end gap-1"><button class="indicator-action" type="button" title="Indicator Preview" aria-label="Indicator preview" @click="emit('preview', row)"><Settings2 :size="16" /></button><button class="indicator-action" type="button" title="Edit" aria-label="Edit indicator" @click="emit('edit', row)"><Pencil :size="16" /></button><button class="indicator-action indicator-action--danger" type="button" :title="props.deletingId === row.id ? 'Deleting…' : 'Delete indicator'" :aria-label="`Delete ${row.name}`" :disabled="Boolean(props.deletingId)" @click="emit('delete', row)"><Trash2 :size="16" /></button></div></td>
         </tr>
       </tbody>
     </table>
@@ -48,7 +48,8 @@ function includedSummary(row: MyIndicatorRow) { return row.included.map(componen
 .indicator-action:hover { background: var(--app-primary-soft); color: var(--app-primary); }
 .indicator-action--danger:hover { color: var(--app-negative); }
 .indicator-action:disabled { cursor: not-allowed; opacity: .45; }
-.included-summary { display: -webkit-box; overflow: hidden; color: var(--app-text-secondary); line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.included-summary { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--app-text-secondary); line-height: 1.4; }
+.included-condition { display: inline-flex; min-height: 26px; max-width: 100%; align-items: center; gap: 5px; overflow: hidden; padding: 3px 9px; border: 1px solid var(--app-border); border-radius: 9999px; background: var(--app-surface-muted); white-space: nowrap; text-overflow: ellipsis; }
 .included-name { color: var(--app-text); font-weight: 400; }
-.included-relationship { display: inline-flex; width: 24px; height: 24px; margin: 0 7px; align-items: center; justify-content: center; border: 1px solid color-mix(in srgb, var(--app-primary) 30%, var(--app-border)); border-radius: 9999px; background: var(--app-primary-soft); color: var(--app-primary); font-size: 13px; font-weight: 800; line-height: 1; vertical-align: middle; }
+.included-relationship { display: inline-flex; width: 24px; height: 24px; flex: 0 0 24px; align-items: center; justify-content: center; border: 1px solid color-mix(in srgb, var(--app-primary) 30%, var(--app-border)); border-radius: 9999px; background: var(--app-primary-soft); color: var(--app-primary); font-size: 13px; font-weight: 800; line-height: 1; }
 </style>
