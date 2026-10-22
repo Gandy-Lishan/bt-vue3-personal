@@ -217,52 +217,12 @@ const notificationCount = 8
                 </button>
                 <div v-show="expandedGroups.reports" class="bg-[var(--chrome-surface-soft)]">
                   <RouterLink
-                    to="/MR/sentimentedge"
+                    to="/MR/reports"
                     class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    :class="{ 'text-[var(--chrome-accent)]': route.path.includes('sentimentedge') }"
+                    :class="{ 'text-[var(--chrome-accent)]': route.path === '/MR/reports' }"
                     @click="toggleDrawer"
                   >
-                    SentimentEdge
-                  </RouterLink>
-                  <RouterLink
-                    to="/MR/modeledge"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    :class="{ 'text-[var(--chrome-accent)]': route.path.includes('modeledge') }"
-                    @click="toggleDrawer"
-                  >
-                    ModelEdge
-                  </RouterLink>
-                  <RouterLink
-                    to="/MR/quantedge"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    :class="{ 'text-[var(--chrome-accent)]': route.path.includes('quantedge') }"
-                    @click="toggleDrawer"
-                  >
-                    Kaeppel's Corner
-                  </RouterLink>
-                  <RouterLink
-                    to="/MR/tradingedge"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    :class="{ 'text-[var(--chrome-accent)]': route.path.includes('tradingedge') }"
-                    @click="toggleDrawer"
-                  >
-                    TradingEdge
-                  </RouterLink>
-                  <RouterLink
-                    to="/MR/impactedge"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    :class="{ 'text-[var(--chrome-accent)]': route.path.includes('impactedge') }"
-                    @click="toggleDrawer"
-                  >
-                    Market Impact Analysis
-                  </RouterLink>
-                  <RouterLink
-                    to="/MR/favorites"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    :class="{ 'text-[var(--chrome-accent)]': route.path.includes('/favorites') }"
-                    @click="toggleDrawer"
-                  >
-                    My Favorites
+                    Reports Library
                   </RouterLink>
                   <RouterLink
                     to="/MR/active_studies"
@@ -279,14 +239,6 @@ const notificationCount = 8
                     @click="toggleDrawer"
                   >
                     Intraday Minutes
-                  </RouterLink>
-                  <RouterLink
-                    to="/MR/archived_reports/2026"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    :class="{ 'text-[var(--chrome-accent)]': route.path.includes('archived_reports') }"
-                    @click="toggleDrawer"
-                  >
-                    Daily Report
                   </RouterLink>
                   <RouterLink
                     to="/MR/archived_studies"
