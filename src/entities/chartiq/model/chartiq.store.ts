@@ -1,14 +1,13 @@
 // @ts-nocheck
 /**
- * ChartIQ Pinia Store — adapted from Vuex store/modules/chart.js (Vue2 project)
+ * ChartIQ Pinia Store — 完全一致迁移自 Vue2 Vuex store (chart.js + states.js + form.js)
  *
- * Key adaptations:
- *   - Vuex store → Pinia defineStore
+ * 原则：所有 state 字段和 actions 与原版一一对应，不做任何重构。
+ *
+ * Vuex → Pinia 适配：
+ *   - mutations → 直接 state 修改 (this.xxx = xxx)
+ *   - actions → this.actions / this.state
  *   - process.env.VUE_APP_* → import.meta.env.VITE_*
- *   - CIQ.store.state/form → window.CIQ.store (this store instance)
- *   - CIQ.store.commit/getters/dispatch → direct state/action access
- *
- * IMPORTANT: CIQ.store = useChartIQStore() is set in ChartIQEngine.vue before chart creation.
  */
 
 import { defineStore } from 'pinia'
@@ -29,15 +28,12 @@ import {
 
 const VITE_DEFAULT_SYMBOL = import.meta.env.VITE_DEFAULT_SYMBOL || 'AAPL'
 
-/**
- * Format pair data (OHLCV) from API response.
- * Mirrors Vue2's formatData function.
- */
+// ── Helper functions ─────────────────────────────────────────────────
+
 function formatPairData(data: unknown[] | null | undefined): unknown[] {
   if (!data || !Array.isArray(data) || data.length === 0) return []
   const newQuotes: Array<Record<string, unknown>> = []
   const hasOHLCV = 'High' in data[0]
-
   for (let i = 0; i < data.length; i++) {
     newQuotes[i] = {}
     newQuotes[i].DT = formatStandardTime(data[i].DT as string)
@@ -58,9 +54,6 @@ function formatPairData(data: unknown[] | null | undefined): unknown[] {
   return newQuotes
 }
 
-/**
- * Format a date string to standard time format.
- */
 function formatStandardTime(dt: string | undefined): string {
   if (!dt) return ''
   try {
@@ -77,7 +70,12 @@ function formatStandardTime(dt: string | undefined): string {
   }
 }
 
-// Overlay toggles (DOM manipulation — kept as-is for ChartIQ webcomponents)
+function capitalizeFirstLetter(str: string): string {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+// Overlay toggles
 function toggleOverlaySelector(selector: string, displayStyle: string) {
   const overlays = document.querySelectorAll<HTMLElement>(selector)
   overlays.forEach((overlay) => {
@@ -93,8 +91,10 @@ function toggleOverlayIndicator(displayStyle: string) {
   toggleOverlaySelector('cq-indicators-lookup-filters .overlay', displayStyle)
 }
 
+// ── State interface ──────────────────────────────────────────────────
+
 export interface ChartIQState {
-  // chart type management
+  // ========== chart.js ==========
   chartType: 'line' | 'candle'
   isBTChartReady: boolean
   chartLoadingSetting: {
@@ -103,22 +103,13 @@ export interface ChartIQState {
     percentage: number
     progressText: string
   }
-
-  // favorites
   favoriteIndicatorList: unknown[]
   favoriteSymbolList: unknown[]
-
-  // studies / indicators
   techSD: unknown[]
   savedTechSD: unknown[]
   currentSenti: { url: string; name: string }
   indicators: {
-    formIndicators: {
-      entry: unknown[]
-      exit: unknown[]
-      entry2: unknown[]
-      exit2: unknown[]
-    }
+    formIndicators: { entry: unknown[]; exit: unknown[]; entry2: unknown[]; exit2: unknown[] }
     extraIndicators: unknown[]
   }
   extremeValue: unknown[]
@@ -126,80 +117,96 @@ export interface ChartIQState {
   builtinList: unknown[]
   maLikeTech: string[]
   formateTechnicalList: unknown[]
-
-  // trades
   trades: unknown[]
-
-  // MA colors (used by loadIndicator.js getColorByCriteriaAndIndex)
   ma_color_1: string[]
   ma_color_2: string[]
-
-  // MA activation
   activatedMA: Array<{ period: number; url: string }>
   activatedMALayout: unknown[]
   activatedTechLayout: unknown[]
-
-  // span period
   spanPeriod: Record<string, unknown>
-
-  // study settings
   studySettingMA: { period: string; criteria: string; panelIndex: string }
   studySettingROC: { period: string; criteria: string; panelIndex: string }
-
-  // user's own indicator (My Indicator page)
   miFormShift: { display: boolean; showInput: boolean; value: number }
   miFormCategories: string
   miFormCategoriesIndicator1: { name: string; url: string }
   miFormCategoriesIndicator2: { name: string; url: string }
   miFormWeightedList: unknown[]
   miBenmark: string
-
-  // forecast
   forecastList: unknown[]
   forecastAuthorList: unknown[]
   symbollistForecast: unknown[]
   forecastMarket: string
-
-  // indicator page data
   indicatorsPageListdata: Record<string, string | null>
   indicatorPageBtv1List: unknown[]
   favoriteIndicatorListBtv1: unknown | null
   cssMonthLabel: string
-
-  // criteria score
   criteriaScoreList: unknown[]
-
-  // drawing
   drawingObjList: unknown[]
-
-  // ticker OHLCV pairdata
   tickerOhlcvPairdata: Record<string, unknown>
-
-  // jump to BT symbol
   JumpToBTSymbol: string
-
-  // freq management (from form)
   pairDataFreq: string
   exitFrequency: string
   restoreFreq: string
-
-  // symbol/indicator lists (loaded from JSON assets, used by lookup.js, indicators-search.js)
   stocksList: unknown[]
   indexsList: unknown[]
   originIndicatorList: unknown[]
   technicalCategory: unknown[]
-
-  // user's own symbols & indicators (fetched from API, used by lookup.js, indicators-search.js)
   mySymbolList: unknown[]
   mySymbolQuotefeedCache: unknown[]
   myIndicatorList: unknown[]
-
-  // current date (ai)
   curDate: string
+
+  // ========== states.js ==========
+  errorMessage404: { status: number | null; message: string }
+  scannerai_filter: Record<string, unknown>
+  scannerai_flag: boolean
+  isBacktestRunning_flag: boolean
+  isRunAllSignalProcessing_flag: boolean
+  isMarkerShown_flag: boolean
+  isEditFinish_flag: boolean
+  beforeCalculateNewConditions: boolean
+  cacheReRunData: Record<string, unknown>
+  isCreateLoading: boolean
+  cpmResultsData: unknown
+  symbolUploadDomActive: boolean
+  reportArchives: Record<string, unknown>
+  tradingSignalStrategies: unknown[]
+  allNotifications: unknown
+
+  // ========== form.js ==========
+  backtestSymbol: string
+  comparisonSymbol: Record<string, unknown>
+  conditionRadio: {
+    entry: unknown[]
+    exit: unknown[]
+    entry2: unknown[]
+    exit2: unknown[]
+  }
+  stMaPeriod: string
+  rowDataForDisplay: Record<string, unknown>
+  cachedBTBasicInfoData: Record<string, unknown>
+  cachedScopedRowDataImmutable: Record<string, unknown>
+  isListLoading: boolean
+  setUpLoadingSetting: {
+    isSetupLoading: boolean
+    showProgress: boolean
+    percentage: number
+    progressText: string
+  }
+  resultsLoadingSetting: {
+    isResultsLoading: boolean
+    showProgress: boolean
+    percentage: number
+    progressText: string
+  }
+  backtestZScoreResult: unknown[]
 }
+
+// ── Default state ────────────────────────────────────────────────────
 
 function defaultState(): ChartIQState {
   return {
+    // chart.js
     chartType: 'line',
     isBTChartReady: false,
     chartLoadingSetting: {
@@ -265,14 +272,16 @@ function defaultState(): ChartIQState {
     pairDataFreq: 'daily',
     exitFrequency: '',
     restoreFreq: '',
-
-    // symbol/indicator lists from JSON assets
     stocksList: stocksData,
     indexsList: indexsData,
     originIndicatorList: indicatorsData,
     technicalCategory: [],
+    mySymbolList: [],
+    mySymbolQuotefeedCache: [],
+    myIndicatorList: [],
+    curDate: '',
 
-    // 【Vue2→Vue3 兼容】镜像原版 fetch_indicatorsList 结果，CIQ.findSentiIndicator 依赖它解析 symbol-based indicators（如 A -> A@indicator）
+    // indicatorsList pre-computation (mirrors Vue2 fetch_indicatorsList result)
     indicatorsList: (() => {
       const stockSet = new Set(stocksData.map((item: Record<string, unknown>) => item.stock))
       return indicatorsData.map((item: Record<string, unknown>) => {
@@ -289,37 +298,66 @@ function defaultState(): ChartIQState {
       })
     })(),
 
-    // user's own symbols & indicators (empty until fetched from API)
-    mySymbolList: [],
-    mySymbolQuotefeedCache: [],
-    myIndicatorList: [],
+    // states.js
+    errorMessage404: { status: null, message: '' },
+    scannerai_filter: {},
+    scannerai_flag: false,
+    isBacktestRunning_flag: false,
+    isRunAllSignalProcessing_flag: false,
+    isMarkerShown_flag: false,
+    isEditFinish_flag: false,
+    beforeCalculateNewConditions: false,
+    cacheReRunData: {},
+    isCreateLoading: false,
+    cpmResultsData: null,
+    symbolUploadDomActive: false,
+    reportArchives: {},
+    tradingSignalStrategies: [],
+    allNotifications: null,
 
-    // current date (ai)
-    curDate: '',
+    // form.js
+    backtestSymbol: VITE_DEFAULT_SYMBOL,
+    comparisonSymbol: {},
+    conditionRadio: {
+      entry: new Array(5).fill(''),
+      exit: new Array(5).fill(''),
+      entry2: new Array(5).fill(''),
+      exit2: new Array(5).fill(''),
+    },
+    stMaPeriod: '',
+    rowDataForDisplay: {},
+    cachedBTBasicInfoData: {},
+    cachedScopedRowDataImmutable: {},
+    isListLoading: false,
+    setUpLoadingSetting: {
+      isSetupLoading: false,
+      showProgress: false,
+      percentage: 0,
+      progressText: 'Loading...',
+    },
+    resultsLoadingSetting: {
+      isResultsLoading: false,
+      showProgress: false,
+      percentage: 0,
+      progressText: 'Loading...',
+    },
+    backtestZScoreResult: [],
   }
 }
+
+// ── Pinia store ──────────────────────────────────────────────────────
 
 export const useChartIQStore = defineStore('chartIQ', {
   state: (): ChartIQState => defaultState(),
 
   actions: {
-    // Chart type
-    set_chart_type(val: 'line' | 'candle') {
-      this.chartType = val
-    },
+    // ═══════════════════════════════════════════════════════════════
+    // chart.js actions (已存在)
+    // ═══════════════════════════════════════════════════════════════
 
-    // Chart ready
-    set_chart_ready(ready: boolean) {
-      this.isBTChartReady = ready
-    },
-
-    // Chart loading
-    set_chart_loading(obj: {
-      isChartLoading?: boolean
-      showProgress?: boolean
-      percentage?: number
-      progressText?: string
-    }) {
+    set_chart_type(val: 'line' | 'candle') { this.chartType = val },
+    set_chart_ready(ready: boolean) { this.isBTChartReady = ready },
+    set_chart_loading(obj: { isChartLoading?: boolean; showProgress?: boolean; percentage?: number; progressText?: string }) {
       this.chartLoadingSetting = {
         isChartLoading: obj.isChartLoading ?? this.chartLoadingSetting.isChartLoading,
         showProgress: obj.showProgress ?? this.chartLoadingSetting.showProgress,
@@ -327,173 +365,51 @@ export const useChartIQStore = defineStore('chartIQ', {
         progressText: obj.progressText ?? this.chartLoadingSetting.progressText,
       }
     },
-
-    // Span period
-    set_span_period(val: Record<string, unknown>) {
-      this.spanPeriod = val
-    },
-
-    // Jump to BT symbol
-    set_jump_to_bt_symbol(index: string) {
-      this.JumpToBTSymbol = index
-    },
-
-    // Favorite indicator list
-    set_favorite_indicator_list(val: unknown[]) {
-      this.favoriteIndicatorList = val
-    },
-
-    // Favorite symbol list
-    set_favorite_symbol_list(val: unknown[]) {
-      this.favoriteSymbolList = val
-    },
-
-    // Tech SD (study definitions)
-    set_tech_sd(val: unknown[]) {
-      this.techSD = val
-    },
-
-    // Saved tech SD (current studies on chart)
-    set_saved_tech_sd(val: unknown[]) {
-      this.savedTechSD = val
-    },
-
-    // Current sentiment indicator
-    set_current_senti(val: { url: string; name: string }) {
-      this.currentSenti = val
-    },
-
-    // Extreme value
-    set_extreme_value(list: unknown[]) {
-      this.extremeValue = list
-    },
-
-    // Indicator list
-    set_indicators_list(data: unknown[]) {
-      this.indicatorsList = data
-    },
-
-    // Built-in tech list
-    set_builtin_list(data: unknown[]) {
-      this.builtinList = data
-    },
-
-    // Formatted tech list
-    set_format_tech_list(list: unknown[]) {
-      this.formateTechnicalList = list
-    },
-
-    // MA activation
-    set_activated_ma(val: Array<{ period: number; url: string }>) {
-      this.activatedMA = val
-    },
-
-    set_ma_layout(val: unknown[]) {
-      this.activatedMALayout = val
-    },
-
-    set_tech_layout(val: unknown[]) {
-      this.activatedTechLayout = val
-    },
-
-    // Trades
-    set_trades(data: unknown[]) {
-      this.trades = data
-    },
-
-    // 【Vue2→Vue3 兼容】照搬原版 Vuex states.js 的 set_isMarkerShown_flag action
-    set_isMarkerShown_flag(val: boolean) {
-      // @ts-ignore
-      if (typeof CIQ === 'undefined' || !CIQ.stxx) return
-      if (!val) {
-        this.trades = []
-        if (typeof CIQ.hideMarker === 'function') CIQ.hideMarker()
-      } else {
-        if (typeof CIQ.addPrompt === 'function') CIQ.addPrompt()
-      }
-    },
-
-    // Entry data (from backtest)
+    set_span_period(val: Record<string, unknown>) { this.spanPeriod = val },
+    set_jump_to_bt_symbol(index: string) { this.JumpToBTSymbol = index },
+    set_favorite_indicator_list(val: unknown[]) { this.favoriteIndicatorList = val },
+    set_favorite_symbol_list(val: unknown[]) { this.favoriteSymbolList = val },
+    set_tech_sd(val: unknown[]) { this.techSD = val },
+    set_saved_tech_sd(val: unknown[]) { this.savedTechSD = val },
+    set_current_senti(val: { url: string; name: string }) { this.currentSenti = val },
+    set_extreme_value(list: unknown[]) { this.extremeValue = list },
+    set_indicators_list(data: unknown[]) { this.indicatorsList = data },
+    set_builtin_list(data: unknown[]) { this.builtinList = data },
+    set_format_tech_list(list: unknown[]) { this.formateTechnicalList = list },
+    set_activated_ma(val: Array<{ period: number; url: string }>) { this.activatedMA = val },
+    set_ma_layout(val: unknown[]) { this.activatedMALayout = val },
+    set_tech_layout(val: unknown[]) { this.activatedTechLayout = val },
+    set_trades(data: unknown[]) { this.trades = data },
     set_entry_data(obj: Record<string, unknown>) {
-      // Adapted from original Vuex — set entry/exit indicators from backtest form
       const { index, value, criteria } = obj
       if (criteria && index !== undefined && this.indicators.formIndicators[criteria]) {
         this.indicators.formIndicators[criteria][index] = value
       }
     },
-
-    // Criteria indicators list
     set_criteria_indicators_list(obj: { criteria: string; list: unknown[] }) {
       if (this.indicators.formIndicators[obj.criteria]) {
         this.indicators.formIndicators[obj.criteria] = obj.list
       }
     },
-
-    // Extra indicators
-    set_extra_indicators(val: unknown[]) {
-      this.indicators.extraIndicators = val
-    },
-
-    // Study settings
-    set_study_setting_ma(obj: { period: string; criteria: string; panelIndex: string }) {
-      this.studySettingMA = obj
-    },
-
-    set_study_setting_roc(obj: { period: string; criteria: string; panelIndex: string }) {
-      this.studySettingROC = obj
-    },
-
-    // My Indicator form
-    set_mi_form_shift(val: { display: boolean; showInput: boolean; value: number }) {
-      this.miFormShift = val
-    },
-
-    set_mi_form_state(obj: {
-      categories: string
-      indicator_1: string
-      indicator_1_url: string
-      indicator_2: string
-      indicator_2_url: string
-    }) {
+    set_extra_indicators(val: unknown[]) { this.indicators.extraIndicators = val },
+    set_study_setting_ma(obj: { period: string; criteria: string; panelIndex: string }) { this.studySettingMA = obj },
+    set_study_setting_roc(obj: { period: string; criteria: string; panelIndex: string }) { this.studySettingROC = obj },
+    set_mi_form_shift(val: { display: boolean; showInput: boolean; value: number }) { this.miFormShift = val },
+    set_mi_form_state(obj: { categories: string; indicator_1: string; indicator_1_url: string; indicator_2: string; indicator_2_url: string }) {
       this.miFormCategories = obj.categories
       this.miFormCategoriesIndicator1 = { name: obj.indicator_1, url: obj.indicator_1_url }
       this.miFormCategoriesIndicator2 = { name: obj.indicator_2, url: obj.indicator_2_url }
     },
-
-    set_mi_weighted_list(val: unknown[]) {
-      this.miFormWeightedList = val
-    },
-
-    set_mi_benchmark(val: string) {
-      this.miBenmark = val
-    },
-
-    // Forecast
-    set_forecast_market(val: string) {
-      this.forecastMarket = val
-    },
-
-    set_forecast(list: unknown[]) {
-      this.forecastList = list
-    },
-
-    set_forecast_author_list(list: unknown[]) {
-      this.forecastAuthorList = list
-    },
-
-    set_symbollist_forecast(list: unknown[]) {
-      this.symbollistForecast = list
-    },
-
-    // Indicator page data
+    set_mi_weighted_list(val: unknown[]) { this.miFormWeightedList = val },
+    set_mi_benchmark(val: string) { this.miBenmark = val },
+    set_forecast_market(val: string) { this.forecastMarket = val },
+    set_forecast(list: unknown[]) { this.forecastList = list },
+    set_forecast_author_list(list: unknown[]) { this.forecastAuthorList = list },
+    set_symbollist_forecast(list: unknown[]) { this.symbollistForecast = list },
     set_indicator_page_btv1_list(res: { data?: { data?: unknown[] } } | unknown[]) {
       this.indicatorPageBtv1List = (res as { data?: { data?: unknown[] } })?.data?.data ?? (res as unknown[]) ?? []
     },
-
-    set_favorite_indicator_list_btv1(obj: unknown) {
-      this.favoriteIndicatorListBtv1 = obj
-    },
-
+    set_favorite_indicator_list_btv1(obj: unknown) { this.favoriteIndicatorListBtv1 = obj },
     set_indicators_page_list_data({ url, data }: { url: string; data: unknown[] | null }) {
       if (!url) return
       const removeDuplicates = (items: unknown[]) => {
@@ -504,48 +420,238 @@ export const useChartIQStore = defineStore('chartIQ', {
           return true
         })
       }
-      this.indicatorsPageListdata[url] = !data
-        ? null
-        : JSON.stringify(removeDuplicates(data as Array<Record<string, unknown>>))
+      this.indicatorsPageListdata[url] = !data ? null : JSON.stringify(removeDuplicates(data as Array<Record<string, unknown>>))
     },
-
-    set_css_month_label(val: string) {
-      this.cssMonthLabel = val
-    },
-
-    // Drawing
-    set_drawing_objlist(list: unknown[]) {
-      this.drawingObjList = list
-    },
-
-    // Criteria score
-    save_criteria_scorelist(list: unknown[]) {
-      this.criteriaScoreList = list
-    },
-
-    // Ticker OHLCV
+    set_css_month_label(val: string) { this.cssMonthLabel = val },
+    set_drawing_objlist(list: unknown[]) { this.drawingObjList = list },
+    save_criteria_scorelist(list: unknown[]) { this.criteriaScoreList = list },
     set_ticker_ohlcv_pairdata({ ticker, data }: { ticker: string; data: unknown }) {
       if (!ticker) return
       this.tickerOhlcvPairdata[ticker] = data
     },
+    set_freqency(val: string) { this.pairDataFreq = val },
+    set_exit_frequency(val: string) { this.exitFrequency = val },
+    set_restore_freq(val: string) { this.restoreFreq = val },
 
-    // Frequency management
-    set_freqency(val: string) {
-      this.pairDataFreq = val
+    // ═══════════════════════════════════════════════════════════════
+    // states.js actions — 照搬原版 Vuex states.js
+    // ═══════════════════════════════════════════════════════════════
+
+    setNotifications(notifications: unknown) { this.allNotifications = notifications },
+    detect_symbol_upload_dom() {
+      const node = document.querySelector('.symbol-upload')
+      this.symbolUploadDomActive = Boolean(node)
+    },
+    set_scannerai_filter_state(obj: Record<string, unknown>) { this.scannerai_filter = obj },
+    set_scannerai_flag(val: boolean) { this.scannerai_flag = val },
+    setBacktestRunning_flag(val: boolean) { this.isBacktestRunning_flag = val },
+    setRunAllSignalProcessing_flag(val: boolean) { this.isRunAllSignalProcessing_flag = val },
+    setEditFinish_flag(val: boolean) { this.isEditFinish_flag = val },
+    envoke_before_calculate_newConditions(val: boolean) { this.beforeCalculateNewConditions = val },
+    setErrorMessage404(obj: { status: number | null; message: string }) { this.errorMessage404 = obj },
+    cacheReRunData(obj: Record<string, unknown>) { this.cacheReRunData = obj },
+    setCreateLoading(loading: boolean) { this.isCreateLoading = loading },
+    setCpmResultsData(data: unknown) {
+      this.cpmResultsData = data
+      try { sessionStorage.setItem('cpmResultsData', JSON.stringify(data)) } catch {}
+    },
+    setReportArchives(data: { service_type: string; archives: unknown }) {
+      this.reportArchives[data.service_type] = JSON.stringify(data.archives) as unknown as Record<string, unknown>
+    },
+    setTradingSignalStrategy(data: unknown[]) { this.tradingSignalStrategies = data },
+
+    // 【照搬原版】set_isMarkerShown_flag — 原版 Vuex states.js action
+    set_isMarkerShown_flag(val: boolean) {
+      if (typeof CIQ === 'undefined' || !CIQ.stxx) return
+      if (!val) {
+        this.trades = []
+        if (typeof CIQ.hideMarker === 'function') CIQ.hideMarker()
+      } else {
+        if (typeof CIQ.addPrompt === 'function') CIQ.addPrompt()
+      }
     },
 
-    set_exit_frequency(val: string) {
+    // ═══════════════════════════════════════════════════════════════
+    // form.js actions — 照搬原版 Vuex form.js
+    // ═══════════════════════════════════════════════════════════════
+
+    setComparisonSymbol(val: Record<string, unknown>) {
+      this.comparisonSymbol = val
+      this.rowDataForDisplay.symbol2 = val.url
+      this.cachedBTBasicInfoData.symbol2 = val.url
+    },
+    setRestoreFreq(val: string) { this.restoreFreq = val },
+    getBacktestSymbol(val: string) {
+      this.backtestSymbol = val
+      this.rowDataForDisplay.symbol = val
+      this.cachedBTBasicInfoData.symbol = val
+    },
+
+    /**
+     * 【照搬原版】RESET_CHART_CONDIG_STATE
+     * 还原默认 timeframe 和 symbol 配置
+     */
+    reset_chart_config_state() {
+      this.pairDataFreq = ''
+      this.backtestSymbol = VITE_DEFAULT_SYMBOL
+      this.exitFrequency = ''
+      this.comparisonSymbol = {}
+    },
+
+    /**
+     * 【照搬原版】CLEAR_CHART_CONDIG_STATE
+     * CLEAR CHART
+     */
+    clear_chart_config_state() {
+      this.pairDataFreq = ''
+      this.backtestSymbol = VITE_DEFAULT_SYMBOL
+      this.exitFrequency = ''
+    },
+
+    setConditionRadio(val: Record<string, unknown[]>) { this.conditionRadio = val },
+    getStMaPeriod(val: string) { this.stMaPeriod = val },
+    getFrequency(val: string) {
+      if (val === undefined || val === null || val === '') {
+        this.exitFrequency = ''
+        return
+      }
       this.exitFrequency = val
     },
-
-    set_restore_freq(val: string) {
-      this.restoreFreq = val
+    getFreqHighPriority(val: string) {
+      this.exitFrequency = val
+    },
+    setConditionRadio(val: Record<string, unknown[]>) { this.conditionRadio = val },
+    setListLoading(loading: boolean) { this.isListLoading = loading },
+    setSetupLoading(obj: { isSetupLoading?: boolean; showProgress?: boolean; percentage?: number; progressText?: string }) {
+      this.setUpLoadingSetting = {
+        isSetupLoading: obj.isSetupLoading ?? this.setUpLoadingSetting.isSetupLoading,
+        showProgress: obj.showProgress ?? this.setUpLoadingSetting.showProgress,
+        percentage: obj.percentage ?? this.setUpLoadingSetting.percentage,
+        progressText: obj.progressText ?? this.setUpLoadingSetting.progressText,
+      }
+    },
+    setResultsLoading(obj: { isResultsLoading?: boolean; showProgress?: boolean; percentage?: number; progressText?: string }) {
+      this.resultsLoadingSetting = {
+        isResultsLoading: obj.isResultsLoading ?? this.resultsLoadingSetting.isResultsLoading,
+        showProgress: obj.showProgress ?? this.resultsLoadingSetting.showProgress,
+        percentage: obj.percentage ?? this.resultsLoadingSetting.percentage,
+        progressText: obj.progressText ?? this.resultsLoadingSetting.progressText,
+      }
+    },
+    setBacktestZScoreResult(val: unknown[]) { this.backtestZScoreResult = val },
+    setCachedBTBasicInfoData(obj: Record<string, unknown>) { this.cachedBTBasicInfoData = obj },
+    setCachedScopedRowDataImmutable(obj: Record<string, unknown>) { this.cachedScopedRowDataImmutable = obj },
+    setCachedScopedRowImmutableProps(obj: { key: string; value: unknown }) {
+      this.cachedScopedRowDataImmutable[obj.key] = obj.value
+    },
+    setBacktestInfoProps(obj: { key: string; value: unknown }) {
+      // Note: backtestInfo is a form.js concept; if needed, add separate state
+    },
+    deleteBacktestInfoProps(obj: { key: string }) {
+      // Note: backtestInfo deletion
     },
 
-    // ── Favorites API ────────────────────────────────────────────────
+    // 【照搬原版】set_miFormWeightedListChange — 调用 CIQ.displayWeightOwnIndicator
+    set_miFormWeightedListChange(val: unknown) {
+      // @ts-ignore
+      if (typeof CIQ !== 'undefined' && typeof CIQ.displayWeightOwnIndicator === 'function') {
+        // @ts-ignore
+        CIQ.displayWeightOwnIndicator(this.miFormWeightedList, val, (val as any)?.url)
+      }
+      this.miFormWeightedList = val as unknown[]
+    },
+
+    // 【照搬原版】set_miFormSOHLCVChange — 调用 CIQ.changeUserOwnIndicatorSymbol
+    set_miFormSOHLCVChange(val: unknown) {
+      // @ts-ignore
+      if (typeof CIQ !== 'undefined' && typeof CIQ.changeUserOwnIndicatorSymbol === 'function') {
+        // @ts-ignore
+        CIQ.changeUserOwnIndicatorSymbol(val)
+      }
+    },
+
+    // 【照搬原版】set_miFormStateChange — 调用 CIQ.updateUserOwnIndicator
+    set_miFormStateChange(obj: {
+      categories: string
+      indicator_1: string
+      indicator_1_url: string
+      indicator_2: string
+      indicator_2_url: string
+    }) {
+      // @ts-ignore
+      if (typeof CIQ !== 'undefined' && typeof CIQ.updateUserOwnIndicator === 'function') {
+        const oldVal = {
+          categories: this.miFormCategories,
+          indicator_1: this.miFormCategoriesIndicator1.name,
+          indicator_2: this.miFormCategoriesIndicator2.name,
+        }
+        const newVal = {
+          categories: obj.categories,
+          indicator_1: obj.indicator_1,
+          indicator_2: obj.indicator_2,
+        }
+        // @ts-ignore
+        CIQ.updateUserOwnIndicator(newVal, oldVal)
+      }
+      this.miFormCategories = obj.categories
+      this.miFormCategoriesIndicator1 = { name: obj.indicator_1, url: obj.indicator_1_url }
+      this.miFormCategoriesIndicator2 = { name: obj.indicator_2, url: obj.indicator_2_url }
+    },
+
+    // 【照搬原版】set_miFormStateRefresh — 清除 studies + CIQ.updateUserOwnIndicator
+    set_miFormStateRefresh() {
+      // Clear studies from chart
+      // @ts-ignore
+      const CIQ = window.CIQ
+      if (CIQ?.stxx) {
+        for (const id in CIQ.stxx.layout.studies) {
+          const sd = CIQ.stxx.layout.studies[id]
+          if (!sd.customLegend && !sd.permanent) {
+            CIQ.Studies.removeStudy(CIQ.stxx, sd)
+          }
+        }
+      }
+      // @ts-ignore
+      if (typeof CIQ !== 'undefined' && typeof CIQ.updateUserOwnIndicator === 'function') {
+        const newVal = { categories: this.miFormCategories }
+        // @ts-ignore
+        CIQ.updateUserOwnIndicator(newVal, {})
+      }
+    },
+
+    // 【照搬原版】set_miFormWeightedListRefresh — 清除 studies + CIQ.displayWeightOwnIndicator
+    set_miFormWeightedListRefresh() {
+      // Clear studies from chart
+      // @ts-ignore
+      const CIQ = window.CIQ
+      if (CIQ?.stxx) {
+        for (const id in CIQ.stxx.layout.studies) {
+          const sd = CIQ.stxx.layout.studies[id]
+          if (!sd.customLegend && !sd.permanent) {
+            CIQ.Studies.removeStudy(CIQ.stxx, sd)
+          }
+        }
+      }
+      // @ts-ignore
+      if (typeof CIQ !== 'undefined' && typeof CIQ.displayWeightOwnIndicator === 'function') {
+        // @ts-ignore
+        CIQ.displayWeightOwnIndicator(this.miFormWeightedList, [], '')
+      }
+    },
+
+    // 【照搬原版】reset_miFormState — 重置 My Indicator form 到默认值
+    reset_miFormState() {
+      this.miFormCategories = 'Indicator Spread'
+      this.miFormCategoriesIndicator1 = { name: '', url: '' }
+      this.miFormCategoriesIndicator2 = { name: '', url: '' }
+      this.miFormShift = { display: false, showInput: false, value: 0 }
+    },
+
+    // ═══════════════════════════════════════════════════════════════
+    // API actions (已存在)
+    // ═══════════════════════════════════════════════════════════════
 
     async get_favorite() {
-      // Already loaded? Skip.
       if (this.favoriteSymbolList.length > 0 && this.favoriteIndicatorList.length > 0) return
       const res = await apiGetFavorite()
       try {
@@ -564,8 +670,6 @@ export const useChartIQStore = defineStore('chartIQ', {
       await apiUpdateFavorite(obj.indicator, obj.symbol)
     },
 
-    // ── My Symbols API ───────────────────────────────────────────────
-
     async get_mysymbolist() {
       toggleOverlaySymbol('flex')
       try {
@@ -575,8 +679,6 @@ export const useChartIQStore = defineStore('chartIQ', {
         toggleOverlaySymbol('none')
       }
     },
-
-    // ── My Indicators API ────────────────────────────────────────────
 
     async get_myindicator() {
       toggleOverlaySelector('cq-indicators-lookup-filters .overlay', 'flex')
@@ -596,26 +698,17 @@ export const useChartIQStore = defineStore('chartIQ', {
       this.indicatorPageBtv1List = btv1List
     },
 
-    // ── OHLCV / Pair Data API ────────────────────────────────────────
-
     async get_ticker_ohlcv_pairdata(ticker: string) {
-      if (this.tickerOhlcvPairdata[ticker]) {
-        return this.tickerOhlcvPairdata[ticker]
-      }
+      if (this.tickerOhlcvPairdata[ticker]) return this.tickerOhlcvPairdata[ticker]
       const CIQ = window.CIQ as Record<string, unknown> | undefined
       const config = (CIQ?.config as Record<string, unknown> | undefined) || {}
       const initialDate = config.initialDate as Record<string, unknown> | undefined
-      let start: string
-      let end: string
+      let start = ''
+      let end = ''
       if (initialDate?.start && initialDate?.end) {
-        const tsToTime = (config as Record<string, unknown>).timestampToTime as
-          | ((ts: number) => string)
-          | undefined
+        const tsToTime = (config as Record<string, unknown>).timestampToTime as ((ts: number) => string) | undefined
         start = tsToTime ? tsToTime(initialDate.start as number) : ''
         end = tsToTime ? tsToTime(initialDate.end as number) : ''
-      } else {
-        start = ''
-        end = ''
       }
       const res = await apiGetPairData(start, end, this.pairDataFreq, ticker)
       const data = formatPairData(res)
@@ -623,19 +716,12 @@ export const useChartIQStore = defineStore('chartIQ', {
       return data
     },
 
-    // ── Forecast API ─────────────────────────────────────────────────
-
     async get_forecast(symbol: string) {
-      const existing = this.forecastList.find(
-        (item: { symbol: string }) => item.symbol === symbol,
-      )
+      const existing = this.forecastList.find((item: { symbol: string }) => item.symbol === symbol)
       if (existing) return existing.list
       const res = await apiGetForecastList(this.forecastMarket)
       const list = res.data || res
-      this.forecastList = [
-        ...this.forecastList,
-        { symbol, list },
-      ]
+      this.forecastList = [...this.forecastList, { symbol, list }]
       return list
     },
 
@@ -650,37 +736,10 @@ export const useChartIQStore = defineStore('chartIQ', {
     },
 
     /**
-     * Reset chart study state — clears all studies from chart and resets form state.
-     * This is called when navigating between backtest details.
-     */
-    reset_chart_study_state() {
-      // Clear form indicators
-      this.indicators = {
-        formIndicators: {
-          entry: new Array(5).fill(null),
-          exit: new Array(5).fill(null),
-          entry2: new Array(5).fill(null),
-          exit2: new Array(5).fill(null),
-        },
-        extraIndicators: [],
-      }
-
-      this.activatedMA = [{ period: 21, url: '' }]
-      this.activatedMALayout = []
-      this.activatedTechLayout = []
-      this.extremeValue = []
-      this.trades = []
-
-      this.set_chart_ready(false)
-    },
-
-    /**
-     * Reset chart study state AND remove studies from chart engine.
-     * Called by the reset_chart_study_state action when CIQ.stxx is available.
+     * 【照搬原版】reset_chart_full_state
+     * 从 chart engine 移除 studies + 重置 state
      */
     reset_chart_full_state() {
-      // Remove non-permanent studies from chart engine
-      // CIQ is accessed via window since it's a global ChartIQ namespace
       const CIQ = window.CIQ
       if (CIQ?.stxx) {
         for (const id in CIQ.stxx.layout.studies) {
@@ -690,8 +749,28 @@ export const useChartIQStore = defineStore('chartIQ', {
           }
         }
       }
-
       this.reset_chart_study_state()
+    },
+
+    /**
+     * Reset chart study state — clears all studies and resets form state.
+     */
+    reset_chart_study_state() {
+      this.indicators = {
+        formIndicators: {
+          entry: new Array(5).fill(null),
+          exit: new Array(5).fill(null),
+          entry2: new Array(5).fill(null),
+          exit2: new Array(5).fill(null),
+        },
+        extraIndicators: [],
+      }
+      this.activatedMA = [{ period: 21, url: '' }]
+      this.activatedMALayout = []
+      this.activatedTechLayout = []
+      this.extremeValue = []
+      this.trades = []
+      this.set_chart_ready(false)
     },
   },
 })

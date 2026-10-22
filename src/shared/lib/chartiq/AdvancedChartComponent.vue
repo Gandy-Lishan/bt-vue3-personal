@@ -434,6 +434,8 @@ onBeforeUnmount(() => {
 
   // Reset chart study state
   chartIQStore.reset_chart_full_state()
+  // 【照搬原版】onBeforeUnmount 需要调用 form/reset_chart_config_state
+  chartIQStore.reset_chart_config_state()
 
   // Destroy chart engine (stops quotefeed polling)
   if (CIQ.stxx) {
