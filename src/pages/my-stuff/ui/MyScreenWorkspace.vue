@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ChevronDown, Eye, LoaderCircle, Pencil, Play, Plus, RefreshCw, Search, Star, Trash2, X } from '@lucide/vue'
+import { LoaderCircle, Pencil, Play, Plus, RefreshCw, Search, Settings2, Star, Trash2, X } from '@lucide/vue'
 import { deleteMyScreen, fetchMyScreenResult, fetchMyScreens, saveMyScreen, updateMyScreenFavorite } from '@/entities/my-stuff/api/my-screen.api'
 import type { MyScreenCondition, MyScreenDirection, MyScreenMode, MyScreenRow, MyScreenRunResult, MyScreenSubmitPayload } from '@/entities/my-stuff/model/my-screen.types'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
+import ScreenPreviewModal from './ScreenPreviewModal.vue'
 
 type WorkspaceTab = 'saved' | 'build'
 type BuilderMode = 'create' | 'edit' | 'view'
@@ -49,6 +50,7 @@ const activeTab = ref<WorkspaceTab>('saved')
 const builderMode = ref<BuilderMode>('create')
 const records = ref<MyScreenRow[]>([])
 const selectedRecord = ref<MyScreenRow | null>(null)
+const previewRecord = ref<MyScreenRow | null>(null)
 const runResult = ref<MyScreenRunResult | null>(null)
 const listLoading = ref(false)
 const running = ref(false)
@@ -60,7 +62,6 @@ const page = ref(1)
 const resultPage = ref(1)
 const notice = ref('')
 const error = ref('')
-const expandedIds = ref(new Set<string>())
 const pageSize = 10
 
 function blankCondition(): MyScreenCondition { return { signal: 'TrendScore', condition: 0, value: '7', date: 0 } }
@@ -113,7 +114,22 @@ function conditionLabel(condition: MyScreenCondition) {
   const date = dateOptions.find((item) => item.value === condition.date)?.label ?? 'Current bar'
   return `${date}: ${signal} ${comparison.toLowerCase()} ${condition.value}`
 }
-function descriptionText(row: MyScreenRow) { return row.description.join(' ').replace(/<[^>]+>/g, '') || 'No rule description' }
+function cleanScreenRule(value: string) {
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/\s+(?:and|or)\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+function descriptionText(row: MyScreenRow) { return row.description.map(cleanScreenRule).filter(Boolean).join(' ') || 'No rule description' }
+function screenRuleItems(row: MyScreenRow) {
+  const descriptions = row.description.map(cleanScreenRule).filter(Boolean)
+  if (descriptions.length) return descriptions
+  if (row.conditions.length) return row.conditions.map(conditionLabel)
+  return ['No rule description']
+}
+function screenRuleRelationship(row: MyScreenRow) { return row.relation === 2 ? 'OR' : row.relation === 1 ? 'AND' : '' }
 function showNotice(message: string) { notice.value = message; window.setTimeout(() => { if (notice.value === message) notice.value = '' }, 3500) }
 function resetDraft() {
   Object.assign(draft, { name: '', category: 'S&P 500', direction: 'Long', mode: 'criteria', relation: 0, pattern: 'head_and_shoulder_top', tickers: '' })
@@ -134,14 +150,13 @@ function loadIntoDraft(row: MyScreenRow) {
   draft.conditions = row.conditions.length ? row.conditions.map((item) => ({ ...item })) : [blankCondition()]
 }
 function editRecord(row: MyScreenRow) { loadIntoDraft(row); builderMode.value = 'edit'; runResult.value = null; activeTab.value = 'build' }
+function editFromPreview(row: MyScreenRow) { previewRecord.value = null; editRecord(row) }
+function viewFromPreview(row: MyScreenRow) { previewRecord.value = null; void viewRecord(row) }
 async function viewRecord(row: MyScreenRow) {
   loadIntoDraft(row); builderMode.value = 'view'; runResult.value = null; activeTab.value = 'build'; actionUrl.value = row.url
   try { runResult.value = await fetchMyScreenResult(row.url, row, abortController.signal) }
   catch { showNotice('Screen results could not be loaded.') }
   finally { actionUrl.value = '' }
-}
-function toggleExpanded(row: MyScreenRow) {
-  const next = new Set(expandedIds.value); next.has(row.id) ? next.delete(row.id) : next.add(row.id); expandedIds.value = next
 }
 async function loadRecords() {
   listLoading.value = true; error.value = ''
@@ -204,35 +219,46 @@ onBeforeUnmount(() => abortController.abort())
 <template>
   <div class="pb-4">
     <div v-if="notice" class="mx-4 mt-4 flex items-center justify-between rounded-md border border-[var(--app-border-muted)] bg-[var(--app-primary-soft)] px-3 py-2 text-sm font-semibold"><span>{{ notice }}</span><button type="button" @click="notice = ''"><X :size="16" /></button></div>
-    <nav class="flex overflow-x-auto border-b border-[var(--app-border)] px-4" aria-label="My Screen workspace tabs">
-      <button class="screen-tab" :class="{ 'screen-tab--active': activeTab === 'saved' }" type="button" @click="activeTab = 'saved'">Screens List <span class="screen-count">{{ listLoading ? '…' : records.length }}</span></button>
-      <button class="screen-tab" :class="{ 'screen-tab--active': activeTab === 'build' }" type="button" @click="activeTab = 'build'">Build &amp; Result</button>
+    <nav class="flex items-center justify-between gap-3 overflow-x-auto border-b border-[var(--app-border)] px-4 pt-1" aria-label="My Screen workspace tabs">
+      <div class="flex">
+        <button class="screen-tab" :class="{ 'screen-tab--active': activeTab === 'saved' }" type="button" @click="activeTab = 'saved'">My Screens</button>
+        <button class="screen-tab" :class="{ 'screen-tab--active': activeTab === 'build' }" type="button" @click="activeTab = 'build'">Screen Builder</button>
+      </div>
+      <div class="mb-1 flex shrink-0 items-center gap-2">
+        <span class="screen-count">{{ listLoading ? '…' : records.length }} screens</span>
+        <button class="screen-primary" type="button" @click="startNew"><Plus :size="17" />New Screen</button>
+      </div>
     </nav>
 
     <div v-show="activeTab === 'saved'">
-      <div class="grid gap-2 border-b border-[var(--app-border)] px-4 py-3 md:grid-cols-[minmax(240px,1fr)_auto_auto]">
-        <label class="screen-input flex items-center"><Search :size="15" class="mr-2 text-[var(--app-text-muted)]" /><input v-model="query" class="w-full bg-transparent outline-none" placeholder="Search screens" /></label>
+      <div class="grid gap-2 border-b border-[var(--app-border-muted)] px-4 py-3 md:grid-cols-[minmax(260px,1fr)_auto]">
+        <label class="screen-input flex items-center"><Search :size="16" class="mr-2 text-[var(--app-text-muted)]" /><input v-model="query" class="w-full bg-transparent outline-none" placeholder="Search screens..." /></label>
         <button class="screen-secondary" type="button" @click="loadRecords"><RefreshCw :size="16" :class="{ 'animate-spin': listLoading }" />Refresh</button>
-        <button class="screen-secondary" type="button" @click="startNew"><Plus :size="16" />Create new Screen</button>
       </div>
       <div v-if="error" class="mx-4 mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }} <button class="font-bold underline" @click="loadRecords">Retry</button></div>
       <div class="p-4">
-        <section class="overflow-hidden rounded-md border border-[var(--app-border-muted)]">
+        <section class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
           <div class="overflow-x-auto">
-            <table class="min-w-full border-collapse text-left text-[0.8125rem]">
-              <thead class="bg-[var(--app-surface-muted)] text-[0.68rem] font-semibold uppercase text-[var(--app-text-muted)]"><tr><th class="w-10 px-2 py-2.5"></th><th class="px-3 py-2.5">Name</th><th class="px-3 py-2.5">Universe</th><th class="px-3 py-2.5">Direction</th><th class="px-3 py-2.5">Last signal</th><th class="px-3 py-2.5">Screen rules</th><th class="px-3 py-2.5 text-center">Actions</th></tr></thead>
+            <table class="w-full min-w-[900px] border-collapse text-left text-[0.8125rem] text-[var(--app-text)]">
+              <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold"><tr class="border-b border-[var(--app-border)]"><th class="w-12 px-2 py-2.5"><span class="sr-only">Favorite</span></th><th class="px-4 py-2.5">Name</th><th class="px-4 py-2.5">Universe</th><th class="px-4 py-2.5">Direction</th><th class="px-4 py-2.5">Screen rules</th><th class="w-[140px] px-4 py-2.5 text-right">Actions</th></tr></thead>
               <tbody>
-                <tr v-if="listLoading"><td colspan="7" class="h-36 text-center text-[var(--app-text-muted)]">Loading screens...</td></tr>
-                <tr v-else-if="!pagedRecords.length"><td colspan="7" class="h-36 text-center text-[var(--app-text-muted)]">No screens found. Create one to get started.</td></tr>
+                <tr v-if="listLoading"><td colspan="6" class="h-36 text-center text-[var(--app-text-muted)]">Loading screens...</td></tr>
+                <tr v-else-if="!pagedRecords.length"><td colspan="6" class="h-36 text-center text-[var(--app-text-muted)]">No screens found. Create one to get started.</td></tr>
                 <template v-for="row in pagedRecords" :key="row.id">
-                  <tr class="border-t border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] hover:bg-[var(--app-surface-hover)]">
-                    <td class="px-2 py-3"><button class="screen-icon" type="button" @click="toggleExpanded(row)"><ChevronDown :size="16" :class="{ '-rotate-90': !expandedIds.has(row.id) }" /></button></td>
-                    <td class="px-3 py-3"><button class="font-extrabold text-[var(--app-primary)] hover:underline" type="button" @click="viewRecord(row)">{{ row.name }}</button><span v-if="row.systemPattern" class="mt-1 block text-xs text-[var(--app-text-muted)]">Common pattern</span></td>
-                    <td class="px-3 py-3 font-semibold">{{ row.category }}</td><td class="px-3 py-3"><span class="screen-pill">{{ row.direction }}</span></td>
-                    <td class="px-3 py-3">{{ row.lastSignalDate || '—' }}</td><td class="max-w-sm px-3 py-3 text-[var(--app-text-secondary)]"><span class="line-clamp-2">{{ descriptionText(row) }}</span></td>
-                    <td class="px-3 py-3"><div class="flex justify-center gap-1"><button class="screen-icon" title="Favorite" @click="toggleFavorite(row)"><Star :size="15" :class="row.favorite ? 'fill-amber-400 text-amber-500' : ''" /></button><button class="screen-icon" title="View results" @click="viewRecord(row)"><LoaderCircle v-if="actionUrl === row.url" :size="15" class="animate-spin" /><Eye v-else :size="15" /></button><button class="screen-icon" title="Edit screen" @click="editRecord(row)"><Pencil :size="15" /></button><button class="screen-icon text-[var(--app-negative)]" title="Delete screen" @click="removeRecord(row)"><Trash2 :size="15" /></button></div></td>
+                  <tr class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]">
+                    <td class="px-2 py-2.5 text-center"><button class="screen-icon" type="button" title="Favorite" :aria-label="`Favorite ${row.name}`" @click="toggleFavorite(row)"><Star :size="16" :class="row.favorite ? 'fill-[var(--app-favorite)] text-[var(--app-favorite)]' : ''" /></button></td>
+                    <td class="px-4 py-2.5"><button class="font-extrabold hover:text-[var(--app-primary)]" type="button" @click="viewRecord(row)">{{ row.name }}</button></td>
+                    <td class="px-4 py-2.5 text-[var(--app-text-secondary)]">{{ row.category }}</td><td class="px-4 py-2.5"><span class="screen-pill">{{ row.direction }}</span></td>
+                    <td class="min-w-[360px] px-4 py-2.5">
+                      <p class="screen-rules" :title="descriptionText(row)">
+                        <template v-for="(rule, index) in screenRuleItems(row)" :key="`${row.id}-${index}`">
+                          <span v-if="index && screenRuleRelationship(row)" class="screen-rule-relationship">{{ screenRuleRelationship(row) }}</span>
+                          <span class="screen-rule-condition">{{ rule }}</span>
+                        </template>
+                      </p>
+                    </td>
+                    <td class="px-4 py-2.5"><div class="flex justify-end gap-1"><button class="screen-icon" title="Preview" aria-label="Preview screen" @click="previewRecord = row"><Settings2 :size="16" /></button><button class="screen-icon" title="Edit" aria-label="Edit screen" @click="editRecord(row)"><Pencil :size="16" /></button><button class="screen-icon screen-icon--danger" title="Delete screen" :aria-label="`Delete ${row.name}`" @click="removeRecord(row)"><Trash2 :size="16" /></button></div></td>
                   </tr>
-                  <tr v-if="expandedIds.has(row.id)" class="border-t border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]"><td colspan="7" class="px-5 py-4"><div class="grid gap-3 md:grid-cols-2"><div><p class="screen-eyebrow">Screen definition</p><p class="mt-1 text-sm font-semibold">{{ descriptionText(row) }}</p></div><div><p class="screen-eyebrow">Symbols</p><p class="mt-1 text-sm">{{ row.category === 'Custom' ? (row.tickers.join(', ') || 'No symbols saved') : `All symbols in ${row.category}` }}</p></div></div></td></tr>
                 </template>
               </tbody>
             </table>
@@ -263,9 +289,11 @@ onBeforeUnmount(() => abortController.abort())
         <div v-else class="flex min-h-56 flex-col items-center justify-center px-6 text-center"><Search :size="34" class="text-[var(--app-primary)]" /><h4 class="mt-3 text-base font-extrabold">No result rows yet</h4><p class="mt-1 max-w-md text-sm text-[var(--app-text-muted)]">Build and run a screen above, or open a saved screen from the list.</p></div>
       </section>
     </div>
+
+    <ScreenPreviewModal v-if="previewRecord" :row="previewRecord" @close="previewRecord = null" @edit="editFromPreview" @view-results="viewFromPreview" />
   </div>
 </template>
 
 <style scoped>
-.screen-tab{display:flex;height:3.5rem;flex-shrink:0;align-items:center;border-bottom:2px solid transparent;padding:0 .75rem;font-size:.875rem;font-weight:700;color:var(--app-text);transition:.2s}.screen-tab:hover{color:var(--app-primary)}.screen-tab--active{border-color:var(--app-primary);color:var(--app-primary)}.screen-count{margin-left:.5rem;border-radius:999px;background:var(--app-primary-soft-alt);padding:.125rem .5rem;font-size:.75rem}.screen-input{height:2.25rem;min-width:0;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:0 .625rem;font-size:.8125rem}.screen-secondary{display:inline-flex;height:2.25rem;align-items:center;justify-content:center;gap:.375rem;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:0 .75rem;font-size:.8125rem;font-weight:700;color:var(--app-text-secondary)}.screen-secondary:hover{border-color:var(--app-primary-hover);color:var(--app-primary)}.screen-icon{display:inline-flex;height:1.875rem;width:1.875rem;align-items:center;justify-content:center;border-radius:.375rem;color:var(--app-text-secondary)}.screen-icon:hover{background:var(--app-primary-soft);color:var(--app-primary)}.screen-pill{display:inline-flex;border-radius:.375rem;background:var(--app-primary-soft);padding:.2rem .5rem;font-size:.75rem;font-weight:800;color:var(--app-primary)}.screen-eyebrow{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--app-text-muted)}.screen-builder,.screen-panel{border:1px solid var(--app-border-muted);border-radius:.5rem;background:var(--app-surface)}.screen-step{display:flex;align-items:center;gap:.75rem}.screen-step>span{display:flex;height:2rem;width:2rem;flex:none;align-items:center;justify-content:center;border-radius:999px;background:var(--app-primary);font-size:.8rem;font-weight:900;color:white}.screen-step h4{font-size:.9rem;font-weight:800}.screen-step p{font-size:.75rem;color:var(--app-text-muted)}.screen-panel{padding:1rem}.screen-field{display:flex;min-width:0;flex-direction:column;gap:.35rem}.screen-field>span{font-size:.75rem;font-weight:800;color:var(--app-text-secondary)}.screen-field input,.screen-field select,.screen-field textarea{width:100%;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:.58rem .65rem;font-size:.8125rem;outline:none}.screen-field input:focus,.screen-field select:focus,.screen-field textarea:focus{border-color:var(--app-primary);box-shadow:0 0 0 2px var(--app-primary-soft)}.screen-field small{font-size:.7rem;color:var(--app-text-muted)}.screen-choice{border:1px solid var(--app-border);border-radius:.375rem;padding:.65rem;font-size:.8125rem;font-weight:800;color:var(--app-text-secondary)}.screen-choice--active{border-color:var(--app-primary);background:var(--app-primary-soft);color:var(--app-primary)}.screen-run{display:flex;width:100%;height:2.75rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.4rem;background:var(--app-primary);font-size:.875rem;font-weight:900;color:white}.screen-run:hover:not(:disabled){background:var(--app-primary-hover)}.screen-run:disabled{cursor:not-allowed;opacity:.5}
+.screen-tab{display:flex;height:3.25rem;flex-shrink:0;align-items:center;border-bottom:2px solid transparent;padding:0 1rem;font-size:.875rem;font-weight:800;color:var(--app-text-muted);transition:.2s}.screen-tab:hover{color:var(--app-text)}.screen-tab--active{border-color:var(--app-primary);color:var(--app-primary)}.screen-count{margin-left:.5rem;border-radius:999px;background:var(--app-primary-soft-alt);padding:.125rem .5rem;font-size:.75rem}.screen-input{height:2.25rem;min-width:0;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:0 .625rem;font-size:.8125rem}.screen-primary{display:inline-flex;height:2.25rem;align-items:center;justify-content:center;gap:.375rem;border-radius:.375rem;background:var(--app-primary);padding:0 .75rem;font-size:.8125rem;font-weight:800;color:white}.screen-primary:hover{background:var(--app-primary-hover)}.screen-secondary{display:inline-flex;height:2.25rem;align-items:center;justify-content:center;gap:.375rem;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:0 .75rem;font-size:.8125rem;font-weight:700;color:var(--app-text-secondary)}.screen-secondary:hover{background:var(--app-surface-soft)}.screen-icon{display:inline-flex;height:2rem;width:2rem;align-items:center;justify-content:center;border-radius:.375rem;color:var(--app-text-muted)}.screen-icon:hover{background:var(--app-primary-soft);color:var(--app-primary)}.screen-icon--danger:hover{color:var(--app-negative)}.screen-pill{display:inline-flex;border-radius:.375rem;background:var(--app-primary-soft);padding:.2rem .5rem;font-size:.75rem;font-weight:800;color:var(--app-primary)}.screen-rules{display:flex;flex-wrap:wrap;align-items:center;gap:.375rem;color:var(--app-text-secondary);line-height:1.4}.screen-rule-condition{display:inline-flex;min-height:1.625rem;max-width:100%;align-items:center;overflow:hidden;border:1px solid var(--app-border);border-radius:9999px;background:var(--app-surface-muted);padding:.1875rem .5625rem;white-space:nowrap;text-overflow:ellipsis}.screen-rule-relationship{display:inline-flex;min-width:2rem;height:1.5rem;flex:0 0 auto;align-items:center;justify-content:center;border:1px solid color-mix(in srgb,var(--app-primary) 30%,var(--app-border));border-radius:9999px;background:var(--app-primary-soft);padding:0 .375rem;color:var(--app-primary);font-size:.625rem;font-weight:800;line-height:1}.screen-eyebrow{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--app-text-muted)}.screen-builder,.screen-panel{border:1px solid var(--app-border-muted);border-radius:.5rem;background:var(--app-surface)}.screen-step{display:flex;align-items:center;gap:.75rem}.screen-step>span{display:flex;height:2rem;width:2rem;flex:none;align-items:center;justify-content:center;border-radius:999px;background:var(--app-primary);font-size:.8rem;font-weight:900;color:white}.screen-step h4{font-size:.9rem;font-weight:800}.screen-step p{font-size:.75rem;color:var(--app-text-muted)}.screen-panel{padding:1rem}.screen-field{display:flex;min-width:0;flex-direction:column;gap:.35rem}.screen-field>span{font-size:.75rem;font-weight:800;color:var(--app-text-secondary)}.screen-field input,.screen-field select,.screen-field textarea{width:100%;border:1px solid var(--app-border);border-radius:.375rem;background:var(--app-surface);padding:.58rem .65rem;font-size:.8125rem;outline:none}.screen-field input:focus,.screen-field select:focus,.screen-field textarea:focus{border-color:var(--app-primary);box-shadow:0 0 0 2px var(--app-primary-soft)}.screen-field small{font-size:.7rem;color:var(--app-text-muted)}.screen-choice{border:1px solid var(--app-border);border-radius:.375rem;padding:.65rem;font-size:.8125rem;font-weight:800;color:var(--app-text-secondary)}.screen-choice--active{border-color:var(--app-primary);background:var(--app-primary-soft);color:var(--app-primary)}.screen-run{display:flex;width:100%;height:2.75rem;align-items:center;justify-content:center;gap:.5rem;border-radius:.4rem;background:var(--app-primary);font-size:.875rem;font-weight:900;color:white}.screen-run:hover:not(:disabled){background:var(--app-primary-hover)}.screen-run:disabled{cursor:not-allowed;opacity:.5}
 </style>
