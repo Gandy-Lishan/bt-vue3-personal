@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BellRing,
-  ContactRound,
   Filter,
   ListChecks,
   Play,
@@ -30,9 +29,10 @@ import SignalPreviewModal from './ui/SignalPreviewModal.vue'
 import MyIndicatorTable from './ui/MyIndicatorTable.vue'
 import IndicatorPreviewModal from './ui/IndicatorPreviewModal.vue'
 import MyScreenWorkspace from './ui/MyScreenWorkspace.vue'
-import { fetchMyIndicators, type MyIndicatorRow } from '@/entities/my-stuff/api/user-indicator.api'
+import WatchListWorkspace from './ui/WatchListWorkspace.vue'
+import { deleteMyIndicator, fetchMyIndicators, fetchRelatedMyIndicatorBacktestCount, type MyIndicatorRow } from '@/entities/my-stuff/api/user-indicator.api'
 
-type MyStuffSection = 'signals' | 'indicators' | 'screens' | 'watchlist' | 'concierge'
+type MyStuffSection = 'signals' | 'indicators' | 'screens' | 'watchlist'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,7 +42,6 @@ const sections = [
   { key: 'indicators' as const, label: 'My Indicator', path: '/my-stuff/indicators', description: 'Build and manage personal indicators.', icon: SlidersHorizontal },
   { key: 'screens' as const, label: 'My Screen', path: '/my-stuff/screens', description: 'Save and run stock screens.', icon: Filter },
   { key: 'watchlist' as const, label: 'My Watch List', path: '/my-stuff/watchlist', description: 'Keep the symbols you follow together.', icon: ListChecks },
-  { key: 'concierge' as const, label: 'Concierge Service', path: '/my-stuff/concierge', description: 'Ask our team to help with setup.', icon: ContactRound },
 ]
 
 const activeSection = computed<MyStuffSection>(() => {
@@ -53,6 +52,7 @@ const activeConfig = computed(() => sections.find((item) => item.key === activeS
 const isSignals = computed(() => activeSection.value === 'signals')
 const isIndicators = computed(() => activeSection.value === 'indicators')
 const isScreens = computed(() => activeSection.value === 'screens')
+const isWatchList = computed(() => activeSection.value === 'watchlist')
 
 const listKind = ref<MySignalListKind>('mine')
 /** Flips to true after copying a signal, so fresh copies sort to the top by create date. */
@@ -70,6 +70,7 @@ const subscriptionLoading = ref(false)
 const previewRow = ref<MySignalRow | null>(null)
 const indicatorRows = ref<MyIndicatorRow[]>([])
 const indicatorLoading = ref(false)
+const indicatorDeletingId = ref('')
 const indicatorError = ref('')
 const indicatorQuery = ref('')
 const indicatorCategory = ref('')
@@ -215,6 +216,30 @@ function resetIndicatorFilters() {
 }
 function handleIndicatorSort(key: string) { indicatorTable.sort({ key, kind: 'text' }) }
 function openIndicatorBuilder() { void router.push({ name: 'my-indicator-new' }) }
+function editIndicator(row: MyIndicatorRow) {
+  previewIndicator.value = null
+  void router.push({ name: 'my-indicator-edit', query: { url: row.url } })
+}
+async function handleIndicatorDelete(row: MyIndicatorRow) {
+  if (indicatorDeletingId.value) return
+  indicatorDeletingId.value = row.id
+  try {
+    const relatedCount = await fetchRelatedMyIndicatorBacktestCount(row.url, abortController.signal)
+    if (relatedCount > 0) {
+      showNotice(`“${row.name}” is used by ${relatedCount} related backtest${relatedCount === 1 ? '' : 's'} and cannot be deleted.`)
+      return
+    }
+    if (!window.confirm(`Delete “${row.name}”? This action cannot be undone.`)) return
+    await deleteMyIndicator(row.url, abortController.signal)
+    if (previewIndicator.value?.id === row.id) previewIndicator.value = null
+    showNotice(`Deleted “${row.name}”.`)
+    await loadIndicators()
+  } catch (error) {
+    showNotice(error instanceof Error ? error.message : 'Indicator could not be deleted.')
+  } finally {
+    indicatorDeletingId.value = ''
+  }
+}
 
 async function loadSubscription() {
   try {
@@ -413,9 +438,10 @@ onBeforeUnmount(() => abortController.abort())
     <div v-if="isSignals" class="pb-1"><MySignalTable :rows="pagedRows" :loading="loading" :library="listKind === 'library'" :sort-key="signalTable.sortKey.value" :sort-direction="signalTable.sortDirection.value" @sort="handleTableSort" @preview="previewRow = $event" @edit="openEditor" @copy="handleCopy" @delete="handleDelete" /></div>
     <div v-else-if="isIndicators" class="pb-1">
       <div v-if="indicatorError" class="mx-4 mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ indicatorError }} <button class="ml-2 font-extrabold underline" type="button" @click="loadIndicators">Retry</button></div>
-      <MyIndicatorTable class="m-4" :rows="indicatorTable.pagedRows.value" :loading="indicatorLoading" :sort-key="indicatorTable.sortKey.value" :sort-direction="indicatorTable.sortDirection.value" @sort="handleIndicatorSort" @preview="previewIndicator = $event" />
+      <MyIndicatorTable class="m-4" :rows="indicatorTable.pagedRows.value" :loading="indicatorLoading" :sort-key="indicatorTable.sortKey.value" :sort-direction="indicatorTable.sortDirection.value" :deleting-id="indicatorDeletingId" @sort="handleIndicatorSort" @preview="previewIndicator = $event" @edit="editIndicator" @delete="handleIndicatorDelete" />
     </div>
     <MyScreenWorkspace v-else-if="isScreens" />
+    <WatchListWorkspace v-else-if="isWatchList" />
     <div v-else class="flex min-h-[420px] flex-col items-center justify-center px-6 text-center"><component :is="activeConfig.icon" :size="42" class="text-[var(--app-primary)]" /><h3 class="mt-4 text-xl font-extrabold">{{ activeConfig.label }}</h3><p class="mt-2 max-w-md text-sm text-[var(--app-text-muted)]">This workspace is coming soon.</p></div>
 
     <template v-if="isSignals" #footer><IndicatorPagination :page="activePage" :page-count="pageCount" :total="filteredRows.length" item-label="signals" @change="setActivePage" /></template>
@@ -423,7 +449,7 @@ onBeforeUnmount(() => abortController.abort())
 
     <template #overlays>
       <SignalPreviewModal v-if="previewRow" :row="previewRow" :library="listKind === 'library'" :busy="actionLoading" @close="previewRow = null" @view="viewFromPreview" @copy="copyFromPreview" />
-      <IndicatorPreviewModal v-if="previewIndicator" :row="previewIndicator" @close="previewIndicator = null" />
+      <IndicatorPreviewModal v-if="previewIndicator" :row="previewIndicator" @close="previewIndicator = null" @edit="editIndicator(previewIndicator)" />
     </template>
   </ListExplorerPage>
 </template>
