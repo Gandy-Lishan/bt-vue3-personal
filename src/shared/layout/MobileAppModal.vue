@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { X, Smartphone, Download, QrCode } from '@lucide/vue'
+import { X, Smartphone, Download } from '@lucide/vue'
 
 const showModal = ref(false)
 

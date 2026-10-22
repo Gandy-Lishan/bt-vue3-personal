@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Menu, X, Star, Flame } from '@lucide/vue'
+import { X, Star, Flame } from '@lucide/vue'
 import type { IndicatorGroup, IndicatorSection } from '@/entities/indicator/model/indicator.types'
 
 interface Props {
