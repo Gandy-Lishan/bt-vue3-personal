@@ -471,6 +471,14 @@ const notificationCount = 8
                   >
                     My Watch List
                   </RouterLink>
+                  <RouterLink
+                    to="/my-stuff/concierge"
+                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
+                    :class="{ 'text-[var(--chrome-accent)]': route.path === '/my-stuff/concierge' }"
+                    @click="toggleDrawer"
+                  >
+                    My Stuff Concierge Setup Service
+                  </RouterLink>
                 </div>
               </div>
 

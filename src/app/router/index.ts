@@ -223,6 +223,11 @@ const router = createRouter({
       component: () => import('@/pages/my-stuff/IndicatorBuilderPage.vue'),
     },
     {
+      path: '/my-stuff/concierge',
+      name: 'my-stuff-concierge',
+      component: () => import('@/pages/my-stuff/ConciergeServicePage.vue'),
+    },
+    {
       path: '/my-stuff/:section?',
       name: 'my-stuff',
       component: () => import('@/pages/my-stuff/MyStuffPage.vue'),

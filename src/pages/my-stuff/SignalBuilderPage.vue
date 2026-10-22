@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, ArrowRight, BarChart3, BellRing, Check, ChevronDown, ChevronUp, CircleCheck, Clock3, ContactRound, Copy, Filter, Info, Layers3, ListChecks, PlayCircle, Plus, Settings, SlidersHorizontal, Trash2 } from '@lucide/vue'
+import { ArrowLeft, ArrowRight, BarChart3, BellRing, Check, ChevronDown, ChevronUp, CircleCheck, Clock3, Copy, Filter, Info, Layers3, ListChecks, PlayCircle, Plus, Settings, SlidersHorizontal, Trash2 } from '@lucide/vue'
 import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
 import { fetchMySignals } from '@/entities/my-stuff/api/my-signal.api'
@@ -104,7 +104,6 @@ const sections = [
   { key: 'indicators', label: 'My Indicator', path: '/my-stuff/indicators', description: 'Build and manage personal indicators.', icon: SlidersHorizontal },
   { key: 'screens', label: 'My Screen', path: '/my-stuff/screens', description: 'Save and run stock screens.', icon: Filter },
   { key: 'watchlist', label: 'My Watch List', path: '/my-stuff/watchlist', description: 'Keep the symbols you follow together.', icon: ListChecks },
-  { key: 'concierge', label: 'Concierge Service', path: '/my-stuff/concierge', description: 'Ask our team to help with setup.', icon: ContactRound },
 ]
 
 const symbolSearchOptions = [...new Map([
