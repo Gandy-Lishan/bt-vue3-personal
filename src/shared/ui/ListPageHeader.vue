@@ -11,11 +11,13 @@ const props = withDefaults(
     description: string
     viewMode?: ListExplorerViewMode
     showViewModeToggle?: boolean
+    tableViewLabel?: string
     ads?: IndicatorAd[]
   }>(),
   {
     viewMode: 'table',
     showViewModeToggle: true,
+    tableViewLabel: 'Table',
     ads: () => [],
   },
 )
@@ -62,7 +64,7 @@ watch(
               :aria-pressed="props.viewMode === 'table'"
               @click="emit('update:viewMode', 'table')"
             >
-              <Table2 :size="16" /> Table
+              <Table2 :size="16" /> {{ props.tableViewLabel }}
             </button>
             <button
               class="flex items-center gap-2 rounded px-3 text-sm font-semibold transition"
