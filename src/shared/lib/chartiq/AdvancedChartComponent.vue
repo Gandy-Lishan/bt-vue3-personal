@@ -30,9 +30,8 @@ import { getCustomConfig } from './resources'
 import { extendOverwrite } from './st-development/js/extensions/StudiesExtendOverwrite'
 import { setupNProgressStub } from './service-stub'
 
-// Pinia store
+// 【Vue2→Vue3 兼容】纯 Pinia 模式 — CIQ.store 直接指向 Pinia store 实例
 import { useChartIQStore } from '@/entities/chartiq/model/chartiq.store'
-import { createVuexAdapter } from './vuex-adapter'
 
 // Webcomponents (Vue3 versions — adapted from Vue2 originals)
 import ReportsFilter from './st-development/js/webcomponents/ReportsFilter.vue'
@@ -323,8 +322,8 @@ function initializeChart() {
   overrideStudyDef()
   portalizeContextDialogs(containerEl)
 
-  // Assign store to CIQ BEFORE createChartAndUI so web components can access it
-  ;(CIQ as any).store = createVuexAdapter(chartIQStore as any)
+  // Assign Pinia store directly to CIQ — st-development JS files use CIQ.store.$state and direct actions
+  ;(CIQ as any).store = chartIQStore
 
   // Stub nprogress — ChartIQ calls CIQ.nprogress.start()/done() but it's not installed
   // Pass the actual CIQ object so loadIndicator.js (which imports CIQ from chartiq.js) gets it

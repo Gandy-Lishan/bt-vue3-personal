@@ -179,7 +179,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                                     let url = decodeBase64(_result[_el].data.symbol.split('||')[1])
                                     await symbolCsvFileDelete(url)
 
-                                    await CIQ.store.dispatch('chart/get_mysymbolist')
+                                    await CIQ.store.get_mysymbolist()
                                     console.log('删除成功')
                                 } catch (error) {
                                     console.log('删除失败', error)
@@ -200,7 +200,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                 if (loader) loader.show();  
                 if (filter == 'ALL'){
                     var resultsIndexsList = [];
-                    const indexsList = CIQ.store.getters.getIndexList
+                    const indexsList = CIQ.store.$state.indexsList
                     let concatList = [] // 用於新的搜索過濾方法，無視stock或者index類別
                     for (var i = 0; i < indexsList.length; i++) {
                         var fields = indexsList[i]; 
@@ -217,7 +217,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                         });
                     }
                     var resultsStocksList = [];
-                    const stocksList = CIQ.store.getters.getStockList
+                    const stocksList = CIQ.store.$state.stocksList
                     for (var i = 0; i < stocksList.length; i++) {
                         var fields = stocksList[i];
                         var item = {
@@ -235,7 +235,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                     var resultsCustomSymbolList = [];
 
                     if(!window.location.pathname.includes('/myindicator')) {
-                        const mySymbolList = CIQ.store.getters.getMySymbollist
+                        const mySymbolList = CIQ.store.$state.mySymbolList
                         mySymbolList.forEach(element => {
                             // 把name和url拼接在一起，這樣在用戶訪問到此symbol時不用再去請求一次列表
                             var item = {
@@ -279,7 +279,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                 }
                 else if (filter == 'INDEXES'){
                         var results = [];
-                        const indexsList = CIQ.store.getters.getIndexList
+                        const indexsList = CIQ.store.$state.indexsList
                         let concatList = [] // 用於新的搜索過濾方法，無視stock或者index類別
                         for (var i = 0; i < indexsList.length; i++) {
                             var fields = indexsList[i];
@@ -315,7 +315,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                         }      
                 }else if (filter == 'STOCKS') {
                     var results = [];
-                    const stocksList = CIQ.store.getters.getStockList
+                    const stocksList = CIQ.store.$state.stocksList
                     let concatList = [] // 用於新的搜索過濾方法，無視stock或者index類別
                     for (var i = 0; i < stocksList.length; i++) {
                         var fields = stocksList[i];
@@ -351,10 +351,10 @@ let __js_webcomponents_lookup_ = (_exports) => {
                     } 
                 } else if (filter == 'MY FAVORITES'){
                     var results = []
-                    await CIQ.store.dispatch('chart/get_favorite')
-                    var resu = CIQ.store.getters.getFavoriteSymbolList
+                    await CIQ.store.get_favorite()
+                    var resu = CIQ.store.$state.favoriteSymbolList
                         try {
-                            var listStock = CIQ.store.getters.getStockList.map(_obj=>{
+                            var listStock = CIQ.store.$state.stocksList.map(_obj=>{
                                     var newObj = {}
                                     newObj['name'] = _obj.name
                                     newObj['url'] = _obj.stock
@@ -364,7 +364,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                                 })
             
             
-                            var listIndex = CIQ.store.getters.getIndexList.map(_obj=>{
+                            var listIndex = CIQ.store.$state.indexsList.map(_obj=>{
                                 var newObj = {}
                                 newObj['name'] = _obj.name
                                 newObj['url'] = _obj.symbol
@@ -400,7 +400,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                         this.searchResults = results
                 } else if (filter == 'CUSTOM SYMBOL') {
                     var results = []
-                    const mySymbolList = CIQ.store.getters.getMySymbollist
+                    const mySymbolList = CIQ.store.$state.mySymbolList
                     mySymbolList.forEach(element => {
                         // 把name和url拼接在一起，這樣在用戶訪問到此symbol時不用再去請求一次列表
                         var item = {
@@ -421,9 +421,9 @@ let __js_webcomponents_lookup_ = (_exports) => {
                     this.searchResults = results
                 } else if (filter == 'SYMBOLS') {
                     var results = []
-                    const symbollistForecast = CIQ.store.getters.getSymbollistForecast
-                    let stocksList = CIQ.store.getters.getStockList
-                    let indexsList = CIQ.store.getters.getIndexList
+                    const symbollistForecast = CIQ.store.$state.symbollistForecast
+                    let stocksList = CIQ.store.$state.stocksList
+                    let indexsList = CIQ.store.$state.indexsList
                     symbollistForecast.forEach(element => {
                         const stocks = stocksList.find(i=>i.stock.toUpperCase() == element.market.toUpperCase() || i.name.toUpperCase() == element.market.toUpperCase())
                         const indexs = indexsList.find(i=>i.symbol.toUpperCase() == element.market.toUpperCase() || i.name.toUpperCase() == element.market.toUpperCase())
@@ -561,13 +561,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                         });
                     });
 
-                    /** 响应分段获取的mySymbolList列表变化 */
-                    CIQ.store.watch(
-                        (state) => state.chart.mySymbolList,
-                        (newValue) => {
-                            self.acceptText(self.input.val(), self.currentFilter);
-                        }
-                    );
+                    // 【Vue2→Vue3 兼容】原 Vuex watch 已移除 — Pinia 模式下列表变化由组件重新渲染处理
                 }
     
                 if (typeof node.attr("cq-keystroke-claim") != "undefined") {
@@ -599,7 +593,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
                                     let url = decodeBase64(_result[_el].data.symbol.split('||')[1])
                                     await symbolCsvFileDelete(url)
 
-                                    await CIQ.store.dispatch('chart/get_mysymbolist')
+                                    await CIQ.store.get_mysymbolist()
                                     console.log('删除成功')
                                 } catch (error) {
                                     console.log('删除失败', error)
@@ -887,7 +881,7 @@ let __js_webcomponents_lookup_ = (_exports) => {
 
                             /** 仅在myIndicator时，换symbol后修改benchMark并触发indicator更新事件*/
                             if(window.location.pathname.includes('/myindicator/create')){
-                                CIQ.store.commit('chart/SEI_MI_BENCHMARK', data.symbol)
+                                CIQ.store.set_mi_benchmark(data.symbol)
                             }
 
                             CIQ.hideCover()

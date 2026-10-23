@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+// Dev mode: use /api prefix so Vite proxy intercepts and forwards to backend
+// Production: VITE_ST_API_BASE_URL set to full backend URL (CORS direct)
 const apiBaseUrl = import.meta.env.VITE_ST_API_BASE_URL || '/api'
 
 const api = axios.create({

@@ -141,7 +141,7 @@ async function loadDefaultStudy() {
   const ticker = detail.symbol
   const signalDate = detail.asOfDate
   const raw = detail.raw
-  const maColor = CIQ.store.getters.getColorByCriteriaAndIndex(0, 0)
+  const maColor = chartIQStore.getColorByCriteriaAndIndex(0, 0)
 
   /**
    * Safely add a study with retry on DOM timing errors.

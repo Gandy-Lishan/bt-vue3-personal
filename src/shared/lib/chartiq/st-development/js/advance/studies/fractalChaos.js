@@ -42,7 +42,7 @@ if (!CIQ.Studies) {
 
 		var field	// 它是流动的
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			if(sd.type == "Fractal Chaos Bands"){
 				var actualXaxis = stx.getYAxisByField(stx.panels['chart'], field);
 				sd.yAxis = actualXaxis

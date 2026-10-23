@@ -48,7 +48,7 @@ if (!CIQ.Studies) {
 
 				var _field	// 它是流动的
 				if(sd.parameters.isComparison){
-					_field = CIQ.store.getters.getComparisonSymbol.url
+					_field = CIQ.store.$state.comparisonSymbol.url
 					quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(_field))
 				}else{
 					quotes = sd.chart.scrubbed

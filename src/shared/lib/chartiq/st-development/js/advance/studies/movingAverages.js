@@ -121,7 +121,7 @@ if (!CIQ.Studies) {
 			sd?.parameters?.isComparison ||
 			(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 		){
-			var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+			var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 			// 只处理计算数据源和symbol2相关的逻辑(symbol2 ma)
 			if(CIQ.findBuiltinTechIndicator(null,sd.type)){
 				/**根据criteria动态设定study的Y轴属*******/
@@ -187,7 +187,7 @@ if (!CIQ.Studies) {
 			sd?.parameters?.isComparison ||
 			(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 		){
-			var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+			var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 			// 只处理计算数据源和symbol2相关的逻辑(symbol2 ma)
 			if(CIQ.findBuiltinTechIndicator(null,sd.type)){
 				/**根据criteria动态设定study的Y轴属*******/
@@ -247,7 +247,7 @@ if (!CIQ.Studies) {
 
 		if(sd.parameters.isComparison){
 			/**根据criteria动态设定study的Y轴属*******/
-			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.getters.getComparisonSymbol.url);
+			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.$state.comparisonSymbol.url);
 			sd.yAxis = actualXaxis
 			/****************** */
 		}else{
@@ -302,7 +302,7 @@ if (!CIQ.Studies) {
 		CIQ.Studies.MA(maType, sd.days, field, 0, "_MA", stx, sd);
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -369,7 +369,7 @@ if (!CIQ.Studies) {
 			calculateFN: function (stx, sd) {
 				if(sd.parameters.isComparison){
 					/**根据criteria动态设定study的Y轴属*******/
-					var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.getters.getComparisonSymbol.url);
+					var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.$state.comparisonSymbol.url);
 					sd.yAxis = actualXaxis
 					/****************** */
 				}else{

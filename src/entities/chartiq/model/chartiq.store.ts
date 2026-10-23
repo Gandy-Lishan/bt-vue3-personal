@@ -54,20 +54,26 @@ function formatPairData(data: unknown[] | null | undefined): unknown[] {
   return newQuotes
 }
 
-function formatStandardTime(dt: string | undefined): string {
-  if (!dt) return ''
-  try {
-    const d = new Date(dt)
-    const Y = d.getUTCFullYear()
-    const M = String(d.getUTCMonth() + 1).padStart(2, '0')
-    const D = String(d.getUTCDate()).padStart(2, '0')
-    const h = String(d.getUTCHours()).padStart(2, '0')
-    const m = String(d.getUTCMinutes()).padStart(2, '0')
-    const s = String(d.getUTCSeconds()).padStart(2, '0')
-    return `${Y}-${M}-${D} ${h}:${m}:${s}`
-  } catch {
-    return dt
+// 注：数据源DT传入的应该是formatStandardTime返回的时间对象而不是ISO字符串，
+// 虽然两者兼容，但是后者对于国外时间会出现偏差一天的问题。
+// 【Vue2→Vue3 兼容】照搬原版 utils/index.js formatStandardTime，返回 Date 对象
+function formatStandardTime(dateInput: string | undefined | null): Date | null {
+  if (!dateInput) return null
+
+  let year: number, month: number, day: number
+
+  if (typeof dateInput === 'string') {
+    // ISO 格式 或 YYYY-MM-DD
+    const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (match) {
+      year = Number(match[1])
+      month = Number(match[2])
+      day = Number(match[3])
+      return new Date(year, month - 1, day) // 本地 00:00:00
+    }
   }
+
+  return null
 }
 
 function capitalizeFirstLetter(str: string): string {
@@ -771,6 +777,28 @@ export const useChartIQStore = defineStore('chartIQ', {
       this.extremeValue = []
       this.trades = []
       this.set_chart_ready(false)
+    },
+
+    // 【Vue2→Vue3 兼容】缺失的 actions — st-development JS 需要调用
+    get_forecast_author_list(authors: string[]) {
+      this.forecastAuthorList = authors
+    },
+
+    async get_mysymbolCSV(_obj: { url: string; timeframe: string }) {
+      // TODO: implement when API endpoint is available
+      return null
+    },
+
+    getColorByCriteriaAndIndex(criteria: string, panelIndex: number) {
+      const c1 = this.ma_color_1 || []
+      const c2 = this.ma_color_2 || []
+      return criteria === 'roc'
+        ? c2[panelIndex % c2.length]
+        : c1[panelIndex % c1.length]
+    },
+
+    set_mi_create_loading(val: boolean) {
+      this.miCreateLoading = val
     },
   },
 })

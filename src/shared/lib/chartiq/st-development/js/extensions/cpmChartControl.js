@@ -16,9 +16,9 @@
         let timeframe = chart_data.timeframe
 
         CIQ.addCover()
-        //CIQ.store.commit('states/SET_MI_CREATE_LOADING', true)
-        CIQ.store.commit('form/getFrequency', timeframe) //考虑到addSeries必须写死timeframe
-        CIQ.store.commit('form/getBacktestSymbol', symbol)
+        //CIQ.store.set_mi_create_loading(true)
+        CIQ.store.set_freqency(timeframe) //考虑到addSeries必须写死timeframe
+        CIQ.store.getBacktestSymbol(symbol)
         CIQ.stxx.loadChart({ 
                 symbol: symbol, 
                 // 这边先写死范围，防止其他indicator无法pagination
@@ -34,7 +34,7 @@
 
                 CIQ.hideCover()
                 CIQ.nprogress.done()
-                //CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                //CIQ.store.set_mi_create_loading(false)
             }
         ) 
     }

@@ -1495,7 +1495,7 @@ class Comparison extends CIQ.UI.ModalTag {
 		function tapFunction(self, s, series) {
 			return function () {
 				self.nomore = true;
-				if (!series.parameters.permanent) self.removeSeries(s, series);
+				if (!series.parameters.permanent) self.removeSeries( series);
 				self.modalEnd(); // tricky, we miss mouseout events when we remove items from under ourselves
 			};
 		}
@@ -1661,7 +1661,7 @@ class Comparison extends CIQ.UI.ModalTag {
 			forceData: true
 		};
 
-		CIQ.store.commit('form/setComparisonSymbol', {
+		CIQ.store.setComparisonSymbol({
 			name:obj.name,
 			url:obj.symbol,
 		  })
@@ -7273,7 +7273,7 @@ class ShowRange extends CIQ.UI.ContextTag {
 		// 	default:
 		// }
 		
-		// CIQ.store.commit('form/getFrequency', selectedFreq)
+		// CIQ.store.set_freqency(selectedFreq)
 		// // 回调函数保证先换周期再调整数据跨度同步执行
 		// CIQ.addIndicators({},()=>{
 		// 	var self = this;
@@ -7791,11 +7791,11 @@ class Studies extends CIQ.UI.ContextTag {
 			
 			/** extraIndicators也包括chartiq Study列表的Tech Study */
 			let extraIndicators = []
-			extraIndicators.push(...CIQ.store.state.chart.indicators.extraIndicators)
+			extraIndicators.push(...CIQ.store.$state.indicators.extraIndicators)
 
 			extraIndicators.push(studyName)
 			
-			CIQ.store.commit('chart/getExtraIndicators',extraIndicators)
+			CIQ.store.set_extra_indicators(extraIndicators)
 
 			//if(studyName == 'ma'){
 				// 给study list上选择的ma加上为panelIndex和criteria空值的ma study layout,getIndicatorMatedata会遍历到它
@@ -8425,11 +8425,11 @@ if (!CIQ.Studies) {
 						}
 						if(self.helper.sd.type == 'ma'){
 							// 由于只同步period信息，更新图表不会同步颜色信息
-							CIQ.store.commit('chart/studySettingMAChange',obj)
+							CIQ.store.set_study_setting_ma(obj)
 							return
 						}
 						if(self.helper.sd.type == 'ST ROCLike'){
-							CIQ.store.commit('chart/studySettingROCChange',obj)
+							CIQ.store.set_study_setting_roc(obj)
 							return
 						}
 					}
@@ -8441,16 +8441,16 @@ if (!CIQ.Studies) {
 					) {
 						let sd = self.helper.sd
 						// 编辑ma时如果是extra ma也就是studies加载的ma,则在这里修改maLayout
-						var activatedMALayoutList = CIQ.store.state.chart.activatedMALayout?CIQ.store.state.chart.activatedMALayout:[]
+						var activatedMALayoutList = CIQ.store.$state.activatedMALayout?CIQ.store.$state.activatedMALayout:[]
 						// 由于extra ma没有criteria信息也不想新加标识属性，就判断更改前的周期定位需要修改周期的ma
 						var MALayoutListIndex = activatedMALayoutList.findIndex(
 							(item) => !item.criteria && item.period == Number(sd.inputs.Period) 
 						)	
 						activatedMALayoutList[MALayoutListIndex].period = Number(this.value)
-						CIQ.store.commit('chart/getMALayout', activatedMALayoutList)
+						CIQ.store.set_ma_layout(activatedMALayoutList)
 					}
 					self.updateStudy(updates);
-					CIQ.loadChart(CIQ.store.state.chart.trades, CIQ.addMarker)
+					CIQ.loadChart(CIQ.store.$state.trades, CIQ.addMarker)
 				};
 			}
 			node.addEventListener("change", closure());
@@ -8911,41 +8911,41 @@ if (!CIQ.Studies) {
 								}
 							}
 							
-							var indexOfEntry = CIQ.store.state.chart.indicators.formIndicators.entry.indexOf(sd.type)
-							var indexOfExit = CIQ.store.state.chart.indicators.formIndicators.exit.indexOf(sd.type)
+							var indexOfEntry = CIQ.store.$state.indicators.formIndicators.entry.indexOf(sd.type)
+							var indexOfExit = CIQ.store.$state.indicators.formIndicators.exit.indexOf(sd.type)
 							// lishan chartIQ todo 移除的时候是否需要考虑 entry2 和 exit2 indicator 的移除， 可以通过 strategy（Single，Dual） 进行判断
-							var indexOfEntry2 = CIQ.store.state.chart.indicators.formIndicators.entry2.indexOf(sd.type)
-							var indexOfExit2 = CIQ.store.state.chart.indicators.formIndicators.exit2.indexOf(sd.type)
+							var indexOfEntry2 = CIQ.store.$state.indicators.formIndicators.entry2.indexOf(sd.type)
+							var indexOfExit2 = CIQ.store.$state.indicators.formIndicators.exit2.indexOf(sd.type)
 							if(indexOfEntry != -1){
 								if(indexOfExit != -1){
-									CIQ.store.commit('chart/getIndicators',{index:indexOfExit,value:'',criteria:'exit'})
+									CIQ.store.set_criteria_indicators_list({index:indexOfExit,value:'',criteria:'exit'})
 								}
-								CIQ.store.commit('chart/getIndicators',{index:indexOfEntry,value:'',criteria:'entry'})
+								CIQ.store.set_criteria_indicators_list({index:indexOfEntry,value:'',criteria:'entry'})
 							}else if(indexOfExit != -1){
 								if(indexOfEntry != -1){
-									CIQ.store.commit('chart/getIndicators',{index:indexOfEntry,value:'',criteria:'entry'})
+									CIQ.store.set_criteria_indicators_list({index:indexOfEntry,value:'',criteria:'entry'})
 								}
-								CIQ.store.commit('chart/getIndicators',{index:indexOfExit,value:'',criteria:'exit'})
+								CIQ.store.set_criteria_indicators_list({index:indexOfExit,value:'',criteria:'exit'})
 							}
-							if(CIQ.store.state.chart.indicators.extraIndicators.indexOf(sd.type) != -1){
+							if(CIQ.store.$state.indicators.extraIndicators.indexOf(sd.type) != -1){
 								// remove item in extraIndicator
-								var extraIndicators = CIQ.store.state.chart.indicators.extraIndicators
+								var extraIndicators = CIQ.store.$state.indicators.extraIndicators
 								extraIndicators.splice(extraIndicators.indexOf(sd.type),1)
-								CIQ.store.commit('chart/getExtraIndicators',extraIndicators)
+								CIQ.store.set_extra_indicators(extraIndicators)
 
 								// remove item in Tech Layout
-								var activatedTechLayoutList = CIQ.store.state.chart.activatedTechLayout?CIQ.store.state.chart.activatedTechLayout:[]
+								var activatedTechLayoutList = CIQ.store.$state.activatedTechLayout?CIQ.store.$state.activatedTechLayout:[]
 								activatedTechLayoutList = activatedTechLayoutList.filter(item => {
 									return !(item.criteria === null || item.index === null) && item.url !== sd.type;
 								})
-								CIQ.store.commit('chart/getTechLayout', activatedTechLayoutList)
+								CIQ.store.set_tech_layout(activatedTechLayoutList)
 							}else{
 							}
 							
 							// remove item in MA
-							var activatedMAList = CIQ.store.state.chart.activatedMA
+							var activatedMAList = CIQ.store.$state.activatedMA
 							activatedMAList.splice(activatedMAList.findIndex(item=>item.url==sd.type),1)
-							CIQ.store.commit("chart/getMA",activatedMAList)
+							CIQ.store.set_activated_ma(activatedMAList)
 
 							// remove item in MA Layout
 							if(sd.parameters.index == null && sd.parameters.criteria == null){
@@ -9012,11 +9012,11 @@ if (!CIQ.Studies) {
 					// 	newChild.find("cq-label").html(sentiIndi.chart_name)	
 						
 					// }else if(techSymbolIndi){	
-					// 	const symbolLabel = sd.parameters.isComparison?CIQ.store.getters.getComparisonSymbol.url:CIQ.stxx.chart.symbol
+					// 	const symbolLabel = sd.parameters.isComparison?CIQ.store.$state.comparisonSymbol || { url: null, name: null }.url:CIQ.stxx.chart.symbol
 					// 	const display = `(${symbolLabel})${techSymbolIndi.value?techSymbolIndi.value:techSymbolIndi.label}`
 					// 	newChild.find("cq-label").html(display);	
 					// }else if(rocStudy){
-					// 	const symbolLabel = sd.parameters.criteria && sd.parameters.criteria.endsWith('2')?CIQ.store.getters.getComparisonSymbol.url:CIQ.stxx.chart.symbol
+					// 	const symbolLabel = sd.parameters.criteria && sd.parameters.criteria.endsWith('2')?CIQ.store.$state.comparisonSymbol || { url: null, name: null }.url:CIQ.stxx.chart.symbol
 					// 	var name
 					// 	let sentiField = CIQ.findSentiIndicator(null,sd.inputs.Field)
 					// 	let symbolField = CIQ.findSymbolIndicator(null,sd.inputs.Field)
@@ -9028,7 +9028,7 @@ if (!CIQ.Studies) {
 					// 		// roc with user or own indicator, exclude name starts with st ma
 					// 		name = sd.inputs.Field.match(/(CREATE|HASH)/) ? sd.inputs.Field.split(/(CREATE|HASH)/)[0] : stmaUrl
 					// 	}else{	// roc with the ma of senti
-					// 		let stmaUrl = CIQ.store.state.chart.activatedMA.find(i=>i.criteria == sd.parameters.criteria && i.index == sd.parameters.index).url
+					// 		let stmaUrl = CIQ.store.$state.activatedMA.find(i=>i.criteria == sd.parameters.criteria && i.index == sd.parameters.index).url
 					// 		let stmaFieldNameSenti = CIQ.findSentiIndicator(null,stmaUrl)?.chart_name
 					// 		let stmaFieldNameUser = stmaUrl.match(/(CREATE|HASH)/) ? stmaUrl.split(/(CREATE|HASH)/)[0] : stmaUrl
 					// 		let stmaPeriod

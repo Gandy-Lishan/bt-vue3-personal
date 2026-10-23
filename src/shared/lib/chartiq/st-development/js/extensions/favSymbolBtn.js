@@ -8,7 +8,7 @@ let __st_js_favsymbol_btn_ = (_exports) => {
  * add a symbol to favoriteList
  */
 CIQ.addSymbolCookie = async function() {
-	let favoriteSymbolList = CIQ.store.getters.getFavoriteSymbolList
+	let favoriteSymbolList = CIQ.store.$state.favoriteSymbolList
 
 	// if a symbol doesn't exist in list, switch button
 	var div = document
@@ -28,8 +28,8 @@ CIQ.addSymbolCookie = async function() {
 	if (favoriteSymbolList.indexOf(CIQ.stxx.chart.symbol) === -1) {
 		favoriteSymbolList.push(CIQ.stxx.chart.symbol)
 
-		await CIQ.store.dispatch('chart/update_favorite', {
-			indicator: JSON.stringify(CIQ.store.getters.getFavoriteIndicatorList),
+		await CIQ.store.update_favorite({
+			indicator: JSON.stringify(CIQ.store.$state.favoriteIndicatorList),
 			symbol: JSON.stringify(favoriteSymbolList)
 		})
 	}
@@ -39,7 +39,7 @@ CIQ.addSymbolCookie = async function() {
  * remove a symbol from favoriteList
  */
 CIQ.delSymbolCookie = async function() {
-	let favoriteSymbolList = CIQ.store.getters.getFavoriteSymbolList
+	let favoriteSymbolList = CIQ.store.$state.favoriteSymbolList
 
 	for (var item in favoriteSymbolList) {
 		if (favoriteSymbolList[item] == CIQ.stxx.chart.symbol) {
@@ -59,8 +59,8 @@ CIQ.delSymbolCookie = async function() {
     div.addEventListener('click', _addSymbolHandler);
         
 
-	await CIQ.store.dispatch('chart/update_favorite', {
-		indicator: JSON.stringify(CIQ.store.getters.getFavoriteIndicatorList),
+	await CIQ.store.update_favorite({
+		indicator: JSON.stringify(CIQ.store.$state.favoriteIndicatorList),
 		symbol: JSON.stringify(favoriteSymbolList)
 	})
 }

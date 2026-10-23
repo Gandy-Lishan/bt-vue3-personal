@@ -50,7 +50,7 @@ if (!CIQ.Studies) {
 		 * ma和roc就是用critria判断Study用来计算的数据源
 		*  */
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed

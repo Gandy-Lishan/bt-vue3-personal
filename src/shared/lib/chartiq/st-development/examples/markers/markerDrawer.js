@@ -32,7 +32,7 @@ let __st_js_marker_drawer_ = _exports => {
         nodeRed.style.display = "block"
 
         // dual symbol
-        var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+        var comparisonSymbol = CIQ.store.$state.comparisonSymbol
         if(comparisonSymbol.url){
             var nodeGreen2 = document.getElementsByClassName('buy_2')[0]
             var nodeRed2 = document.getElementsByClassName('sell_2')[0]
@@ -50,7 +50,7 @@ let __st_js_marker_drawer_ = _exports => {
         }
 
         // dual symbol
-        var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+        var comparisonSymbol = CIQ.store.$state.comparisonSymbol
         if(comparisonSymbol.url){
             for(var node of document.getElementsByClassName('buy_2')){
                 node.style.display = "none"
@@ -210,7 +210,7 @@ let __st_js_marker_drawer_ = _exports => {
     }
     CIQ.createOneTimePatternMarker = function(date,content){
         //CIQ.hideMarker()
-        CIQ.store.dispatch('states/set_isMarkerShown_flag',false)
+        CIQ.store.set_isMarkerShown_flag(false)
         // 显示pattern标记
         var newNode;
         
@@ -410,8 +410,8 @@ let __st_js_marker_drawer_ = _exports => {
 
     /** Report page */
     CIQ.createForecastMarker = async function(){
-        const list = await CIQ.store.dispatch('chart/get_forecast',CIQ.stxx.chart.symbol)
-        await CIQ.store.dispatch('chart/get_forecast_author_list',[...new Set(list.map(item=>item.author))])
+        const list = await CIQ.store.get_forecast(CIQ.stxx.chart.symbol)
+        await CIQ.store.get_forecast_author_list([...new Set(list.map(item=>item.author))])
         const bullishList = list.filter(i=>i.forecast == 'Up')
         const bearishList = list.filter(i=>i.forecast == 'Down')
 
@@ -678,17 +678,17 @@ let __st_js_marker_drawer_ = _exports => {
     CIQ.updateSupportLineWithChannelDrawing = async function(vm){
         return new Promise(async (resolve, reject) => {
             var mNode = document.getElementById('ai-supline')
-            // 改为判断图表是否存在绘制的图形（CIQ.store.getters.getDrawingObjList）
-            const drawingObjList = CIQ.store.getters.getDrawingObjList
+            // 改为判断图表是否存在绘制的图形（CIQ.store.$state.drawingObjList）
+            const drawingObjList = CIQ.store.$state.drawingObjList
             if(drawingObjList && drawingObjList.length == 0) {
                 // 添加active后需要获取数据源，失败则移除active
                 try {
                     clearDrawing()
                     const curDate = new Date()
-                    const freq = timeframeTransform(CIQ.store.state.form.pairDataFreq)
+                    const freq = timeframeTransform(CIQ.store.$state.pairDataFreq)
                     const res = await fetchAISuplineData(vm, CIQ.stxx.chart.symbol || 'SPX', timestampToTime(curDate), freq)
                     let drawingObjList = CIQ.createSupportLineWithChannelDrawing(res)
-                    CIQ.store.dispatch('chart/set_drawing_objlist', drawingObjList)
+                    CIQ.store.set_drawing_objlist(drawingObjList)
                     if(mNode) mNode.classList.add('active')
                     resolve('AI Support Line Appended')
                 } catch (error) {
@@ -700,7 +700,7 @@ let __st_js_marker_drawer_ = _exports => {
                     console.log('remove ai supline')
                     resolve('AI Support Line Removed')
                     clearDrawing()
-                    CIQ.store.dispatch('chart/set_drawing_objlist', [])
+                    CIQ.store.set_drawing_objlist([])
                     if(mNode) mNode.classList.remove('active')
                 } catch (error) {
                     reject("Failed to remove AI Support Line");
@@ -714,13 +714,13 @@ let __st_js_marker_drawer_ = _exports => {
         console.log('reset ai supline state')
         stopAllPolling()
         clearDrawing()
-        CIQ.store.dispatch('chart/set_drawing_objlist', [])
+        CIQ.store.set_drawing_objlist([])
         if(mNode) mNode.classList.remove('active')
     }
 
     const clearDrawing = function() {
         CIQ.Marker.removeByLabel(CIQ.stxx, 'horizontalLabel');
-        const drawingObjList = CIQ.store.getters.getDrawingObjList
+        const drawingObjList = CIQ.store.$state.drawingObjList
         if(drawingObjList.length > 0) {
             for(var i in drawingObjList) {
                 CIQ.stxx.removeDrawing(drawingObjList[i])

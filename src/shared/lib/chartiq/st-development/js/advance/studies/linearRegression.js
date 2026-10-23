@@ -78,7 +78,7 @@ if (!CIQ.Studies) {
 
 		var quotes = sd.chart.scrubbed;
 			if(sd.parameters.isComparison){
-				quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(CIQ.store.getters.getComparisonSymbol.url))
+				quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(CIQ.store.$state.comparisonSymbol.url))
 			}else{
 				quotes = sd.chart.scrubbed
 			}
@@ -120,7 +120,7 @@ if (!CIQ.Studies) {
 		if (!field || field == "field") field = "Close";
 			var subField = field
 			if(sd.parameters.isComparison){
-				field = CIQ.store.getters.getComparisonSymbol.url
+				field = CIQ.store.$state.comparisonSymbol.url
 				/**根据criteria动态设定study的Y轴属*******/
 				var actualXaxis = stx.getYAxisByField(stx.panels['chart'], field);
 				sd.yAxis = actualXaxis

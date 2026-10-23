@@ -69,7 +69,7 @@ let mDataSet = []
 let mDataSet2 = []	// dual symbol
 let markerVisibilityType	//marker可见性按钮状态变量
 MarkersSample.prototype.loadDataSet = function(dataSet){
-	const comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+	const comparisonSymbol = CIQ.store.$state.comparisonSymbol
     
 	if(!dataSet[0] || !dataSet[0].Symbol){
 		mDataSet =  dataSet
@@ -108,7 +108,7 @@ MarkersSample.prototype.showmMarker = function () {
 	//var markerTypes = ["analysis","dividend"];
 	let { stx } = this;
 	// const startTime = performance.now()
-	const comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+	const comparisonSymbol = CIQ.store.$state.comparisonSymbol
 	for (var data in mDataSet) {
 			//var color = mDataSet[data].Type === 'BUY' ? 0 : 1
 			// 为了兼容dot的数据源

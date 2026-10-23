@@ -65,7 +65,7 @@ if (!CIQ.Studies) {
 			sd
 		);
 				if(sd.parameters.isComparison){
-					field = CIQ.store.getters.getComparisonSymbol.url
+					field = CIQ.store.$state.comparisonSymbol.url
 					//filter valid rows
 					quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 				}else {

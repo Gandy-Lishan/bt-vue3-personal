@@ -515,7 +515,7 @@ if (!CIQ.Marker) {
                      yAxis = panel && sd.getYAxis(this);
                      if(sd.type == 'ST MA' || sd.type == 'ma'){    // stma不需要symbol信息，有独立显示
                         // miIndicator独立设定ma的display name显示，考虑到有偏移量这一设定
-                        const miShift = CIQ.store.getters.getMiFormShift
+                        const miShift = CIQ.store.$state.miFormShift
                         if(miShift.showInput && miShift.display && sd.parameters.criteria.endsWith(2)) {
                             for (var output in sd.outputMap) {
                                 if (output && !dupMap[output]) {

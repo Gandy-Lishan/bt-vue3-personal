@@ -100,7 +100,7 @@ export default defineConfig(({ mode }) => {
       rewrite: rewritePrefix('/bt'),
     },
     '/api': {
-      target: localApiTarget,
+      target: trimTrailingSlash(env.VITE_API_PROXY_TARGET || localApiTarget),
       changeOrigin: true,
     },
     '/ai': {

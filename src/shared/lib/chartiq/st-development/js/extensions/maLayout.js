@@ -16,7 +16,7 @@ let __st_js_maLayout_ = (_exports) => {
         // /** 根据critial判断study所属Symbol */
         // let isComparison = (criteria && criteria.endsWith('2')) || false
 
-        var activatedTechLayoutList = CIQ.store.state.chart.activatedTechLayout?CIQ.store.state.chart.activatedTechLayout:[]
+        var activatedTechLayoutList = CIQ.store.$state.activatedTechLayout?CIQ.store.$state.activatedTechLayout:[]
 
         // 移除当前位置的indicator信息
         var TechLayoutListIndex = activatedTechLayoutList.findIndex(
@@ -27,7 +27,7 @@ let __st_js_maLayout_ = (_exports) => {
             activatedTechLayoutList.splice(TechLayoutListIndex, 1)
         }
         
-        if (!CIQ.store.getters.getMaLikeTech.includes(url) && (CIQ.findBuiltinTechIndicator(null,url) || CIQ.findSymbolIndicator(url,null))){
+        if (!CIQ.store.$state.maLikeTech.includes(url) && (CIQ.findBuiltinTechIndicator(null,url) || CIQ.findSymbolIndicator(url,null))){
             var obj = {}
             // 如果存在dual symbol两个symbol共用同一个tech indicator,则分别保存其信息
             obj = {
@@ -52,15 +52,15 @@ let __st_js_maLayout_ = (_exports) => {
                 activatedTechLayoutList.push(obj)
            // }      
         }
-        CIQ.store.commit('chart/getTechLayout', activatedTechLayoutList)
+        CIQ.store.set_tech_layout(activatedTechLayoutList)
     }
 
     CIQ.removeTechLayout = function (url, criteria, index) {
         // /** 根据critial判断study所属Symbol */
         // let isComparison = (criteria && criteria.endsWith('2')) || false
-        if (!CIQ.store.getters.getMaLikeTech.includes(url) && (CIQ.findBuiltinTechIndicator(null,url) || CIQ.findSymbolIndicator(url,null))){
+        if (!CIQ.store.$state.maLikeTech.includes(url) && (CIQ.findBuiltinTechIndicator(null,url) || CIQ.findSymbolIndicator(url,null))){
             // 對undefined的判斷處理只是爲了防止報錯，因爲btv1的遷移可能存在未知的錯誤
-            var activatedTechLayoutList = CIQ.store.state.chart.activatedTechLayout?CIQ.store.state.chart.activatedTechLayout:[]
+            var activatedTechLayoutList = CIQ.store.$state.activatedTechLayout?CIQ.store.$state.activatedTechLayout:[]
 
             // remove redundant Tech
             var TechLayoutListIndex = activatedTechLayoutList.findIndex(
@@ -70,7 +70,7 @@ let __st_js_maLayout_ = (_exports) => {
                 activatedTechLayoutList.splice(TechLayoutListIndex, 1)
             }
 
-            CIQ.store.commit('chart/getTechLayout', activatedTechLayoutList)
+            CIQ.store.set_tech_layout(activatedTechLayoutList)
         }
     }
 
@@ -82,7 +82,7 @@ let __st_js_maLayout_ = (_exports) => {
         field = null,
         ticker = null
     } = {}) {
-        var activatedMALayoutList = CIQ.store.state.chart.activatedMALayout?CIQ.store.state.chart.activatedMALayout:[]
+        var activatedMALayoutList = CIQ.store.$state.activatedMALayout?CIQ.store.$state.activatedMALayout:[]
         // remove a MA tat already exists in current criteria
         var MALayoutListIndex = activatedMALayoutList.findIndex(
             (item) => item.criteria == criteria && item.index == index
@@ -93,7 +93,7 @@ let __st_js_maLayout_ = (_exports) => {
         ) {
             activatedMALayoutList.splice(MALayoutListIndex, 1)
         }
-        if (CIQ.store.getters.getMaLikeTech.includes(url)){
+        if (CIQ.store.$state.maLikeTech.includes(url)){
             // keep current MA
             var objMA = url == 'ma' 
             ? {
@@ -112,12 +112,12 @@ let __st_js_maLayout_ = (_exports) => {
             }
             activatedMALayoutList.push(objMA)
         }
-        CIQ.store.commit('chart/getMALayout', activatedMALayoutList)
+        CIQ.store.set_ma_layout(activatedMALayoutList)
     }
     CIQ.removeMALayout = function (url, criteria, index) {
-        if (CIQ.store.getters.getMaLikeTech.includes(url)) {
+        if (CIQ.store.$state.maLikeTech.includes(url)) {
             // 對undefined的判斷處理只是爲了防止報錯，因爲btv1的遷移可能存在未知的錯誤
-            var activatedMALayoutList = CIQ.store.state.chart.activatedMALayout?CIQ.store.state.chart.activatedMALayout:[]
+            var activatedMALayoutList = CIQ.store.$state.activatedMALayout?CIQ.store.$state.activatedMALayout:[]
 
             // remove current MA attached to an indicator
             var MALayoutListIndex = activatedMALayoutList.findIndex(
@@ -127,43 +127,43 @@ let __st_js_maLayout_ = (_exports) => {
                 activatedMALayoutList.splice(MALayoutListIndex, 1)
             }
 
-            CIQ.store.commit('chart/getMALayout', activatedMALayoutList)
+            CIQ.store.set_ma_layout(activatedMALayoutList)
         }
     }
     // 用于changeRelation relation==1
     CIQ.keepTheFirstMALayout = function (criteria) {
 
-        var activatedMALayoutList = CIQ.store.state.chart.activatedMALayout?CIQ.store.state.chart.activatedMALayout:[]
+        var activatedMALayoutList = CIQ.store.$state.activatedMALayout?CIQ.store.$state.activatedMALayout:[]
 
         // 如tech是ma则保留第一个选项卡的ma信息
         activatedMALayoutList = activatedMALayoutList.filter(
             (item) => item.criteria != criteria || (item.criteria == criteria && item.index == 0)
         )
 
-        CIQ.store.commit('chart/getMALayout', activatedMALayoutList)
+        CIQ.store.set_ma_layout(activatedMALayoutList)
 
         /**
          * 同时更新techLayout位置
          */
-        var activatedTechLayoutList = CIQ.store.state.chart.activatedTechLayout?CIQ.store.state.chart.activatedTechLayout:[]
+        var activatedTechLayoutList = CIQ.store.$state.activatedTechLayout?CIQ.store.$state.activatedTechLayout:[]
 
         // 如tech是ma则保留第一个选项卡的ma信息
         var activatedTechLayoutList = activatedTechLayoutList.filter(
             (item) => item.criteria != criteria || (item.criteria == criteria && item.index == 0)
         )
 
-        CIQ.store.commit('chart/getTechLayout', activatedTechLayoutList)
+        CIQ.store.set_tech_layout(activatedTechLayoutList)
     }
     // 用于changeRelation relation==0
     CIQ.removeExitMALayout = function () {
-        var activatedMALayoutList = CIQ.store.state.chart.activatedMALayout?CIQ.store.state.chart.activatedMALayout:[]
+        var activatedMALayoutList = CIQ.store.$state.activatedMALayout?CIQ.store.$state.activatedMALayout:[]
 
         // 如tech是ma则保留第一个选项卡的ma信息
         activatedMALayoutList = activatedMALayoutList.filter(
             (item) => ['entry', 'entry2'].includes(item.criteria)
         )
 
-        CIQ.store.commit('chart/getMALayout', activatedMALayoutList)
+        CIQ.store.set_ma_layout(activatedMALayoutList)
     }
 }
 export { __st_js_maLayout_ }

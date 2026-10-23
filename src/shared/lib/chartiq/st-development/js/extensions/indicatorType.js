@@ -8,12 +8,12 @@ let __st_js_indicatorType_ = _exports => {
 	CIQ.findBuiltinTechIndicator = function(value, url) {
 		let signal
 		if (value) {
-			signal = CIQ.store.getters.getBuiltinList.find(i => {
+			signal = CIQ.store.$state.builtinList.find(i => {
 				return i.value == value
 			})
 		}
 		if (url) {
-			signal = CIQ.store.getters.getBuiltinList.find(i => {
+			signal = CIQ.store.$state.builtinList.find(i => {
 				return i.url == url
 			})
 		}
@@ -22,12 +22,12 @@ let __st_js_indicatorType_ = _exports => {
 	CIQ.findSentiIndicator = function(name, url) {
 		let signal
 		if (name) {
-			signal = CIQ.store.getters.getIndicatorsList.find(i => {
+			signal = CIQ.store.$state.indicatorsList.find(i => {
 				return i.chart_name == name
 			})
 		}
 		if (url) {
-			signal = CIQ.store.getters.getIndicatorsList.find(i => {
+			signal = CIQ.store.$state.indicatorsList.find(i => {
 				return i.url == url
 			})
 		}
@@ -37,12 +37,12 @@ let __st_js_indicatorType_ = _exports => {
 	CIQ.findOriginSentiIndicator = function(name, url) {
 		let signal
 		if (name) {
-			signal = CIQ.store.getters.getOriginIndicatorList.find(i => {
+			signal = CIQ.store.$state.originIndicatorList.find(i => {
 				return i.chart_name == name
 			})
 		}
 		if (url) {
-			signal = CIQ.store.getters.getOriginIndicatorList.find(i => {
+			signal = CIQ.store.$state.originIndicatorList.find(i => {
 				return i.url == url
 			})
 		}

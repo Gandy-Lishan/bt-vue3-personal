@@ -65,12 +65,12 @@ quoteFeedSimulator.sendReq = async function(start,end,new_str,freq,cb){
         CIQ.stxx.chart.symbolDisplay = name
 
         const isWholeData = CIQ.initialDate.start==parseInt(process.env.VUE_APP_START_DATE)
-        console.log("moreAvailable:",CIQ.store.getters.getScannerAIFlagState?false:isWholeData?false:true)
+        console.log("moreAvailable:",CIQ.store.$state.scannerai_flag?false:isWholeData?false:true)
         //在scannerai可以默认配置加载全部数据之前先用全局变量判断路由是否为scannerai
         if (status == 200){
             var newQuotes = await quoteFeedSimulator.formatChartData(response);
             cb({
-                moreAvailable:CIQ.store.getters.getScannerAIFlagState?false:isWholeData?false:true,
+                moreAvailable:CIQ.store.$state.scannerai_flag?false:isWholeData?false:true,
                 quotes:newQuotes,
                 upToDate: true  // set to true in the initial and pagination fetch callbacks if the responses do not require more "future" data (i.e., forward pagination)
             });
@@ -166,7 +166,7 @@ quoteFeedSimulator.fetchInitialData = function(symbol,startDate,endDate,params,c
             } 
             // orignalFreq is the minimum timeframe, selectedFreq is the timeframe sent to req, default value is orignalFreq
             selectedFreq = orignalFreq
-            switch(CIQ.store.state.form.exitFrequency){
+            switch(CIQ.store.$state.exitFrequency){
                 case "Monthly":{
                     selectedFreq = "monthly"
                     break;
@@ -187,15 +187,15 @@ quoteFeedSimulator.fetchInitialData = function(symbol,startDate,endDate,params,c
                     break;
                 }
             }
-            var restoreFreq = CIQ.store.state.form.restoreFreq
+            var restoreFreq = CIQ.store.$state.restoreFreq
             if(restoreFreq != ''){
                 selectedFreq = restoreFreq
             }
             /** dual symbol, setRestoreFreq从pairdata 226行转移到了loadChart回调，保证view时addSeires仍持有未被清空的restoreFreq*/ 
-            // CIQ.store.commit('form/setRestoreFreq', '')
+            // CIQ.store.set_restore_freq('')
             
             // setFreq firstly called when loading aapl symbol during chart initiation, the value is daily by default
-            CIQ.store.commit('form/setFreqency',selectedFreq)
+            CIQ.store.set_freqency(selectedFreq)
  
             try{
                 switch(selectedFreq){
@@ -361,7 +361,7 @@ quoteFeedSimulator.fetchUpdateData = function (symbol, startDate, params,cb){
             console.error(err)
         }
     }   
-    switch(CIQ.store.state.form.exitFrequency){
+    switch(CIQ.store.$state.exitFrequency){
         case "Monthly":{
             freq = "monthly"
             break;
@@ -451,7 +451,7 @@ quoteFeedSimulator.fetchPaginationData = function(symbol, suggestedStartDate, en
             console.error(err)
         }
     }   
-    switch(CIQ.store.state.form.exitFrequency){
+    switch(CIQ.store.$state.exitFrequency){
         case "Monthly":{
             freq = "monthly"
             break;
@@ -544,7 +544,7 @@ quoteFeedSimulator.formatChartData = async function(response){
                 const url = decodeBase64(CIQ.symbol.split('||')[1])
                 let res
                 try {
-                    res = await CIQ.store.dispatch('chart/get_mysymbolCSV',{url:url,timeframe:CIQ.store.state.form.pairDataFreq})
+                    res = await CIQ.store.get_mysymbolCSV({url:url,timeframe:CIQ.store.$state.pairDataFreq})
                 } catch (err) {console.error(err)}
                 let sortedRows = res.sort(
                     (a, b) => new Date(a.DT) - new Date(b.DT)
@@ -649,11 +649,11 @@ quoteFeedSimulator.formatChartData = async function(response){
                 // normal datafeed
                 if(!CIQ.isRestoreLayout) {
                     if(window.location.pathname.includes('/scannerai')){
-                        CIQ.store.dispatch('chart/set_chart_type', 'candle')
+                        CIQ.store.set_chart_type('candle')
                     }else if(window.location.pathname.includes('/myindicator') && CIQ.isOHLCVSelectedMI){    // TODO 考虑用vuex state替代CIQ全局变量
-                        CIQ.store.dispatch('chart/set_chart_type', 'candle')
+                        CIQ.store.set_chart_type('candle')
                     }else{
-                        CIQ.store.dispatch('chart/set_chart_type', 'line')
+                        CIQ.store.set_chart_type('line')
                     }
                 }
                 CIQ.isRestoreLayout = false
@@ -712,7 +712,7 @@ quoteFeedSimulator.formatChartData = async function(response){
                 }
 
                 // value Close only
-                CIQ.store.dispatch('chart/set_chart_type', 'line')
+                CIQ.store.set_chart_type('line')
 
                 // CIQ.stxx.setChartType("line"); 
                 var node = document.querySelector("cq-menu-container[cq-name = 'menuChartStyle']")
@@ -859,7 +859,7 @@ quoteFeedSimulator.formatChartData = async function(response){
         // const earliestIndicator = findEarliestIndicator(objIndicatorFirstDate)
         // newQuotes = earliestIndicator=='Invalid Date'?newQuotes:newQuotes.slice(newQuotes.findIndex(item=>item.DT - earliestIndicator == 0))
     }
-    CIQ.stxx.setChartType(CIQ.store.getters.getChartType);
+    CIQ.stxx.setChartType(CIQ.store.$state.chartType);
     return newQuotes
 }
 

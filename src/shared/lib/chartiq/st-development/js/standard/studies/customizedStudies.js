@@ -230,7 +230,7 @@ if (!CIQ.Studies) {
 
 	// 	if(sd.type == "ST ROCLike") {
 	// 		/** 计算前先计算并储存好tickerOHLCV在sd.chart内 */
-	// 		var activatedMALayoutList = CIQ.store.state.chart.activatedMALayout?CIQ.store.state.chart.activatedMALayout:[]
+	// 		var activatedMALayoutList = CIQ.store.$state.activatedMALayout?CIQ.store.$state.activatedMALayout:[]
 	// 		if(activatedMALayoutList.length == 0) return
 	// 		// 和sentiment indciator roc不同，symnol的需要定位到具体位置因为可以显示多个
 	// 		// 而这也会导致计算函数介入了MAlayout, manageChartLayout功能在还原layout前需要还原MAlayout
@@ -243,11 +243,11 @@ if (!CIQ.Studies) {
 	// 		sd.ticker = sd.parameters.ticker
 	// 	}
 		
-	// 	const tickerPairdata = CIQ.store.getters.getTickerOhlcvPairdata[sd.ticker] || []
+	// 	const tickerPairdata = CIQ.store.$state.tickerOhlcvPairdata[sd.ticker] || []
 	// 	// 一般来说会在计算函数之前获取数据，这里是做了一层保险
 	// 	// (比如API报错或者restoreChartLayout,后者不会调用getMetaData也就不会初始化ohlcv数据)
 	// 	if(tickerPairdata.length == 0) {
-	// 		tickerPairdata = await CIQ.store.dispatch('chart/get_ticker_ohlcv_pairdata',sd.ticker)
+	// 		tickerPairdata = await CIQ.store.get_ticker_ohlcv_pairdata(sd.ticker)
 	// 	}
 	// 	for (const item of tickerPairdata) {
 	// 		if (item.DT && item[field] !== undefined) {
@@ -333,7 +333,7 @@ if (!CIQ.Studies) {
 		if(window.location.pathname.includes('/myindicator')) {
 			const symbolLabel = getCoresSymbolDual(sd.parameters.criteria.endsWith(2))
         	let display = `(${symbolLabel}) Symbol Close Rate Of Change(${period}-Bar)`
-			const miShift = CIQ.store.getters.getMiFormShift
+			const miShift = CIQ.store.$state.miFormShift
 			// 左侧ma
 			if(!sd.parameters.criteria.endsWith('2')) {
 				sd.inputs.display = display
@@ -732,7 +732,7 @@ if (!CIQ.Studies) {
 		var subField = field
 		/** 判断Study用来计算的数据源 */
 		if(sd.parameters.criteria && sd.parameters.criteria.endsWith('2')){
-			// var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+			// var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 			// // 只处理计算数据源和symbol2相关的逻辑（symbol2 symbolClose）
 			// if(CIQ.findSymbolIndicator(null, field)){
 			// 	field = comparisonSymbol?.url
@@ -746,7 +746,7 @@ if (!CIQ.Studies) {
 		if(window.location.pathname.includes('/myindicator')) {
 			const symbolLabel = getCoresSymbolDual(sd.parameters.criteria.endsWith(2))
         	let display = `(${symbolLabel}) Symbol Close Rate Of Change(${period}-Bar)`
-			const miShift = CIQ.store.getters.getMiFormShift
+			const miShift = CIQ.store.$state.miFormShift
 			// 左侧ma
 			if(!sd.parameters.criteria.endsWith('2')) {
 				sd.inputs.display = display
@@ -1157,11 +1157,11 @@ if (!CIQ.Studies) {
 			// 创建一个 Map 以便快速通过 DT 查找 Close 值
 			// 1. O(M) 复杂度, M 是 _data 的长度
 			const ohlcvDataMap = new Map();
-			let tickerPairdata = CIQ.store.getters.getTickerOhlcvPairdata[sd.parameters.ticker] || []
+			let tickerPairdata = CIQ.store.$state.tickerOhlcvPairdata[sd.parameters.ticker] || []
 			// 一般来说会在计算函数之前获取数据，这里是做了一层保险
 			// (比如API报错或者restoreChartLayout,后者不会调用getMetaData也就不会初始化ohlcv数据)
 			if(tickerPairdata.length == 0) {
-				tickerPairdata = await CIQ.store.dispatch('chart/get_ticker_ohlcv_pairdata',sd.parameters.ticker)
+				tickerPairdata = await CIQ.store.get_ticker_ohlcv_pairdata(sd.parameters.ticker)
 			}
 			
 			if(sd?.parameters?.shiftOffset) tickerPairdata = formatData(tickerPairdata, sd?.parameters?.shiftOffset)
@@ -1239,7 +1239,7 @@ if (!CIQ.Studies) {
 		 * ma和roc就是用critria判断Study用来计算的数据源
 		*  */
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1330,7 +1330,7 @@ if (!CIQ.Studies) {
 		var quotes = sd.chart.scrubbed;
 		var field	// 它是流动的
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1375,7 +1375,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1416,7 +1416,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1456,7 +1456,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1487,7 +1487,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1529,7 +1529,7 @@ if (!CIQ.Studies) {
 		);
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1577,7 +1577,7 @@ if (!CIQ.Studies) {
 		);
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1623,7 +1623,7 @@ if (!CIQ.Studies) {
 		);
 		
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1662,7 +1662,7 @@ if (!CIQ.Studies) {
 		);
 		
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1711,7 +1711,7 @@ if (!CIQ.Studies) {
 		);
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1736,7 +1736,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1769,7 +1769,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1804,7 +1804,7 @@ if (!CIQ.Studies) {
 		var subField = field
 		/** 判断Study用来计算的数据源 */
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1863,7 +1863,7 @@ if (!CIQ.Studies) {
 
 		/** 判断Study用来计算的数据源 */
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1885,7 +1885,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1917,7 +1917,7 @@ if (!CIQ.Studies) {
 		var subField = field
 
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1947,7 +1947,7 @@ if (!CIQ.Studies) {
 		var quotes = sd.chart.scrubbed;
 		var field	// 它是流动的
 		if(sd.parameters.criteria && sd.parameters.criteria.endsWith('2')){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol.url
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else{
 			quotes = sd.chart.scrubbed
@@ -1957,7 +1957,7 @@ if (!CIQ.Studies) {
 		if(window.location.pathname.includes('/myindicator')) {
 			const symbolLabel = getCoresSymbolDual(sd.parameters.criteria.endsWith(2))
 			let display = `(${symbolLabel}) Amplitude`
-			const miShift = CIQ.store.getters.getMiFormShift
+			const miShift = CIQ.store.$state.miFormShift
 			// 左侧ma
 			if(!sd.parameters.criteria.endsWith('2')) {
 				sd.inputs.display = display
@@ -1991,7 +1991,7 @@ if (!CIQ.Studies) {
 		// var quotes = sd.chart.scrubbed;
 		// var field	// 它是流动的
 		// if(sd.parameters.criteria && sd.parameters.criteria.endsWith('2')){
-		// 	field = CIQ.store.getters.getComparisonSymbol.url
+		// 	field = CIQ.store.$state.comparisonSymbol.url
 		// 	quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		// }else{
 		// 	quotes = sd.chart.scrubbed
@@ -2003,7 +2003,7 @@ if (!CIQ.Studies) {
 		let display = `(${symbolLabel}) SameBar Multi-Condition ${criteriaCat} Criteria Score`
 		sd.inputs.display = display
 
-		const criteriaScoreList = CIQ.store.getters.getCriteriaScoreList
+		const criteriaScoreList = CIQ.store.$state.criteriaScoreList
 
 		for (var i = sd.startFrom; i < quotes.length; i++) {
 			var quote = quotes[i];
@@ -2062,14 +2062,14 @@ if (!CIQ.Studies) {
 				if(CIQ.findSymbolIndicator(null, sd.inputs.Field)) {
 					/** 计算前先计算并储存好tickerOHLCV在sd.chart内 */
 					let symbolOhlcvLayout
-					var activatedMALayoutList = CIQ.store.state.chart.activatedMALayout?CIQ.store.state.chart.activatedMALayout:[]
+					var activatedMALayoutList = CIQ.store.$state.activatedMALayout?CIQ.store.$state.activatedMALayout:[]
 					// 和sentiment indciator roc不同，symnol的需要定位到具体位置因为可以显示多个
 					// 而这也会导致计算函数介入了MAlayout, manageChartLayout功能在还原layout前需要还原MAlayout
 					symbolOhlcvLayout = activatedMALayoutList.find(
 						(item) => item.criteria == sd.parameters.criteria && item.index == sd.parameters.index
 					)
 					// 这里做判断的原因是，默认加载时需要异步获取数据并执行计算函数，但是编辑比如切换颜色时异步失效，需特殊处理
-					let tickerPairdata = CIQ.store.getters.getTickerOhlcvPairdata[symbolOhlcvLayout.ticker] || []
+					let tickerPairdata = CIQ.store.$state.tickerOhlcvPairdata[symbolOhlcvLayout.ticker] || []
 					const shiftOffet = parseInt(sd.inputs.display.match(/shift-(\d+)/)?.[1] || 0, 10);
 					if(tickerPairdata.length == 0) {
 						await CIQ.Studies.TickerOHLCV("_OHLCV",stx,sd,symbolOhlcvLayout.url,symbolOhlcvLayout.ticker,shiftOffet)
@@ -2124,11 +2124,11 @@ if (!CIQ.Studies) {
 			// 		quotes = sd.chart.scrubbed
 			// 	}
 			// 	const ohlcvDataMap = new Map();
-			// 	let tickerPairdata = CIQ.store.getters.getTickerOhlcvPairdata[sd.parameters.ticker] || []
+			// 	let tickerPairdata = CIQ.store.$state.tickerOhlcvPairdata[sd.parameters.ticker] || []
 			// 	// 一般来说会在计算函数之前获取数据，这里是做了一层保险
 			// 	// (比如API报错或者restoreChartLayout,后者不会调用getMetaData也就不会初始化ohlcv数据)
 			// 	if(tickerPairdata.length == 0) {
-			// 		tickerPairdata = await CIQ.store.dispatch('chart/get_ticker_ohlcv_pairdata',sd.parameters.ticker)
+			// 		tickerPairdata = await CIQ.store.get_ticker_ohlcv_pairdata(sd.parameters.ticker)
 			// 	}
 			// 	for (const item of tickerPairdata) {
 			// 		if (item.DT && item[field] !== undefined) {

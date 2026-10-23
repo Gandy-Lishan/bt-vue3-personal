@@ -48,7 +48,7 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
     if (loader) loader.show();  
     if (filter == 'ALL'){
         var resultsIndexsList = [];
-        const indexsList = CIQ.store.getters.getIndexList
+        const indexsList = CIQ.store.$state.indexsList
         let concatList = [] // 用於新的搜索過濾方法，無視stock或者index類別
         for (var i = 0; i < indexsList.length; i++) {
             var fields = indexsList[i]; 
@@ -64,7 +64,7 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
             });
         }
         var resultsStocksList = [];
-        const stocksList = CIQ.store.getters.getStockList
+        const stocksList = CIQ.store.$state.stocksList
         for (var i = 0; i < stocksList.length; i++) {
             var fields = stocksList[i];
             var item = {
@@ -80,7 +80,7 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
         }
 
         var resultsCustomSymbolList = [];
-        const mySymbolList = CIQ.store.getters.getMySymbollist
+        const mySymbolList = CIQ.store.$state.mySymbolList
         mySymbolList.forEach(element => {
             // 把name和url拼接在一起，這樣在用戶訪問到此symbol時不用再去請求一次列表
             var item = {
@@ -122,7 +122,7 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
     }
     else if (filter == 'INDEXES'){
 			var results = [];
-            const indexsList = CIQ.store.getters.getIndexList
+            const indexsList = CIQ.store.$state.indexsList
             let concatList = [] // 用於新的搜索過濾方法，無視stock或者index類別
 			for (var i = 0; i < indexsList.length; i++) {
 				var fields = indexsList[i];
@@ -157,7 +157,7 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
             }      
 	}else if (filter == 'STOCKS') {
         var results = [];
-        const stocksList = CIQ.store.getters.getStockList
+        const stocksList = CIQ.store.$state.stocksList
         let concatList = [] // 用於新的搜索過濾方法，無視stock或者index類別
         for (var i = 0; i < stocksList.length; i++) {
             var fields = stocksList[i];
@@ -192,10 +192,10 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
         } 
     } else if (filter == 'MY FAVORITES'){
         var results = []
-        await CIQ.store.dispatch('chart/get_favorite')
-        var resu = CIQ.store.getters.getFavoriteSymbolList
+        await CIQ.store.get_favorite()
+        var resu = CIQ.store.$state.favoriteSymbolList
             try {
-                var listStock = CIQ.store.getters.getStockList.map(_obj=>{
+                var listStock = CIQ.store.$state.stocksList.map(_obj=>{
                         var newObj = {}
                         newObj['name'] = _obj.name
                         newObj['url'] = _obj.stock
@@ -203,7 +203,7 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
                     })
 
 
-                var listIndex = CIQ.store.getters.getIndexList.map(_obj=>{
+                var listIndex = CIQ.store.$state.indexsList.map(_obj=>{
                     var newObj = {}
                     newObj['name'] = _obj.name
                     newObj['url'] = _obj.symbol
@@ -236,7 +236,7 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
             cb(results);
     } else if (filter == 'CUSTOM SYMBOL') {
         var results = []
-        const mySymbolList = CIQ.store.getters.getMySymbollist
+        const mySymbolList = CIQ.store.$state.mySymbolList
         mySymbolList.forEach(element => {
             // 把name和url拼接在一起，這樣在用戶訪問到此symbol時不用再去請求一次列表
             var item = {
@@ -258,9 +258,9 @@ CIQ.ChartEngine.Driver.Lookup.ChartIQ.prototype.acceptText = async function (
         cb(results)
     } else if (filter == 'SYMBOLS') {
         var results = []
-        const symbollistForecast = CIQ.store.getters.getSymbollistForecast
-        let stocksList = CIQ.store.getters.getStockList
-        let indexsList = CIQ.store.getters.getIndexList
+        const symbollistForecast = CIQ.store.$state.symbollistForecast
+        let stocksList = CIQ.store.$state.stocksList
+        let indexsList = CIQ.store.$state.indexsList
         symbollistForecast.forEach(element => {
             const stocks = stocksList.find(i=>i.stock.toUpperCase() == element.market.toUpperCase() || i.name.toUpperCase() == element.market.toUpperCase())
             const indexs = indexsList.find(i=>i.symbol.toUpperCase() == element.market.toUpperCase() || i.name.toUpperCase() == element.market.toUpperCase())

@@ -8,7 +8,7 @@ let __st_js_manage_chart_layout_ = (_exports) => {
     CIQ.saveLayout = function(name) {
         let stx = CIQ.stxx
         var layout = JSON.stringify(CIQ.stxx.exportLayout(true));
-        let layoutFreq = CIQ.store.state.form.exitFrequency
+        let layoutFreq = CIQ.store.$state.exitFrequency
         let chartType = stx.layout.chartType
         let uid = crypto.randomUUID()
         let pref = savePreferences()
@@ -20,10 +20,10 @@ let __st_js_manage_chart_layout_ = (_exports) => {
         customizedLayouts.xAixsGridLine = stx.layout.xAixsGridLine
         customizedLayouts.crosshair = stx.layout.crosshair
 
-        let comparison = JSON.stringify(CIQ.store.getters.getComparisonSymbol) || ''
+        let comparison = JSON.stringify(CIQ.store.$state.comparisonSymbol) || ''
 
         // symbol ohlcv的roc计算函数需要用到Layout
-        let activatedMALayout = JSON.stringify(CIQ.store.state.chart.activatedMALayout) || '[]'
+        let activatedMALayout = JSON.stringify(CIQ.store.$state.activatedMALayout) || '[]'
 
         let obj = {id:uid,name,layout,layoutFreq,chartType,pref,themes,customizedLayouts,comparison, activatedMALayout}
         return obj
@@ -49,9 +49,9 @@ let __st_js_manage_chart_layout_ = (_exports) => {
         };
         if (layout) {
             CIQ.addCover()
-            CIQ.store.commit('form/getFrequency', layout.layoutFreq)
-            CIQ.store.dispatch('chart/set_chart_type', layout.chartType)
-            CIQ.store.commit('chart/getMALayout', JSON.parse(layout.activatedMALayout || '[]'))
+            CIQ.store.set_freqency(layout.layoutFreq)
+            CIQ.store.set_chart_type(layout.chartType)
+            CIQ.store.set_ma_layout(JSON.parse(layout.activatedMALayout || '[]'))
             CIQ.isRestoreLayout = true   
             let parsedLayout = JSON.parse(layout.layout)
             parsedLayout.symbols[0].symbolObject.endDate = new Date().toISOString()
@@ -106,7 +106,7 @@ let __st_js_manage_chart_layout_ = (_exports) => {
 
     const restoreComparison = async function(stx, comparison,cb) {
         debugger
-        CIQ.store.commit('form/setComparisonSymbol', JSON.parse(comparison))
+        CIQ.store.setComparisonSymbol(JSON.parse(comparison))
         // addSeire前移除当前序列,防止出现多个序列
         for(var s in stx.chart.series){
             var series=stx.chart.series[s];

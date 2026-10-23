@@ -15,7 +15,7 @@ let __st_js_generateCsv_ = (_exports) => {
      if(study == undefined){ return }
      // 因为scrubbed不包含没数据的row
      let JSONData = study.chart.dataSet
-     let timePeriod = CIQ.store.getters.getSpanPeriod
+     let timePeriod = CIQ.store.$state.spanPeriod
      //先转化json
      let _arrData = typeof JSONData != 'object' ? JSON.parse(JSONData) : JSONData;
      // 根据time period筛选数据
@@ -33,7 +33,7 @@ let __st_js_generateCsv_ = (_exports) => {
          arrData.push(_arrData[i])
      }
 
-     const tradePriceType = CIQ.store.state.form.tradePrice
+     const tradePriceType = CIQ.store.$state.tradePrice
      // 给数组内容换好位置
      for(var i in arrData){
          let item = arrData[i]
@@ -73,7 +73,7 @@ let __st_js_generateCsv_ = (_exports) => {
          });
      }
      // find the correspond sd type
-     CIQ.store.state.chart.indicators.formIndicators.entry.forEach((value,index)=>{
+     CIQ.store.$state.indicators.formIndicators.entry.forEach((value,index)=>{
          var _index = ''
          var indexNum
          var sd = {}
@@ -104,7 +104,7 @@ let __st_js_generateCsv_ = (_exports) => {
          }
          finalData = generateFinalOutput(arrData,finalData,sd,_index,indexNum,'entry')
      })
-     CIQ.store.state.chart.indicators.formIndicators.exit.forEach((value,index)=>{
+     CIQ.store.$state.indicators.formIndicators.exit.forEach((value,index)=>{
          var _index = ''
          var indexNum
          var sd = {}
@@ -142,14 +142,14 @@ let __st_js_generateCsv_ = (_exports) => {
      let indexs = Object.keys(finalData[0])
      let newIndexs = indexs.map((val,index)=>{
          if(index>=6 && index<=10){
-             if(CIQ.store.state.chart.indicators.formIndicators.entry[index-6]){
-                 return CIQ.store.state.chart.indicators.formIndicators.entry[index-6] + labelOption[index-6]
+             if(CIQ.store.$state.indicators.formIndicators.entry[index-6]){
+                 return CIQ.store.$state.indicators.formIndicators.entry[index-6] + labelOption[index-6]
              }else{
                  return Object.keys(finalData[0])[index]
              }  
          }else if(index>10){
-             if(CIQ.store.state.chart.indicators.formIndicators.exit[index-11]){
-                 return CIQ.store.state.chart.indicators.formIndicators.exit[index-11] + labelOption[index-6]
+             if(CIQ.store.$state.indicators.formIndicators.exit[index-11]){
+                 return CIQ.store.$state.indicators.formIndicators.exit[index-11] + labelOption[index-6]
              }else{
                  return Object.keys(finalData[0])[index]
              }  
@@ -179,7 +179,7 @@ let __st_js_generateCsv_ = (_exports) => {
     if(study == undefined){ return }
     // 因为scrubbed不包含没数据的row
     let JSONData = study.chart.dataSet
-    let timePeriod = CIQ.store.getters.getSpanPeriod
+    let timePeriod = CIQ.store.$state.spanPeriod
     //先转化json
     let _arrData = typeof JSONData != 'object' ? JSON.parse(JSONData) : JSONData;
     // 根据time period筛选数据
@@ -199,7 +199,7 @@ let __st_js_generateCsv_ = (_exports) => {
         arrData.push(_arrData[i])
     }
 
-    const tradePriceType = CIQ.store.state.form.tradePrice
+    const tradePriceType = CIQ.store.$state.tradePrice
     // 给数组内容换好位置
     for(var i in arrData){
         let item = arrData[i]
@@ -241,7 +241,7 @@ let __st_js_generateCsv_ = (_exports) => {
     }
     
     // find the correspond sd type
-    CIQ.store.state.chart.indicators.formIndicators.entry2.forEach((value,index)=>{
+    CIQ.store.$state.indicators.formIndicators.entry2.forEach((value,index)=>{
         var _index = ''
         var indexNum
         var sd = {}
@@ -272,7 +272,7 @@ let __st_js_generateCsv_ = (_exports) => {
         }
         finalData = generateFinalOutput(arrData,finalData,sd,_index,indexNum,'entry2')
     })
-    CIQ.store.state.chart.indicators.formIndicators.exit2.forEach((value,index)=>{
+    CIQ.store.$state.indicators.formIndicators.exit2.forEach((value,index)=>{
         var _index = ''
         var indexNum
         var sd = {}
@@ -309,14 +309,14 @@ let __st_js_generateCsv_ = (_exports) => {
     let indexs = Object.keys(finalData[0])
     let newIndexs = indexs.map((val,index)=>{
         if(index>=6 && index<=10){
-            if(CIQ.store.state.chart.indicators.formIndicators.entry2[index-6]){
-                return CIQ.store.state.chart.indicators.formIndicators.entry2[index-6] + labelOption[index-6]
+            if(CIQ.store.$state.indicators.formIndicators.entry2[index-6]){
+                return CIQ.store.$state.indicators.formIndicators.entry2[index-6] + labelOption[index-6]
             }else{
                 return Object.keys(finalData[0])[index]
             }  
         }else if(index>10){
-            if(CIQ.store.state.chart.indicators.formIndicators.exit2[index-11]){
-                return CIQ.store.state.chart.indicators.formIndicators.exit2[index-11] + labelOption[index-6]
+            if(CIQ.store.$state.indicators.formIndicators.exit2[index-11]){
+                return CIQ.store.$state.indicators.formIndicators.exit2[index-11] + labelOption[index-6]
             }else{
                 return Object.keys(finalData[0])[index]
             }  
@@ -354,7 +354,7 @@ let __st_js_generateCsv_ = (_exports) => {
      var link = document.createElement("a"); 
      link.setAttribute("href", encodedUri); 
      let fileName = 'test.csv'
-     //let fileName = CIQ.store.state.chart.indicators.formIndicators.entry + ' & ' + CIQ.store.state.chart.indicators.formIndicators.exit + '.csv'
+     //let fileName = CIQ.store.$state.indicators.formIndicators.entry + ' & ' + CIQ.store.$state.indicators.formIndicators.exit + '.csv'
      link.setAttribute("download", fileName); 
      document.body.appendChild(link);
      link.click();
@@ -363,9 +363,9 @@ let __st_js_generateCsv_ = (_exports) => {
  function generateFinalOutput(arrData,finalData,sd,index,indexNum,criteria){
      if(!sd.type) return finalData
      var resultIndex = ''
-     var categoryList = CIQ.store.getters.getTechnicalCategory
+     var categoryList = CIQ.store.$state.technicalCategory
      // todo, rerun获取conditionRadio
-     var conditionRadio = CIQ.store.state.form.conditionRadio[criteria][indexNum]
+     var conditionRadio = CIQ.store.$state.conditionRadio[criteria][indexNum]
      var formatSmallNum = function(num){
         //  if(num>-0.005 && num<0){return -0.01}
         //  else if(num>0 && num<0.005){return 0.01}
@@ -959,7 +959,7 @@ let __st_js_generateCsv_ = (_exports) => {
     let finalData = []
     let ohlcvRows = []
     
-    const comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+    const comparisonSymbol = CIQ.store.$state.comparisonSymbol
 
     let study = CIQ.stxx.layout.studies[Object.keys(CIQ.stxx.layout.studies).pop()]
     if(study == undefined){ return }
@@ -999,7 +999,7 @@ let __st_js_generateCsv_ = (_exports) => {
     }
 
     // find the correspond sd type
-    CIQ.store.state.chart.indicators.formIndicators[criteria].forEach((value,index)=>{
+    CIQ.store.$state.indicators.formIndicators[criteria].forEach((value,index)=>{
         var _index = ''
         var indexNum
         var sd = {}
@@ -1033,7 +1033,7 @@ let __st_js_generateCsv_ = (_exports) => {
 
     // TODO ,逐个拿entry1, entry2 ...的条件来对比finalData值是否满足
     
-    const signals = cloneDeep(CIQ.store.state.form.backtestInfo)[criteria].signals
+    const signals = cloneDeep(CIQ.store.$state.backtestInfo)[criteria].signals
 
     // 特殊情况： 如果comparison是SC即值应该是由Symbol Close - Value得来，
     // 然而我们默认是只上传Value,这里需要单独判断并计算finalData那一列的值
@@ -1047,7 +1047,7 @@ let __st_js_generateCsv_ = (_exports) => {
     // }
     const evalatedList = evaluateAll(finalData, signals, ohlcvRows)
     console.log('evalatedList: ', evalatedList)
-    await CIQ.store.dispatch('chart/save_criteria_scorelist',evalatedList.map(item=>Object.values(item).reduce((sum,num)=>sum+num,0)))
+    await CIQ.store.save_criteria_scorelist(evalatedList.map(item=>Object.values(item).reduce((sum,num)=>sum+num,0)))
     for (let studyInstanceName in CIQ.stxx.layout.studies) {
         if (
           CIQ.stxx.layout.studies[studyInstanceName].type == 'CriteriaScore'

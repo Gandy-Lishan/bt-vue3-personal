@@ -36,7 +36,7 @@ if (CIQ.ChartEngine) {
 		var d;
 		var field = "Close"
 		var subField = field
-		const comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+		const comparisonSymbol = CIQ.store.$state.comparisonSymbol || { url: null, name: null }
 		var symbol2Field = comparisonSymbol.url
 		if(!comparisonSymbol.url){
 			symbol2Field = field
@@ -122,7 +122,7 @@ if (CIQ.ChartEngine) {
 		var _accum = [];
 		if (state._accum) _accum = state._accum;
 		var _q1;
-		const comparisonSymbolUrl = CIQ.store.getters.getComparisonSymbol?.url
+		const comparisonSymbolUrl = CIQ.store.$state.comparisonSymbol || { url: null, name: null }?.url
 		if(comparisonSymbolUrl){
 			data = chart.masterData
 			var filteredData2 = data.filter(item => item.hasOwnProperty(comparisonSymbolUrl))
@@ -168,7 +168,7 @@ if (CIQ.ChartEngine) {
 	CIQ.ChartEngine.prototype.calculateMedianPrice = function (chart, data) {
 		if (!data) data = chart.dataSet;
 		var d;
-		const comparisonSymbolUrl = CIQ.store.getters.getComparisonSymbol?.url
+		const comparisonSymbolUrl = CIQ.store.$state.comparisonSymbol || { url: null, name: null }?.url
 		// 默认是data(scrumbed)或者chart.dataSet,但是双股票情况下在处理第二个股票hl/2
 		// 时dataSet还为空，所以设为chart.masterData
 		if(comparisonSymbolUrl) data = chart.masterData
@@ -194,7 +194,7 @@ if (CIQ.ChartEngine) {
 	CIQ.ChartEngine.prototype.calculateTypicalPrice = function (chart, data) {
 		if (!data) data = chart.dataSet;
 		var d;
-		const comparisonSymbolUrl = CIQ.store.getters.getComparisonSymbol?.url
+		const comparisonSymbolUrl = CIQ.store.$state.comparisonSymbol || { url: null, name: null }?.url
 		// 默认是data(scrumbed)或者chart.dataSet,但是双股票情况下在处理第二个股票hl/2
 		// 时dataSet还为空，所以设为chart.masterData
 		if(comparisonSymbolUrl) data = chart.masterData
@@ -220,7 +220,7 @@ if (CIQ.ChartEngine) {
 	CIQ.ChartEngine.prototype.calculateWeightedClose = function (chart, data) {
 		if (!data) data = chart.dataSet;
 		var d;
-		const comparisonSymbolUrl = CIQ.store.getters.getComparisonSymbol?.url
+		const comparisonSymbolUrl = CIQ.store.$state.comparisonSymbol || { url: null, name: null }?.url
 		// 默认是data(scrumbed)或者chart.dataSet,但是双股票情况下在处理第二个股票hl/2
 		// 时dataSet还为空，所以设为chart.masterData
 		if(comparisonSymbolUrl) data = chart.masterData
@@ -246,7 +246,7 @@ if (CIQ.ChartEngine) {
 	CIQ.ChartEngine.prototype.calculateOHLC4 = function (chart, data) {
 		if (!data) data = chart.dataSet;
 		var d;
-		const comparisonSymbolUrl = CIQ.store.getters.getComparisonSymbol?.url
+		const comparisonSymbolUrl = CIQ.store.$state.comparisonSymbol || { url: null, name: null }?.url
 		// 默认是data(scrumbed)或者chart.dataSet,但是双股票情况下在处理第二个股票hl/2
 		// 时dataSet还为空，所以设为chart.masterData
 		if(comparisonSymbolUrl) data = chart.masterData
@@ -263,7 +263,7 @@ if (CIQ.ChartEngine) {
 	CIQ.ChartEngine.prototype.calculateDailyChange = function (chart, data) {
 		if (!data) data = chart.dataSet;
 		var d;
-		const comparisonSymbolUrl = CIQ.store.getters.getComparisonSymbol?.url
+		const comparisonSymbolUrl = CIQ.store.$state.comparisonSymbol || { url: null, name: null }?.url
 		// 默认是data(scrumbed)或者chart.dataSet,但是双股票情况下在处理第二个股票hl/2
 		// 时dataSet还为空，所以设为chart.masterData
 		if(comparisonSymbolUrl) data = chart.masterData
@@ -369,7 +369,7 @@ if (CIQ.ChartEngine) {
 	) {
 		var field	// 它是流动的
 		if(sd.parameters.isComparison){
-			field = CIQ.store.getters.getComparisonSymbol.url
+			field = CIQ.store.$state.comparisonSymbol || { url: null, name: null }.url
 		}
 		const hasVolume = getPropertyByString(quotes[quotes.length-1],field,'Volume')
 		if(!hasVolume && hasVolume!= 0) stx.displayErrorAsWatermark(sd.panel, "Not enough data to compute");

@@ -42,7 +42,7 @@ if (!CIQ.Studies) {
 				/** 用subField代替sd.subField,考虑到sd.subField一直是默认的Close */
 				var subField = field
 				if(sd.parameters.isComparison){
-					field = CIQ.store.getters.getComparisonSymbol.url
+					field = CIQ.store.$state.comparisonSymbol.url
 					quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 				}else{
 					quotes = sd.chart.scrubbed

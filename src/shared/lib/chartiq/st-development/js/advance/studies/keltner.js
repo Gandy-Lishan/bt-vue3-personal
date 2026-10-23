@@ -37,7 +37,7 @@ if (!CIQ.Studies) {
 	CIQ.Studies.calculateKeltner = function (stx, sd) {
 		if(sd.parameters.isComparison){
 			/**根据criteria动态设定study的Y轴属*******/
-			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.getters.getComparisonSymbol.url);
+			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.$state.comparisonSymbol.url);
 			sd.yAxis = actualXaxis
 			/****************** */
 		}else{

@@ -542,7 +542,7 @@ let __js_webcomponents_reports_lookup_ = (_exports) => {
              */
         selectItem(data, fn) {
 			if (this.params.cb) {
-                CIQ.store.commit('chart/SET_FORECAST_MARKET', data.market)
+                CIQ.store.set_forecast_market(data.market)
 				this.params.cb(data, fn);
 			}
 		}

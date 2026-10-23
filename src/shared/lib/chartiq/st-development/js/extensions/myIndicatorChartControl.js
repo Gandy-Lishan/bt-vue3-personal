@@ -23,7 +23,7 @@
 
     CIQ.displayWeightOwnIndicator = async function(previousState,updatedState,combinedStudy){
         CIQ.addCover()
-        CIQ.store.commit('states/SET_MI_CREATE_LOADING', true)
+        CIQ.store.set_mi_create_loading(true)
         //编辑时对内容修改或者preview应该移除生成的indicator
         if(!combinedStudy){
             for (var studyInstanceName in CIQ.stxx.layout.studies) { 
@@ -50,7 +50,7 @@
         // indicator加载
         await addIndicatorStudy(addedItems.map(item=>item.indicator_url))
 
-        const benchmark = CIQ.store.state.chart.miBenmark
+        const benchmark = CIQ.store.$state.miBenmark
         CIQ.stxx.loadChart({ 
             // 优先考虑symbolList第一个，然后是benchmark（edit时）, benchmark不存在就用默认
                 symbol: symbolList.length?symbolList[0].indicator_url:benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL, 
@@ -62,7 +62,7 @@
                 // symbol加载，识别第一个为默认图标symbol,其它symbol作为serie加载,必须遍历加载，不然很难管理
                 manageSymbolSerie(symbolList);
                 CIQ.hideCover()
-                CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                CIQ.store.set_mi_create_loading(false)
             }
         ) 
         
@@ -218,7 +218,7 @@
     CIQ.updateUserOwnIndicator = async function(newData,oldData){
         await new Promise((resolve) => {
             CIQ.addCover()
-            CIQ.store.commit('states/SET_MI_CREATE_LOADING', true)
+            CIQ.store.set_mi_create_loading(true)
             //编辑时对内容修改或者preview应该移除生成的indicator
             for (var studyInstanceName in CIQ.stxx.layout.studies) { 
                 var sd = CIQ.stxx.layout.studies[studyInstanceName]; 
@@ -240,10 +240,10 @@
                 }
 
                 // 类型切换时设置默认timeframe(主要因为WIC,indicator,symbol会设置'form/getFrequency')
-                CIQ.store.commit('form/getFrequency', 'Daily')
+                CIQ.store.set_freqency('Daily')
 
                 CIQ.hideCover()
-                CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                CIQ.store.set_mi_create_loading(false)
                 resolve()
                 return
             }
@@ -257,7 +257,7 @@
                 }
                 // 如果右侧发生变动
                 if(oldData.indicator2.url != newData.indicator2.url){
-                    CIQ.store.commit('form/setComparisonSymbol', {
+                    CIQ.store.setComparisonSymbol({
                         name:newData.indicator2.name,
                         url:newData.indicator2.url,
                     })
@@ -272,13 +272,13 @@
                     startDate:new Date(parseInt(process.env.VUE_APP_START_DATE)),
                     endDate:new Date(),
                 },()=>{
-                    const miFormShift = CIQ.store.getters.getMiFormShift
+                    const miFormShift = CIQ.store.$state.miFormShift
                     // 当同时满足shift被勾选且symbol1存在并与symbol2一致，则计算偏移
                     const offset = (miFormShift.showInput && miFormShift.display) ? miFormShift.value : 0
                     if(newData.indicator2.name) loadSeries(newData.indicator2.name,newData.indicator2.url,offset)
                     else {
                         CIQ.hideCover()
-                        CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                        CIQ.store.set_mi_create_loading(false)
                     }
                 })
                 resolve()
@@ -306,7 +306,7 @@
                     }
                     // 如果操作后另一个框存在了同样的indicator就刷新当前indicator后跳过加载（ [aim,smart_money]->[smart_money,smart_money]）
                     if(newData.indicator1.url == newData.indicator2.url) {
-                        const miShift = CIQ.store.getters.getMiFormShift
+                        const miShift = CIQ.store.$state.miFormShift
                         CIQ.addIndicatorShift(newData.indicator1.name, newData.indicator1.url, miShift.value || 0)
                         resolve()
                     }else{
@@ -326,7 +326,7 @@
                     }
                     // 如果操作后另一个框存在了同样的indicator就加载shifted indicator（ [aim,smart_money]->[aim,aim] ? add shifted aim）
                     if(newData.indicator1.url == newData.indicator2.url) {
-                        const miShift = CIQ.store.getters.getMiFormShift
+                        const miShift = CIQ.store.$state.miFormShift
                         CIQ.addIndicatorShift(newData.indicator2.name,newData.indicator2.url,miShift.value || 0)
                         resolve()
                     }else{
@@ -347,7 +347,7 @@
                     endDate:new Date(),
                 },()=>{
                     CIQ.hideCover()
-                    CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                    CIQ.store.set_mi_create_loading(false)
                 })
                 resolve(); 
             }      
@@ -399,7 +399,7 @@
     const loadSeries = async function(name,url,barOffset,cb) {
         var start = config.timestampToTime(CIQ.initialDate.start)
         var end = config.timestampToTime(CIQ.initialDate.end)
-        const res = await getPairData( start, end, CIQ.store.state.form.pairDataFreq, url)
+        const res = await getPairData( start, end, CIQ.store.$state.pairDataFreq, url)
         let _data = formatData(res.data,barOffset)
         CIQ.stxx.addSeries(url, {
             display:`${name}${barOffset ? `(shift-${barOffset})` : ``}`, 
@@ -419,7 +419,7 @@
         });
 
         CIQ.hideCover()
-        CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+        CIQ.store.set_mi_create_loading(false)
     }
 
     // 预览生成的新indicator
@@ -435,7 +435,7 @@
         addSingleIndicator(indicatorList,indicator,symbol,extremeLines,()=>{
             // 但是需要判断symbol1与symbol2一致，不一致的话自然不会去计算偏移
             if(category?.includes('Symbol')) {
-                const miFormShift = CIQ.store.getters.getMiFormShift
+                const miFormShift = CIQ.store.$state.miFormShift
                 // offset仅供显示
                 const offset = (miFormShift.showInput && miFormShift.display) ? miFormShift.value : 0
                 CIQ.addSymbolShift(offset)
@@ -445,7 +445,7 @@
                 const indicator1 = indicatorList[0]
                 const indicator2 = indicatorList[1]
                 if(indicator1 && indicator2 && indicator1 === indicator2) {
-                    const miFormShift = CIQ.store.getters.getMiFormShift
+                    const miFormShift = CIQ.store.$state.miFormShift
                     const offset = (miFormShift.showInput && miFormShift.display) ? miFormShift.value : 0
                     CIQ.addIndicatorShift(indicator2, indicator2, offset)
                 }
@@ -480,9 +480,9 @@
     // 我这里不用重新触发inputSelectHandler的思路来复现图表，因为这样会导致图表加载流程冗余
     CIQ.displayUserOwnIndicatorLayout = async function(_newVal){
         //考虑到addSeries必须在displaydata前设定好timeframe
-        CIQ.store.commit('form/getFrequency', _newVal.time_frame) //考虑到addSeries必须写死timeframe
+        CIQ.store.set_freqency(_newVal.time_frame) //考虑到addSeries必须写死timeframe
         CIQ.addCover()
-        CIQ.store.commit('states/SET_MI_CREATE_LOADING', true)
+        CIQ.store.set_mi_create_loading(true)
         const newData = {
             categories : _newVal.categories,
             indicator1 : {name:_newVal.former,url:_newVal.indicator_1_url},
@@ -499,7 +499,7 @@
         if(newData.categories == 'Symbol Spread' || newData.categories == 'Symbol Ratio' || newData.categories == 'Symbol Addition'){
                 // indicator1,包括主symbol和new indicator
                 CIQ.objIndicator = []
-                CIQ.store.commit('form/setComparisonSymbol', {
+                CIQ.store.setComparisonSymbol({
                     name:newData.indicator2.name,
                     url:newData.indicator2.url,
                 })
@@ -516,7 +516,7 @@
                         if(result !== null) {
                             offset = Number(result[`shift_ma2`]) || 0
                             // display form时还原shift值到vuex
-                            CIQ.store.dispatch('chart/set_mi_shift',{'display': true, 'showInput': !!offset, 'value':  offset})
+                            CIQ.store.set_mi_form_shift({'display': true, 'showInput': !!offset, 'value':  offset})
                         }
                     }
                     loadSeries(newData.indicator2.name,newData.indicator2.url,offset,()=>{
@@ -556,20 +556,20 @@
             
             // 自定义indicator
             await getUserOwnIndicatorMatedata(newData.url,extremeLines)
-            const benchmark = CIQ.store.state.chart.miBenmark
+            const benchmark = CIQ.store.$state.miBenmark
             CIQ.stxx.loadChart(	{ 
                 symbol: benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL, 
                 indicator:[newData.indicator1.url,newData.indicator2.url,newData.url],
                 startDate:new Date(parseInt(process.env.VUE_APP_START_DATE)),endDate:new Date(),
             }, function(){
                 if(newData.indicator1.url == newData.indicator2.url) {
-                    const miShift = CIQ.store.getters.getMiFormShift
+                    const miShift = CIQ.store.$state.miFormShift
                     // 只要是两个一样的就直接绘制ShiftedSentimentIndicator
                     CIQ.addIndicatorShift(newData.indicator2.name,newData.indicator2.url,miShift.value)
                 }
                 displayOwnIndicatorMAStudies(newData)
                 CIQ.hideCover()
-                CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                CIQ.store.set_mi_create_loading(false)
             }) 
         }
 
@@ -577,7 +577,7 @@
             // WIC 列表加载
             // 自定义indicator
             await getUserOwnIndicatorMatedata(newData.url,extremeLines)
-            CIQ.store.dispatch('chart/set_miFormWeightedListChange',{data:newData.weight_list,url:newData.url})
+            CIQ.store.set_miFormWeightedListChange({data:newData.weight_list,url:newData.url})
         }
 
         CIQ.isOHLCVSelectedMI = false
@@ -588,7 +588,7 @@
             await getUserOwnIndicatorMatedata(newData.url,extremeLines)
 
 
-            const benchmark = CIQ.store.state.chart.miBenmark
+            const benchmark = CIQ.store.$state.miBenmark
             CIQ.stxx.loadChart({
                 symbol: newData.indicator1.url?newData.indicator1.url:benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL, 
                 indicator:[newData.url],
@@ -596,7 +596,7 @@
             }, function(){
                 displayOwnIndicatorMAStudies(newData)
                 CIQ.hideCover()
-                CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                CIQ.store.set_mi_create_loading(false)
             })
         }
         debugger
@@ -604,19 +604,19 @@
             // 自定义indicator
             await getUserOwnIndicatorMatedata(newData.url,extremeLines)
 
-            const benchmark = CIQ.store.state.chart.miBenmark
+            const benchmark = CIQ.store.$state.miBenmark
             CIQ.stxx.loadChart({
                 symbol: benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL, 
                 indicator:[newData.url],
                 startDate:new Date(parseInt(process.env.VUE_APP_START_DATE)),endDate:new Date(),
             }, function(){
                 CIQ.hideCover()
-                CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                CIQ.store.set_mi_create_loading(false)
             })
         }
         if(newData.categories == "Technical"){
             debugger
-            const benchmark = CIQ.store.state.chart.miBenmark
+            const benchmark = CIQ.store.$state.miBenmark
             CIQ.stxx.loadChart({
                 symbol: newData.indicator1.url?newData.indicator1.url:benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL, 
                 indicator:[],
@@ -628,7 +628,7 @@
                 let techIndicator
                 try{
                     let techDecode = signalCode.decode(newData.tech_code)
-                    // const getBuiltinList = CIQ.store.getters.getBuiltinList
+                    // const getBuiltinList = CIQ.store.$state.builtinList
                     // const config = getCustomConfig()
                     // if(getBuiltinList.length == 0) await this.$store.dispatch('chart/initiate_tech_list', config.technicalClassCategory)
                     // techIndicator = CIQ.findBuiltinTechIndicator(techDecode.indicator,'')
@@ -641,11 +641,11 @@
                 }) 
 
                 CIQ.hideCover()
-                CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+                CIQ.store.set_mi_create_loading(false)
             })
         }
         // WIC也需要初始化miFormState,主要是用到设定category
-        CIQ.store.commit('chart/miFormStateChange',{
+        CIQ.store.set_miFormStateChange({
             categories: newData.categories,
             indicator_1: newData.indicator1.name,
             indicator_2: newData.indicator2.name,
@@ -791,7 +791,7 @@
         },()=>{
             if(callback) callback()
             CIQ.hideCover()
-            CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+            CIQ.store.set_mi_create_loading(false)
         }) 
     }
     const getUserOwnIndicatorMatedata = async function(indicator,extremeLines){
@@ -880,7 +880,7 @@
 
     CIQ.addOwnIndicatorMAStudy = function(value,type,field,criteria,index,showInput,categories) {
         if(!value) return
-        const ma_color = CIQ.store.getters.getColorByCriteriaAndIndex(criteria, 0)
+        const ma_color = CIQ.store.getColorByCriteriaAndIndex(criteria, 0)
         if(categories.includes('Indicator')){
             // 更新ma前移除当前index的旧ma
             for (var studyInstanceName in CIQ.stxx.layout?.studies) {
@@ -954,7 +954,7 @@
 
     CIQ.changeUserOwnIndicatorSymbol = function(data){
         CIQ.addCover()
-        CIQ.store.commit('states/SET_MI_CREATE_LOADING', true)
+        CIQ.store.set_mi_create_loading(true)
         //编辑时对内容修改或者preview应该移除生成的indicator
 
         for (var studyInstanceName in CIQ.stxx.layout.studies) { 
@@ -962,13 +962,13 @@
             if(CIQ.isOwnIndicator(sd.type)) CIQ.Studies.removeStudy(CIQ.stxx, sd); 
         }
 
-        const benchmark = CIQ.store.state.chart.miBenmark
+        const benchmark = CIQ.store.$state.miBenmark
         CIQ.stxx.loadChart({
             symbol: data.symbol?data.symbol:benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL, 
             startDate:new Date(parseInt(process.env.VUE_APP_START_DATE)),endDate:new Date(),
         }, function(){
             CIQ.hideCover()
-            CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+            CIQ.store.set_mi_create_loading(false)
         })
     }
 
@@ -994,7 +994,7 @@
         const symbolLabel = getCoresSymbolDual(criteria.endsWith(2))
         let display = `(${symbolLabel}) Symbol Close Rate Of Change(${value}-Bar)`
         // 这里必须在计算函数调用之前就设好display name,因为后续会根据display name判断是不是shift以及它的值。我没有新增属性存shift在sd主要是防止兼容问题
-        const miShift = CIQ.store.getters.getMiFormShift
+        const miShift = CIQ.store.$state.miFormShift
         if(!criteria.endsWith('2')) {
 		}
         else if(miShift.showInput && miShift.display) display = `${display}(shift-${miShift.value || 0})`
@@ -1040,7 +1040,7 @@
     }
 
     CIQ.addSymbolShift = function(value) {
-        var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+        var comparisonSymbol = CIQ.store.$state.comparisonSymbol
         if(comparisonSymbol.url) {
             // 刷新当前symbol序列
             var series = CIQ.stxx.chart.series[comparisonSymbol.url];
@@ -1055,7 +1055,7 @@
         // 移除 if(shift <= 0) 判断， 始终添加/刷新 ShiftedSentimentIndicator
         // if(shift <= 0) {
         //     CIQ.hideCover()
-        //     CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+        //     CIQ.store.set_mi_create_loading(false)
         //     return
         // }
 
@@ -1071,7 +1071,7 @@
             shift: shift
         }, null) 
         CIQ.hideCover()
-        CIQ.store.commit('states/SET_MI_CREATE_LOADING', false)
+        CIQ.store.set_mi_create_loading(false)
     }
 
     CIQ.addSymbolOHLCVStudy = function(criteria,index) {
@@ -1092,9 +1092,9 @@
 
     CIQ.changeUserOwnIndicatorResample = function(indicator){
         //考虑到addSeries必须在displaydata前设定好timeframe
-        CIQ.store.commit('form/getFrequency', indicator.updated) //考虑到addSeries必须写死timeframe
+        CIQ.store.set_freqency(indicator.updated) //考虑到addSeries必须写死timeframe
         CIQ.addCover()
-        CIQ.store.commit('states/SET_MI_CREATE_LOADING', true)
+        CIQ.store.set_mi_create_loading(true)
         //编辑时对内容修改或者preview应该移除生成的indicator
 
         for (var studyInstanceName in CIQ.stxx.layout.studies) { 

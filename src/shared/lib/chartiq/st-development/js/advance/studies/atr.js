@@ -38,7 +38,7 @@ if (!CIQ.Studies) {
 	CIQ.Studies.calculateATRBands = function (stx, sd) {
 		if(sd.parameters.isComparison){
 			/**根据criteria动态设定study的Y轴属*******/
-			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.getters.getComparisonSymbol.url);
+			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.$state.comparisonSymbol.url);
 			sd.yAxis = actualXaxis
 			/****************** */
 		}else{
@@ -60,7 +60,7 @@ if (!CIQ.Studies) {
 	CIQ.Studies.calculateSTARCBands = function (stx, sd) {
 		if(sd.parameters.isComparison){
 			/**根据criteria动态设定study的Y轴属*******/
-			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.getters.getComparisonSymbol.url);
+			var actualXaxis = stx.getYAxisByField(stx.panels['chart'], CIQ.store.$state.comparisonSymbol.url);
 			sd.yAxis = actualXaxis
 			/****************** */
 		}else{
@@ -92,7 +92,7 @@ if (!CIQ.Studies) {
 		CIQ.Studies.calculateStudyATR(stx, sd);
 				var field	// 它是流动的
 				if(sd.parameters.isComparison){
-					field = CIQ.store.getters.getComparisonSymbol.url
+					field = CIQ.store.$state.comparisonSymbol.url
 					/**根据criteria动态设定study的Y轴属*******/
 					var actualXaxis = stx.getYAxisByField(stx.panels['chart'], field);
 					sd.yAxis = actualXaxis

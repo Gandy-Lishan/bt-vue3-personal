@@ -42,7 +42,7 @@ if (!CIQ.Studies) {
 		CIQ.Studies.MA("simple", 34, "hl/2", 0, "_MA34", stx, sd);
 
 		if(sd.parameters.isComparison){
-			const field = CIQ.store.getters.getComparisonSymbol.url
+			const field = CIQ.store.$state.comparisonSymbol.url
 			//filter valid rows
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 		}else {

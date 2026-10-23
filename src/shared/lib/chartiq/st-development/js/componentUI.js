@@ -3191,7 +3191,7 @@ CIQ.UI.StudyEdit.prototype.remove = function() {
 
 		if (orignalFreq == 'monthly') {
 			CIQ.periodicity.timeUnit = 'month'
-			CIQ.store.commit('form/setFreqency', 'monthly')
+			CIQ.store.set_freqency('monthly')
 			for (var i = 0; i < node.children.length; i++) {
 				if (node.children[i].firstChild.nodeValue == '1 D') {
 					node.children[i].setAttribute('tf', 'disabled')
@@ -3210,7 +3210,7 @@ CIQ.UI.StudyEdit.prototype.remove = function() {
 				weekly[i].setAttribute('tf', 'disabled')
 			}
 		} else if (orignalFreq == 'weekly') {
-			CIQ.store.commit('form/setFreqency', 'weekly')
+			CIQ.store.set_freqency('weekly')
 			CIQ.periodicity.timeUnit = 'week'
 			for (var i = 0; i < node.children.length; i++) {
 				if (node.children[i].firstChild.nodeValue == '1 D') {
@@ -3230,7 +3230,7 @@ CIQ.UI.StudyEdit.prototype.remove = function() {
 				weekly[i].setAttribute('tf', 'enabled')
 			}
 		} else {
-			CIQ.store.commit('form/setFreqency', 'daily')
+			CIQ.store.set_freqency('daily')
 			CIQ.periodicity.timeUnit = 'day'
 			for (var i = 0; i < node.children.length; i++) {
 				if (node.children[i].firstChild.nodeValue == '1 D') {
@@ -3251,65 +3251,65 @@ CIQ.UI.StudyEdit.prototype.remove = function() {
 			}
 		}
 
-		var indexOfEntry = CIQ.store.state.chart.indicators.formIndicators.entry.indexOf(
+		var indexOfEntry = CIQ.store.$state.indicators.formIndicators.entry.indexOf(
 			this.params.sd.type
 		)
-		var indexOfExit = CIQ.store.state.chart.indicators.formIndicators.exit.indexOf(
+		var indexOfExit = CIQ.store.$state.indicators.formIndicators.exit.indexOf(
 			this.params.sd.type
 		)
 		//console.log(indexOfEntry,indexOfExit)
 		// lishan chartIQ todo
 		if (indexOfEntry != -1) {
 			if (indexOfExit != -1) {
-				CIQ.store.commit('chart/getIndicators', {
+				CIQ.store.set_criteria_indicators_list({
 					index: indexOfExit,
 					value: '',
 					criteria:'exit'
 				})
 			}
-			CIQ.store.commit('chart/getIndicators', {
+			CIQ.store.set_criteria_indicators_list({
 				index: indexOfEntry,
 				value: '',
 				criteria:'entry'
 			})
 		} else if (indexOfExit != -1) {
 			if (indexOfEntry != -1) {
-				CIQ.store.commit('chart/getIndicators', {
+				CIQ.store.set_criteria_indicators_list({
 					index: indexOfEntry,
 					value: '',
 					criteria:'entry'
 				})
 			}
 			// lishan chartIQ todo
-			CIQ.store.commit('chart/getIndicators', {
+			CIQ.store.set_criteria_indicators_list({
 				index: indexOfExit,
 				value: '',
 				criteria:'exit'
 			})
 		}
 		if (
-			CIQ.store.state.chart.indicators.extraIndicators.indexOf(
+			CIQ.store.$state.indicators.extraIndicators.indexOf(
 				this.params.sd.type
 			) != -1
 		) {
 			// remove item in extraIndicator
-			var extraIndicators = CIQ.store.state.chart.indicators.extraIndicators
+			var extraIndicators = CIQ.store.$state.indicators.extraIndicators
 			extraIndicators.splice(extraIndicators.indexOf(this.params.sd.type), 1)
-			CIQ.store.commit('chart/getExtraIndicators', extraIndicators)
+			CIQ.store.set_extra_indicators(extraIndicators)
 
 			// remove item in Tech Layout
-			var activatedTechLayoutList = CIQ.store.state.chart.activatedTechLayout?CIQ.store.state.chart.activatedTechLayout:[]
+			var activatedTechLayoutList = CIQ.store.$state.activatedTechLayout?CIQ.store.$state.activatedTechLayout:[]
 			activatedTechLayoutList = activatedTechLayoutList.filter(item => {
 				return !(item.criteria === null || item.index === null) && item.url !== sd.type;
 			})
-			CIQ.store.commit('chart/getTechLayout', activatedTechLayoutList)
+			CIQ.store.set_tech_layout(activatedTechLayoutList)
 		} else {
 		}
 
 		// remove item in MA
-		var activatedMAList = CIQ.store.state.chart.activatedMA
+		var activatedMAList = CIQ.store.$state.activatedMA
 		activatedMAList.splice(activatedMAList.findIndex(item => item.url == this.params.sd.type),1)
-		CIQ.store.commit('chart/getMA', activatedMAList)
+		CIQ.store.set_activated_ma(activatedMAList)
 
 		// remove item in MA Layout
 		if(sd.parameters.index == null && sd.parameters.criteria == null){
@@ -3341,7 +3341,7 @@ CIQ.UI.StudyEdit.prototype.remove = function() {
 }
 
 CIQ.UI.StudyEdit.prototype.updateOverlayEdit = async function() {
-	const favoriteIndicatorList = CIQ.store.getters.getFavoriteIndicatorList
+	const favoriteIndicatorList = CIQ.store.$state.favoriteIndicatorList
 
 	for (var item in favoriteIndicatorList) {
 		if (favoriteIndicatorList[item].url == this.params.sd.type) {
@@ -3366,7 +3366,7 @@ CIQ.UI.StudyEdit.prototype.addIndicatorCookie = async function(node) {
 		if (studyContext.close) studyContext.close()
 	})
 
-	let favoriteIndicatorList = CIQ.store.getters.getFavoriteIndicatorList
+	let favoriteIndicatorList = CIQ.store.$state.favoriteIndicatorList
 
 	let _obj = CIQ.findSentiIndicator(null, this.params.sd.type)
 	var mFavorite = {}
@@ -3381,9 +3381,9 @@ CIQ.UI.StudyEdit.prototype.addIndicatorCookie = async function(node) {
 		return arr.filter(a => !res.has(a.url) && res.set(a.url, 1))
 	}
 
-	await CIQ.store.dispatch('chart/update_favorite', {
+	await CIQ.store.update_favorite({
 		indicator: JSON.stringify(filterDuplicate(favoriteIndicatorList)),
-		symbol: JSON.stringify(CIQ.store.getters.getFavoriteSymbolList)
+		symbol: JSON.stringify(CIQ.store.$state.favoriteSymbolList)
 	})
 	console.log('after add:', filterDuplicate(favoriteIndicatorList))
 }
@@ -3395,7 +3395,7 @@ CIQ.UI.StudyEdit.prototype.delIndicatorCookie = async function(node) {
 		if (studyContext.close) studyContext.close()
 	})
 
-	let favoriteIndicatorList = CIQ.store.getters.getFavoriteIndicatorList
+	let favoriteIndicatorList = CIQ.store.$state.favoriteIndicatorList
 
 	for (var item in favoriteIndicatorList) {
 		if (favoriteIndicatorList[item].url == this.params.sd.type) {
@@ -3403,9 +3403,9 @@ CIQ.UI.StudyEdit.prototype.delIndicatorCookie = async function(node) {
 		}
 	}
 
-	await CIQ.store.dispatch('chart/update_favorite', {
+	await CIQ.store.update_favorite({
 		indicator: JSON.stringify(favoriteIndicatorList),
-		symbol: JSON.stringify(CIQ.store.getters.getFavoriteSymbolList)
+		symbol: JSON.stringify(CIQ.store.$state.favoriteSymbolList)
 	})
 
 	console.log('after del:', favoriteIndicatorList)
@@ -3630,16 +3630,16 @@ CIQ.inheritsFrom(CIQ.UI.Layout, CIQ.UI.Helper)
  */
 CIQ.UI.Layout.prototype.reloadChart = function() {
 	if (!CIQ.Studies) return
-	const freq = CIQ.store.state.form.exitFrequency
+	const freq = CIQ.store.$state.exitFrequency
 
 	// remove all Studies from Vuex
-	CIQ.store.dispatch('chart/reset_chart_study_state')
-	CIQ.store.dispatch('form/clear_chart_config_state')
-	CIQ.store.commit('form/getFrequency', '')
+	CIQ.store.reset_chart_study_state()
+	CIQ.store.reset_chart_config_state()
+	CIQ.store.set_freqency('')
 	// remove markers, prompt, recover timeframe dropdown
 	CIQ.removePrompt()
 
-	CIQ.store.dispatch('states/set_isMarkerShown_flag', false)
+	CIQ.store.set_isMarkerShown_flag(false)
 	document.getElementsByClassName('ciq-period')[0].style.display = 'block'
 
 	if (freq != 'Daily') {
@@ -4111,7 +4111,7 @@ CIQ.UI.Layout.prototype.showAggregationEdit = function(node, aggregationType) {
  */
 CIQ.UI.Layout.prototype.clearStudies = function(node) {
 	if (!CIQ.Studies) return
-	CIQ.store.dispatch('chart/reset_chart_study_state')
+	CIQ.store.reset_chart_study_state()
 }
 
 /**
@@ -4162,10 +4162,10 @@ CIQ.UI.Layout.prototype.setPeriodicity = function(
 		default:
 	}
 
-	CIQ.store.commit('form/getFrequency', selectedFreq)
+	CIQ.store.set_freqency(selectedFreq)
 
 	// 在scanner ai里面修改timeframe后会自己调用CIQ.initiateChart
-	if (!CIQ.store.getters.getScannerAIFlagState) CIQ.addIndicators({})
+	if (!CIQ.store.$state.scannerai_flag) CIQ.addIndicators({})
 
 	// var self = this;
 	// if (self.context.loader) self.context.loader.show();
@@ -4238,7 +4238,7 @@ CIQ.UI.Layout.prototype.setTickerIindicator = function(
 		DJIA: 'DIA'
 	}
 	const SymbolReplacedName = replaceNameMap[symbol] || symbol
-	const indicatorList = CIQ.store.getters.getIndicatorsList
+	const indicatorList = CIQ.store.$state.indicatorsList
 
 	let data
 	// xu改过数据源结构后，靠 i.market_symbol == symbol url匹配item
@@ -4256,9 +4256,9 @@ debugger
 		if (sd.type == data.url || sd.type == data.symbol) {return}
 	}
 
-	CIQ.store.commit("chart/setCurrentSenti",{url: data.url?data.url:data.symbol, name: data.chart_name, updated: data.updated})     
+	CIQ.store.set_current_senti({url: data.url?data.url:data.symbol, name: data.chart_name, updated: data.updated})     
 	let extraIndicators = []
-	extraIndicators.push(...CIQ.store.state.chart.indicators.extraIndicators)
+	extraIndicators.push(...CIQ.store.$state.indicators.extraIndicators)
 	let indicator = ''
 	if (data.symbol == undefined){
 		indicator = data.url       
@@ -4266,7 +4266,7 @@ debugger
 		indicator = data.symbol
 	}
 	extraIndicators.push(indicator)
-	CIQ.store.commit('chart/getExtraIndicators',extraIndicators)
+	CIQ.store.set_extra_indicators(extraIndicators)
 
 	CIQ.addIndicators({stx:stx})
 }
@@ -5984,9 +5984,9 @@ class Chart {
 				var sd = stx.layout.studies[studyInstanceName]
 				if (sd.type == data.url || sd.type == data.symbol) {return}
 			}
-			CIQ.store.commit("chart/setCurrentSenti",{url: data.url?data.url:data.symbol, name: data.name, updated: data.updated})     
+			CIQ.store.set_current_senti({url: data.url?data.url:data.symbol, name: data.name, updated: data.updated})     
 			let extraIndicators = []
-			extraIndicators.push(...CIQ.store.state.chart.indicators.extraIndicators)
+			extraIndicators.push(...CIQ.store.$state.indicators.extraIndicators)
 			let indicator = ''
 			if (data.symbol == undefined){
 				indicator = data.url       
@@ -5994,7 +5994,7 @@ class Chart {
 				indicator = data.symbol
 			}
 			extraIndicators.push(indicator)
-			CIQ.store.commit('chart/getExtraIndicators',extraIndicators)
+			CIQ.store.set_extra_indicators(extraIndicators)
 
 			CIQ.addIndicators({stx:stx})
 		}

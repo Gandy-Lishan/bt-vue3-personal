@@ -175,14 +175,14 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                         for(let el = 0;el<stClose.length;el++){     
                             let removeFavorite = function(data){
                                 let url = data
-                                const favoriteIndicatorList = CIQ.store.getters.getFavoriteIndicatorList
+                                const favoriteIndicatorList = CIQ.store.$state.favoriteIndicatorList
                                 CIQ.UI.stxtap(stClose[el],async ()=>{
                                     for(let item in favoriteIndicatorList){
                                         if(favoriteIndicatorList[item].url == url){
                                             favoriteIndicatorList.splice(item,1)
-                                            await CIQ.store.dispatch('chart/update_favorite', {
+                                            await CIQ.store.update_favorite({
                                                 indicator: JSON.stringify(favoriteIndicatorList),
-                                                symbol: JSON.stringify(CIQ.store.getters.getFavoriteSymbolList)
+                                                symbol: JSON.stringify(CIQ.store.$state.favoriteSymbolList)
                                             })
                                         }
                                     }
@@ -203,7 +203,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                 if (filter == "ALL"){
                     let loader = document.querySelector(".loaderSearch");
                     if (loader) loader.show();  
-                    const list = CIQ.store.getters.getIndicatorsList
+                    const list = CIQ.store.$state.indicatorsList
                     let resu = list.map(item=>{return {
                         name: item.chart_name,
                         url: item.url,
@@ -211,7 +211,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                         category: item.category
                     }})
 
-                        const favoriteIndicatorListBtv1 = CIQ.store.getters.getFavoriteIndicatorListBtv1
+                        const favoriteIndicatorListBtv1 = CIQ.store.$state.favoriteIndicatorListBtv1
                         resu.push(...favoriteIndicatorListBtv1.data.data.map(item=>{return {
                             name:item.chart_name[0],
                             url:item.url[0]}
@@ -222,7 +222,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                         });
     
                             let results = []
-                            const myIndicatorList = CIQ.store.getters.getMyIndicatorList
+                            const myIndicatorList = CIQ.store.$state.myIndicatorList
                             const milist = myIndicatorList.map(item => ({...item, name: item.name, url: `${item.name}CREATE${item.url}`, updated: timeframeTransform(item.timeframe)}))
 
                             resu.push(...milist)
@@ -272,9 +272,9 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     let resu = []
                     
                         // btv2 fav
-                        resu = CIQ.store.getters.getFavoriteIndicatorList.map(item => ({...item, source:'Backtest Engine v2.0'}))
+                        resu = CIQ.store.$state.favoriteIndicatorList.map(item => ({...item, source:'Backtest Engine v2.0'}))
                         // btv1 fav
-                        const favoriteIndicatorListBtv1 = CIQ.store.getters.getFavoriteIndicatorListBtv1     
+                        const favoriteIndicatorListBtv1 = CIQ.store.$state.favoriteIndicatorListBtv1     
                         resu.push(...favoriteIndicatorListBtv1.data.data.map(item=>{return {
                             name:item.chart_name[0],
                             url:item.url[0],
@@ -286,7 +286,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                         });
                         
                             let results = []
-                            const myIndicatorList = CIQ.store.getters.getMyIndicatorList     // custom indicator
+                            const myIndicatorList = CIQ.store.$state.myIndicatorList     // custom indicator
                             const list = myIndicatorList.map(item => ({...item, name: item.name, url: `${item.name}CREATE${item.url}`, updated: item.timeframe, source:'Custom Indicator'}))
                             resu.push(...list)
                             resu.map(element => {
@@ -318,8 +318,8 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     if (loader) loader.hide();  
 
                     let results = []
-                    for(let i=0;i<CIQ.store.getters.getIndicatorsList.length;i++){
-                        let fields = CIQ.store.getters.getIndicatorsList[i]
+                    for(let i=0;i<CIQ.store.$state.indicatorsList.length;i++){
+                        let fields = CIQ.store.$state.indicatorsList[i]
                         
                         try{
                             let item = {
@@ -373,7 +373,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                 if (filter == "ALL"){
                     let loader = document.querySelector(".loaderSearch");
                     if (loader) loader.show();
-                    const list = CIQ.store.getters.getIndicatorsList
+                    const list = CIQ.store.$state.indicatorsList
                     let resu = list.map(item=>{return {
                         name: item.chart_name,
                         url: item.url,
@@ -384,7 +384,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     // 使用Set来跟踪已存在的url，以便去重
                     const existingUrls = new Set(resu.map(item => item.url));
             
-                    const favoriteIndicatorListBtv1 = CIQ.store.getters.getFavoriteIndicatorListBtv1
+                    const favoriteIndicatorListBtv1 = CIQ.store.$state.favoriteIndicatorListBtv1
                     favoriteIndicatorListBtv1.data.data.forEach(item => {
                         const newItem = {
                             name:item.chart_name[0],
@@ -403,7 +403,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     // });
             
                     let results = []
-                    const myIndicatorList = CIQ.store.getters.getMyIndicatorList
+                    const myIndicatorList = CIQ.store.$state.myIndicatorList
                     const milist = myIndicatorList.map(item => ({...item, name: item.name, url: `${item.name}CREATE${item.url}`, updated: timeframeTransform(item.timeframe)}))
             
                     // 在添加milist时也考虑去重
@@ -463,7 +463,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     const existingUrls = new Set();
             
                     // btv2 fav
-                    CIQ.store.getters.getFavoriteIndicatorList.forEach(item => {
+                    CIQ.store.$state.favoriteIndicatorList.forEach(item => {
                         const newItem = {...item, source:'Backtest Engine v2.0'};
                         if (!existingUrls.has(newItem.url)) {
                             resu.push(newItem);
@@ -472,7 +472,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     });
             
                     // btv1 fav
-                    const favoriteIndicatorListBtv1 = CIQ.store.getters.getFavoriteIndicatorListBtv1
+                    const favoriteIndicatorListBtv1 = CIQ.store.$state.favoriteIndicatorListBtv1
                     favoriteIndicatorListBtv1.data.data.forEach(item=>{
                         const newItem = {
                             name:item.chart_name[0],
@@ -491,7 +491,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     // });
             
                     let results = []
-                    const myIndicatorList = CIQ.store.getters.getMyIndicatorList    // custom indicator
+                    const myIndicatorList = CIQ.store.$state.myIndicatorList    // custom indicator
                     const list = myIndicatorList.map(item => ({...item, name: item.name, url: `${item.name}CREATE${item.url}`, updated: item.timeframe, source:'Custom Indicator'}))
                     
                     // 在添加list时也考虑去重
@@ -531,8 +531,8 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                     if (loader) loader.hide();
             
                     let results = []
-                    for(let i=0;i<CIQ.store.getters.getIndicatorsList.length;i++){
-                        let fields = CIQ.store.getters.getIndicatorsList[i]
+                    for(let i=0;i<CIQ.store.$state.indicatorsList.length;i++){
+                        let fields = CIQ.store.$state.indicatorsList[i]
             
                         try{
                             let item = {
@@ -682,13 +682,7 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                         //CIQ.UI.stxtap()
                     });
 
-                    /** 响应分段获取的myIndicator列表变化 */
-                    CIQ.store.watch(
-                        (state) => state.chart.myIndicatorList,
-                        (newValue) => {
-                            self.acceptText(self.input.val(), self.currentFilter);
-                        }
-                    );
+                    // 【Vue2→Vue3 兼容】原 Vuex watch 已移除 — Pinia 模式下列表变化由组件重新渲染处理
                 }
                 if (typeof node.attr("cq-keystroke-claim") != "undefined") {
                     // add keyboard claim for entire body
@@ -715,14 +709,14 @@ let __js_webcomponents_indicatorsLookup_ = (_exports) => {
                         for(let el = 0;el<stClose.length;el++){     
                             let removeFavorite = function(data){
                                 let url = data
-                                const favoriteIndicatorList = CIQ.store.getters.getFavoriteIndicatorList
+                                const favoriteIndicatorList = CIQ.store.$state.favoriteIndicatorList
                                 CIQ.UI.stxtap(stClose[el],async ()=>{
                                     for(let item in favoriteIndicatorList){
                                         if(favoriteIndicatorList[item].url == url){
                                             favoriteIndicatorList.splice(item,1)
-                                            await CIQ.store.dispatch('chart/update_favorite', {
+                                            await CIQ.store.update_favorite({
                                                 indicator: JSON.stringify(favoriteIndicatorList),
-                                                symbol: JSON.stringify(CIQ.store.getters.getFavoriteSymbolList)
+                                                symbol: JSON.stringify(CIQ.store.$state.favoriteSymbolList)
                                             })
                                         }
                                     }

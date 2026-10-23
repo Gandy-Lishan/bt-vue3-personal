@@ -948,9 +948,9 @@ CIQ.Studies.DialogHelper = function (params) {
 			
 			// update extreme values while changing study setting
 			var newExtremeValue = {indicator:sd.type,extremeOptimism:parameters.studyOverBoughtValue,extremePessimism:parameters.studyOverSoldValue}
-			var extremeValueList = CIQ.store.state.chart.extremeValue
+			var extremeValueList = CIQ.store.$state.extremeValue
 			extremeValueList.push(newExtremeValue)
-			CIQ.store.commit("chart/getExtremeValue", extremeValueList)
+			CIQ.store.set_extreme_value(extremeValueList)
 
 			if (init.studyOverZonesEnabled !== undefined) {
 				obj = {
@@ -3465,7 +3465,7 @@ CIQ.Studies.calculateStandardDeviation = function (stx, sd) {
 			(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 		){
 			/** 判断Study用来计算的数据源 */
-			var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+			var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 			field = comparisonSymbol?.url
 			//filter valid rows
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
@@ -3536,7 +3536,7 @@ CIQ.Studies.calculateStandardDeviationSample = function (stx, sd) {
 			(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 		){
 			/** 判断Study用来计算的数据源 */
-			var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+			var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 			field = comparisonSymbol?.url
 			//filter valid rows
 			quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
@@ -3652,7 +3652,7 @@ CIQ.Studies.calculateMovingAverage = function (stx, sd) {
 		sd?.parameters?.isComparison ||
 		(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 	){
-		var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+		var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 		// 判断二：Study是否为Symbol OHLCV或者一次性的中间量运算，这些才涉及被过滤空值的数据源， 且可能需显示在chart panel
 		if(
 			/**
@@ -3684,7 +3684,7 @@ CIQ.Studies.calculateMovingAverage = function (stx, sd) {
 	if(window.location.pathname.includes('/myindicator')) {
 		const symbolLabel = getCoresSymbolDual(sd.parameters.criteria.endsWith(2))
 		let display = `(${symbolLabel}) Simple Moving Average`
-		const miShift = CIQ.store.getters.getMiFormShift
+		const miShift = CIQ.store.$state.miFormShift
 		// 左侧ma
 		if(!sd.parameters.criteria.endsWith('2')) {
 			sd.inputs.display = display
@@ -3792,7 +3792,7 @@ CIQ.Studies.calculateMovingAverageExponential = function (stx, sd) {
 		sd?.parameters?.isComparison ||
 		(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 	){
-		var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+		var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 		if(
 			/**
 			 *  防止"_EMA1 "这种的中间值或者sentiment url通过判断，'hl/2'等特殊处理
@@ -3822,7 +3822,7 @@ CIQ.Studies.calculateMovingAverageExponential = function (stx, sd) {
 	if(window.location.pathname.includes('/myindicator')) {
 		const symbolLabel = getCoresSymbolDual(sd.parameters.criteria.endsWith(2))
 		let display = `(${symbolLabel})Exponential Moving Average`
-		const miShift = CIQ.store.getters.getMiFormShift
+		const miShift = CIQ.store.$state.miFormShift
 		// 左侧ma
 		if(!sd.parameters.criteria.endsWith('2')) {
 			sd.inputs.display = display
@@ -3939,7 +3939,7 @@ CIQ.Studies.calculateMovingAverageVIDYA = function (stx, sd) {
 				sd?.parameters?.isComparison ||
 				(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 			){
-				var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+				var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 				if(
 					/**
 					 *  防止"_EMA1 "这种的中间值或者sentiment url通过判断，'hl/2'等特殊处理
@@ -4044,7 +4044,7 @@ CIQ.Studies.calculateMovingAverageTriangular = function (stx, sd) {
 		sd?.parameters?.isComparison ||
 		(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 	){
-		var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+		var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 		// 只处理计算数据源和symbol2相关的逻辑(symbol2 ma)
 		if(CIQ.findBuiltinTechIndicator(null,sd.type)){
 			/**根据criteria动态设定study的Y轴属*******/
@@ -4131,7 +4131,7 @@ CIQ.Studies.calculateMovingAverageWeighted = function (stx, sd) {
 			sd?.parameters?.isComparison ||
 			(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 		){
-			var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+			var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 			if(
 				/**
 				 *  防止"_EMA1 "这种的中间值或者sentiment url通过判断，'hl/2'等特殊处理
@@ -4227,7 +4227,7 @@ CIQ.Studies.calculateStudyATR = function (stx, sd) {
 
 	var field	// 它是流动的
 	if(sd.parameters.isComparison){
-		field = CIQ.store.getters.getComparisonSymbol.url
+		field = CIQ.store.$state.comparisonSymbol.url
 		quotes = sd.chart.dataSet.filter(item => item.hasOwnProperty(field))
 	}else{
 		quotes = sd.chart.scrubbed
@@ -4495,7 +4495,7 @@ CIQ.Studies.calculateGenericEnvelope = function (
 			(sd?.parameters?.criteria && sd?.parameters?.criteria?.endsWith('2'))
 		){
 			/** 判断Study用来计算的数据源 */
-			var comparisonSymbol = CIQ.store.getters.getComparisonSymbol
+			var comparisonSymbol = CIQ.store.$state.comparisonSymbol
 			/**
 			 *  防止"_EMA1 "这种的中间值或者sentiment url通过判断，'hl/2'等特殊处理
 				以導致中間值等值被賦值給field
