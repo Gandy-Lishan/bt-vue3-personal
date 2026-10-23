@@ -645,7 +645,10 @@
             })
         }
         // WIC也需要初始化miFormState,主要是用到设定category
-        CIQ.store.set_miFormStateChange({
+        // 【照搬原版】旧版此处是 commit('chart/miFormStateChange')（仅写 state），
+        // 不能调用 set_miFormStateChange action —— 那会走 updateUserOwnIndicator，
+        // 把 indicator1/indicator2 当作“已变更”再 addSingleIndicator 一次，导致 study 重复
+        CIQ.store.set_mi_form_state({
             categories: newData.categories,
             indicator_1: newData.indicator1.name,
             indicator_2: newData.indicator2.name,

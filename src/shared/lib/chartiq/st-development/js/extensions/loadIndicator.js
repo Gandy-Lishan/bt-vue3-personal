@@ -312,7 +312,7 @@
   * including chart initation,lookup component, addSymbol from setup form*/
  CIQ.addSymbol = async function(symbol,stx,callback){
     /** addIndicators会读取存入的symbol并用于loadChart */
-    CIQ.store.getBacktestSymbol(ymbol)
+    CIQ.store.getBacktestSymbol(symbol)
 
     CIQ.addIndicators({stx:stx},callback)
     // favBtnContainerToggle()

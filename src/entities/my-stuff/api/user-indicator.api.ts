@@ -191,6 +191,29 @@ export async function createMyIndicator(payload: CreateMyIndicatorPayload, signa
   return result
 }
 
+/**
+ * 【照搬原版】service.js getMyIndicatorData —— URL 必须带引号。
+ * 返回值形状与 axios response 的 body 一致：`{ code, data }`。
+ */
+export async function getMyIndicatorData(url: string, signal?: AbortSignal) {
+  const response = await fetch(`/dev/my_indicator/get_data/?url='${url}'`, { signal })
+  const result = await response.json().catch(() => ({})) as Record<string, unknown>
+  if (!response.ok) throw new Error(String(result.message ?? result.error ?? 'Unable to load indicator data.'))
+  return result as { code?: number; data?: unknown }
+}
+
+/**
+ * 预览专用保存：旧版 savePreviewIndicator 依赖 406/405/201 业务 code 分支，
+ * 因此无论 code 是什么都原样返回，不抛错。
+ */
+export async function createMyIndicatorForPreview(payload: CreateMyIndicatorPayload, signal?: AbortSignal) {
+  const body = new FormData()
+  Object.entries(payload).forEach(([key, value]) => body.append(key, String(value)))
+  const response = await fetch('/dev/my_indicator/add_record', { method: 'POST', body, signal })
+  const result = await response.json().catch(() => ({})) as Record<string, unknown>
+  return { status: Number(result.code ?? response.status), body: result }
+}
+
 export async function updateMyIndicator(url: string, payload: CreateMyIndicatorPayload, signal?: AbortSignal) {
   const body = new FormData()
   Object.entries(payload).forEach(([key, value]) => body.append(key, String(value)))

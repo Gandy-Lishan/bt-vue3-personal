@@ -96,7 +96,8 @@ export async function getPairData(
   symbol: string,
 ) {
   const url = `https://bt2api.sentimentrader.com/st_data/pair_data`
-  const { data } = await api.get(url, {
+  // 【照搬原版】旧 service.js 返回完整 axios response，st-development JS 读 `res.data`
+  const response = await api.get(url, {
     params: { symbol, start: startDate, end: endDate, freq: frequency },
     timeout: 10000,
     auth: {
@@ -104,7 +105,7 @@ export async function getPairData(
       password: 'TAZcbpTmQVAJW4GW3ZMQA1su0ynjqJJsYo6vfkapx',
     },
   })
-  return data
+  return response
 }
 
 // ── Forecast ───────────────────────────────────────────────────────

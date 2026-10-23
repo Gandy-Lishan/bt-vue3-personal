@@ -381,7 +381,35 @@ export const useChartIQStore = defineStore('chartIQ', {
     set_extreme_value(list: unknown[]) { this.extremeValue = list },
     set_indicators_list(data: unknown[]) { this.indicatorsList = data },
     set_builtin_list(data: unknown[]) { this.builtinList = data },
+    set_tech_category(data: unknown[]) { this.technicalCategory = data },
     set_format_tech_list(list: unknown[]) { this.formateTechnicalList = list },
+    /**
+     * 【照搬旧版 chart/initiate_tech_list】由 config.technicalClassCategory 生成
+     * builtinList / formateTechnicalList / technicalCategory。
+     * findBuiltinTechIndicator 依赖 builtinList 区分 technical study 与 sentiment
+     * indicator —— 未初始化时，studies 列表里选中的技术指标会被误判成 sentiment，
+     * 去请求 indicators_metadata 并报 400。
+     */
+    initiate_tech_list(list: Array<{ class?: string; studies?: Array<{ name: string; url: string }> }>) {
+      const buildinTechList: Array<{ class?: string; value: string; url: string }> = []
+      for (let i = 0; i < list.length; i++) {
+        list[i].studies?.forEach((item) => {
+          buildinTechList.push({
+            class: list[i].class,
+            value: item.name,
+            url: item.url,
+          })
+        })
+      }
+      const formatList = buildinTechList
+        .filter((item) =>
+          item.class !== 'No_display_technical_indicator' &&
+          item.class !== 'Not_in_backtest_technical_indicator_but_visible_in_chatiq')
+        .sort((a, b) => a.value.localeCompare(b.value))
+      this.set_tech_category(list)
+      this.set_builtin_list(buildinTechList)
+      this.set_format_tech_list(formatList)
+    },
     set_activated_ma(val: Array<{ period: number; url: string }>) { this.activatedMA = val },
     set_ma_layout(val: unknown[]) { this.activatedMALayout = val },
     set_tech_layout(val: unknown[]) { this.activatedTechLayout = val },
@@ -558,46 +586,45 @@ export const useChartIQStore = defineStore('chartIQ', {
     },
 
     // 【照搬原版】set_miFormWeightedListChange — 调用 CIQ.displayWeightOwnIndicator
-    set_miFormWeightedListChange(val: unknown) {
-      // @ts-ignore
-      if (typeof CIQ !== 'undefined' && typeof CIQ.displayWeightOwnIndicator === 'function') {
-        // @ts-ignore
-        CIQ.displayWeightOwnIndicator(this.miFormWeightedList, val, (val as any)?.url)
+    set_miFormWeightedListChange(val: any) {
+      const CIQ = window.CIQ
+      const newVal = JSON.parse(JSON.stringify(val.data))
+      const oldVal = JSON.parse(JSON.stringify(this.miFormWeightedList))
+      if (typeof CIQ?.displayWeightOwnIndicator === 'function') {
+        CIQ.displayWeightOwnIndicator(oldVal, newVal, val.url)
       }
-      this.miFormWeightedList = val as unknown[]
+      this.miFormWeightedList = newVal
     },
 
     // 【照搬原版】set_miFormSOHLCVChange — 调用 CIQ.changeUserOwnIndicatorSymbol
-    set_miFormSOHLCVChange(val: unknown) {
-      // @ts-ignore
-      if (typeof CIQ !== 'undefined' && typeof CIQ.changeUserOwnIndicatorSymbol === 'function') {
-        // @ts-ignore
-        CIQ.changeUserOwnIndicatorSymbol(val)
+    set_miFormSOHLCVChange(val: any) {
+      const CIQ = window.CIQ
+      if (typeof CIQ?.changeUserOwnIndicatorSymbol === 'function') {
+        CIQ.changeUserOwnIndicatorSymbol(val.data)
       }
     },
 
     // 【照搬原版】set_miFormStateChange — 调用 CIQ.updateUserOwnIndicator
-    set_miFormStateChange(obj: {
+    async set_miFormStateChange(obj: {
       categories: string
       indicator_1: string
       indicator_1_url: string
       indicator_2: string
       indicator_2_url: string
     }) {
-      // @ts-ignore
-      if (typeof CIQ !== 'undefined' && typeof CIQ.updateUserOwnIndicator === 'function') {
-        const oldVal = {
-          categories: this.miFormCategories,
-          indicator_1: this.miFormCategoriesIndicator1.name,
-          indicator_2: this.miFormCategoriesIndicator2.name,
-        }
-        const newVal = {
-          categories: obj.categories,
-          indicator_1: obj.indicator_1,
-          indicator_2: obj.indicator_2,
-        }
-        // @ts-ignore
-        CIQ.updateUserOwnIndicator(newVal, oldVal)
+      const CIQ = window.CIQ
+      const newVal = {
+        categories: obj.categories,
+        indicator1: { name: obj.indicator_1, url: obj.indicator_1_url },
+        indicator2: { name: obj.indicator_2, url: obj.indicator_2_url },
+      }
+      const oldVal = {
+        categories: this.miFormCategories,
+        indicator1: this.miFormCategoriesIndicator1,
+        indicator2: this.miFormCategoriesIndicator2,
+      }
+      if (typeof CIQ?.updateUserOwnIndicator === 'function') {
+        await CIQ.updateUserOwnIndicator(newVal, oldVal)
       }
       this.miFormCategories = obj.categories
       this.miFormCategoriesIndicator1 = { name: obj.indicator_1, url: obj.indicator_1_url }
@@ -605,43 +632,42 @@ export const useChartIQStore = defineStore('chartIQ', {
     },
 
     // 【照搬原版】set_miFormStateRefresh — 清除 studies + CIQ.updateUserOwnIndicator
-    set_miFormStateRefresh() {
-      // Clear studies from chart
-      // @ts-ignore
+    async set_miFormStateRefresh() {
       const CIQ = window.CIQ
+      const newVal = {
+        categories: this.miFormCategories,
+        indicator1: this.miFormCategoriesIndicator1,
+        indicator2: this.miFormCategoriesIndicator2,
+      }
+      const oldVal = {
+        categories: this.miFormCategories,
+        indicator1: { name: '', url: '' },
+        indicator2: { name: '', url: '' },
+      }
+      // 刷新前清空已有 study，只是刷新 study 以更新 timeframe 所以不 commit 更改状态
       if (CIQ?.stxx) {
         for (const id in CIQ.stxx.layout.studies) {
-          const sd = CIQ.stxx.layout.studies[id]
-          if (!sd.customLegend && !sd.permanent) {
-            CIQ.Studies.removeStudy(CIQ.stxx, sd)
-          }
+          CIQ.Studies.removeStudy(CIQ.stxx, CIQ.stxx.layout.studies[id])
         }
       }
-      // @ts-ignore
-      if (typeof CIQ !== 'undefined' && typeof CIQ.updateUserOwnIndicator === 'function') {
-        const newVal = { categories: this.miFormCategories }
-        // @ts-ignore
-        CIQ.updateUserOwnIndicator(newVal, {})
+      if (typeof CIQ?.updateUserOwnIndicator === 'function') {
+        await CIQ.updateUserOwnIndicator(newVal, oldVal)
       }
     },
 
     // 【照搬原版】set_miFormWeightedListRefresh — 清除 studies + CIQ.displayWeightOwnIndicator
-    set_miFormWeightedListRefresh() {
-      // Clear studies from chart
-      // @ts-ignore
+    set_miFormWeightedListRefresh(val?: any) {
       const CIQ = window.CIQ
+      const newVal = JSON.parse(JSON.stringify(val ? val.data : this.miFormWeightedList))
+      const oldVal: unknown[] = []
+      // 刷新前清空已有 study，只是刷新 study 以更新 timeframe 所以不 commit 更改状态
       if (CIQ?.stxx) {
         for (const id in CIQ.stxx.layout.studies) {
-          const sd = CIQ.stxx.layout.studies[id]
-          if (!sd.customLegend && !sd.permanent) {
-            CIQ.Studies.removeStudy(CIQ.stxx, sd)
-          }
+          CIQ.Studies.removeStudy(CIQ.stxx, CIQ.stxx.layout.studies[id])
         }
       }
-      // @ts-ignore
-      if (typeof CIQ !== 'undefined' && typeof CIQ.displayWeightOwnIndicator === 'function') {
-        // @ts-ignore
-        CIQ.displayWeightOwnIndicator(this.miFormWeightedList, [], '')
+      if (typeof CIQ?.displayWeightOwnIndicator === 'function') {
+        CIQ.displayWeightOwnIndicator(oldVal, newVal, val ? val.url : null)
       }
     },
 
@@ -650,6 +676,7 @@ export const useChartIQStore = defineStore('chartIQ', {
       this.miFormCategories = 'Indicator Spread'
       this.miFormCategoriesIndicator1 = { name: '', url: '' }
       this.miFormCategoriesIndicator2 = { name: '', url: '' }
+      this.miFormWeightedList = []
       this.miFormShift = { display: false, showInput: false, value: 0 }
     },
 
@@ -717,7 +744,8 @@ export const useChartIQStore = defineStore('chartIQ', {
         end = tsToTime ? tsToTime(initialDate.end as number) : ''
       }
       const res = await apiGetPairData(start, end, this.pairDataFreq, ticker)
-      const data = formatPairData(res)
+      // 【照搬原版】旧版读 res.data（service 返回完整 axios response）
+      const data = formatPairData(res?.data)
       this.tickerOhlcvPairdata[ticker] = data
       return data
     },
@@ -792,13 +820,14 @@ export const useChartIQStore = defineStore('chartIQ', {
     getColorByCriteriaAndIndex(criteria: string, panelIndex: number) {
       const c1 = this.ma_color_1 || []
       const c2 = this.ma_color_2 || []
-      return criteria === 'roc'
+      // 【照搬原版 getter】保留旧 bug：ma_color_1 也用 ma_color_2.length 取模
+      return criteria && criteria.endsWith('2')
         ? c2[panelIndex % c2.length]
-        : c1[panelIndex % c1.length]
+        : c1[panelIndex % c2.length]
     },
 
     set_mi_create_loading(val: boolean) {
-      this.miCreateLoading = val
+      this.isCreateLoading = val
     },
   },
 })

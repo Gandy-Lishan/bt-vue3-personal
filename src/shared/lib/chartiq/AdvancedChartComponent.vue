@@ -325,6 +325,14 @@ function initializeChart() {
   // Assign Pinia store directly to CIQ — st-development JS files use CIQ.store.$state and direct actions
   ;(CIQ as any).store = chartIQStore
 
+  // 【照搬旧版 chart/index.vue chartInitialized】每次图表初始化都重建技术指标清单。
+  // findBuiltinTechIndicator 读取 builtinList；不初始化时 studies 列表选中的技术指标
+  // 会被 getIndicatorMatedata 当成 sentiment indicator 去请求 indicators_metadata。
+  const technicalClassCategory = (config as Record<string, unknown>).technicalClassCategory
+  if (Array.isArray(technicalClassCategory)) {
+    chartIQStore.initiate_tech_list(technicalClassCategory as Array<{ class?: string; studies?: Array<{ name: string; url: string }> }>)
+  }
+
   // Stub nprogress — ChartIQ calls CIQ.nprogress.start()/done() but it's not installed
   // Pass the actual CIQ object so loadIndicator.js (which imports CIQ from chartiq.js) gets it
   setupNProgressStub(CIQ as Record<string, unknown>)
@@ -1109,6 +1117,12 @@ onBeforeUnmount(() => {
 <style scoped>
 select {
   font-weight: bold !important;
+}
+
+/* 【照搬旧版 chart/index.vue .chart-wrapper】图表外框黑边 */
+cq-context {
+  border: 1px solid rgb(213, 227, 247);
+  /*border-radius: 7px;*/
 }
 
 .dropdown {

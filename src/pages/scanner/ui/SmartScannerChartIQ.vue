@@ -173,6 +173,8 @@ function hideComponents() {
     if (!el) return
     if (selector === '.favBtnContainer' || selector === '.ciq-period' || selector === '.ciq-footer') {
       el.style.display = 'none'
+    } else if (selector === '.ciq-studies') {
+      el.style.setProperty('visibility', 'hidden', 'important')
     } else {
       el.style.visibility = 'hidden'
     }

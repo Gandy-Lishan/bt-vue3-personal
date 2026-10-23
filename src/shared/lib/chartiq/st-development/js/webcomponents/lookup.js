@@ -880,7 +880,8 @@ let __js_webcomponents_lookup_ = (_exports) => {
                             }
 
                             /** 仅在myIndicator时，换symbol后修改benchMark并触发indicator更新事件*/
-                            if(window.location.pathname.includes('/myindicator/create')){
+                            // 【Vue2→Vue3 迁移】旧路由 /myindicator/create → 新路由 /my-stuff/indicators/new|edit
+                            if(window.location.pathname.includes('/myindicator/create') || window.location.pathname.includes('/my-stuff/indicators/')){
                                 CIQ.store.set_mi_benchmark(data.symbol)
                             }
 

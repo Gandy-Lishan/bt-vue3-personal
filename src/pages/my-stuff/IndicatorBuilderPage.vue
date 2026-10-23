@@ -2,13 +2,22 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Beaker, BellRing, Check, Filter, ListChecks, PlayCircle, Plus, Save, SlidersHorizontal, Trash2 } from '@lucide/vue'
+// @ts-ignore lodash does not ship with TS declarations
+import { debounce } from 'lodash'
 import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
-import { createMyIndicator, fetchMyIndicators, updateMyIndicator, type CreateMyIndicatorPayload, type MyIndicatorRow } from '@/entities/my-stuff/api/user-indicator.api'
+import { createMyIndicator, createMyIndicatorForPreview, deleteMyIndicator, fetchMyIndicators, getMyIndicatorData, updateMyIndicator, type CreateMyIndicatorPayload, type MyIndicatorRow } from '@/entities/my-stuff/api/user-indicator.api'
 import { fetchSentimentIndicatorOptions, type SignalIndicatorOption } from '@/entities/my-stuff/api/sentiment-indicator.api'
 import { technicalIndicatorOptions } from '@/entities/my-stuff/model/technical-indicator'
+import { useChartIQStore } from '@/entities/chartiq/model/chartiq.store'
+// @ts-ignore ChartIQ does not ship with TS declarations
+import { CIQ } from '@/shared/lib/chartiq/st-development/js/components'
+import { timeframeTransform } from '@/shared/lib/chartiq/utils'
 import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
+// 【Vue2→Vue3 完全一致迁移】旧版 MIForm.vue 的 chart 同步逻辑依赖的映射与数据构造
+import { buildLegacyChartData, buildWeightData, calculationToMAType, chartIndicatorUrl, CHART_START_DATE, isIndicatorChartUrl, legacyCategory, restoreIndicatorChartUrl } from './model/indicator-chart-adapter'
+import IndicatorBuilderChartIQ from './ui/IndicatorBuilderChartIQ.vue'
 
 type Category = 'Indicator Spread' | 'Indicator Ratio' | 'Indicator Addition' | 'Symbol Spread' | 'Symbol Ratio' | 'Symbol Addition' | 'Weighted Indicator Combination' | 'Symbol OHLCV' | 'Indicator Resample' | 'Technical Indicator'
 type Calculation = 'Indicator Value' | 'Open' | 'High' | 'Low' | 'Close' | 'Volume' | 'Simple Moving Average' | 'Exponential Moving Average' | 'Rate of Change' | 'Amplitude'
@@ -36,7 +45,7 @@ const message = ref('')
 const form = reactive({ name: '', category: 'Indicator Spread' as Category, timeframe: 'Daily', optimismEnabled: false, optimism: '', pessimismEnabled: false, pessimism: '', benchmark: 'SPX' })
 const components = reactive<ComponentForm[]>([
   { source: '', url: '', calculation: 'Indicator Value', period: '', shift: '0', weight: '50' },
-  { source: '', url: '', calculation: 'Simple Moving Average', period: '20', shift: '0', weight: '50' },
+  { source: '', url: '', calculation: 'Indicator Value', period: '', shift: '0', weight: '50' },
 ])
 const primaryComponent = computed(() => components[0]!)
 const technicalIndicator = ref('')
@@ -45,6 +54,13 @@ const ohlcvSmoothing = ref<'None' | 'SMA' | 'EMA'>('None')
 const ohlcvPeriod = ref('20')
 const isEdit = computed(() => route.name === 'my-indicator-edit')
 const recordUrl = computed(() => typeof route.query.url === 'string' ? route.query.url : '')
+/* ── ChartIQ（对应旧版 MyIndicator/create 的 MIChart + MIForm 图表部分） ── */
+const chartIQStore = useChartIQStore()
+const chartMounted = ref(false)
+const chartReady = ref(false)
+const legacyChartData = ref<Record<string, unknown> | null>(null)
+// 用户选择的整体 timeframe（旧版 userSelectedTimeFrame），用于 findMaxFreq
+const userSelectedTimeFrame = ref('daily')
 const rawSymbolOptions: BuilderOption[] = [
   ...(stocksData as Array<{ stock?: string; name?: string; category?: string }>).map((item) => ({ value: String(item.stock ?? ''), label: String(item.stock ?? ''), description: String(item.name ?? ''), meta: String(item.category ?? 'Stock'), url: String(item.stock ?? '') })),
   ...(indexesData as Array<{ symbol?: string; name?: string; category?: string }>).map((item) => ({ value: String(item.symbol ?? ''), label: String(item.symbol ?? ''), description: String(item.name ?? ''), meta: String(item.category ?? 'Index'), url: String(item.symbol ?? '') })),
@@ -60,7 +76,12 @@ const isIndicator = computed(() => form.category.startsWith('Indicator'))
 const operation = computed(() => form.category.endsWith('Spread') ? 'Subtract' : form.category.endsWith('Ratio') ? 'Divide' : 'Add')
 const operationSymbol = computed(() => operation.value === 'Subtract' ? '−' : operation.value === 'Divide' ? '÷' : '＋')
 const sourceOptions = computed(() => isIndicator.value ? indicatorOptions.value : symbolOptions)
-const weightedSourceOptions = computed(() => [...indicatorOptions.value, ...symbolOptions])
+// 【照搬旧版】WIC 下拉是 sentimentList（Indicator）在前、symbolList（Symbol）在后，
+// 同名 ticker 需要用 kind 判别，才能正确加 `@indicator` 后缀 / 更新 weightData.type
+const weightedSourceOptions = computed(() => [
+  ...indicatorOptions.value.map((item) => ({ ...item, kind: 'Indicator' as const })),
+  ...symbolOptions.map((item) => ({ ...item, kind: 'Symbol' as const })),
+])
 const technicalOptions = technicalIndicatorOptions.map((item) => ({ ...item, url: item.value }))
 const calculationOptions = computed<Calculation[]>(() => isIndicator.value
   ? ['Indicator Value', 'Simple Moving Average', 'Exponential Moving Average']
@@ -90,12 +111,512 @@ const explanation = computed(() => {
   const verb = operation.value === 'Subtract' ? 'subtracts' : operation.value === 'Divide' ? 'divides' : 'adds'
   return `This indicator ${verb} ${componentText(components[1]!)} ${operation.value === 'Add' ? 'to' : operation.value === 'Subtract' ? 'from' : 'into'} ${componentText(components[0]!)}.`
 })
-function selectSource(index: number, option: { value: string; url?: string }) { const item = components[index]; if (item) { item.source = option.value; item.url = option.url ?? option.value } }
+/* ═══════════════════════════════════════════════════════════════════
+ * ChartIQ 实时同步（对应旧版 MIForm.vue 的方法，调用顺序与参数形状照搬）
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/** 旧版 this.data 中同步给 chart/store 的扁平结构 */
+function chartState() {
+  return {
+    categories: legacyCategory(form.category),
+    indicator_1: components[0]?.source ?? '',
+    indicator_1_url: components[0]?.url ?? '',
+    indicator_2: components[1]?.source ?? '',
+    indicator_2_url: components[1]?.url ?? '',
+  }
+}
+
+/** 旧版 checkInput.MAType */
+function componentMAType(item: ComponentForm) {
+  return calculationToMAType(item.calculation)
+}
+
+/** 旧版 checkInput.value */
+function componentMAValue(item: ComponentForm): string | number {
+  const type = componentMAType(item)
+  if (!['MA', 'EMA', 'roc'].includes(type)) return ''
+  return item.period === '' ? '' : Number(item.period)
+}
+
+/** OHLCV 平滑：旧版 CheckInput 的 MAType 仅 MA/EMA，无平滑时 showInput=false */
+function ohlcvMAType() {
+  return ohlcvSmoothing.value === 'EMA' ? 'EMA' : 'MA'
+}
+
+function ohlcvMAValue(): string | number {
+  return ohlcvPeriod.value === '' ? '' : Number(ohlcvPeriod.value)
+}
+
+function ohlcvShowInput() {
+  return ohlcvSmoothing.value !== 'None'
+}
+
+/** 旧版 MIForm.manageMICondStudies 原文移植 */
+function manageMICondStudies(value: unknown, type: string, field: 'ma1' | 'ma2', showInput: boolean) {
+  if (!chartReady.value) return
+  const categories = legacyCategory(form.category)
+  let fieldName: string | undefined = 'field'
+  let criteria = 'entry1'
+  if (categories === 'OHLCV') {
+    fieldName = CIQ.findSymbolIndicator(`Symbol ${components[0]?.calculation ?? 'Close'}`, null)?.field
+    criteria = 'entry1'
+  } else if (categories.includes('Symbol')) {
+    criteria = field === 'ma1' ? 'entry1' : 'entry2'
+  } else {
+    fieldName = field === 'ma1' ? components[0]?.url : components[1]?.url
+    // 不是 symbol 类型的话，不用关心双股票条件，默认为 entry1
+    criteria = 'entry1'
+  }
+  const index = field === 'ma1' ? 0 : 1
+  if (type === 'i') {
+    CIQ.addOwnIndicatorMAStudy(0, 'MA', fieldName, criteria, index, false, categories)
+  }
+  if (['EMA', 'MA'].includes(type)) {
+    if (categories.includes('Indicator') && canShift.value && field === 'ma2') {
+      const shiftedStudy = Object.values(CIQ.stxx.layout.studies).find((study: any) => study.type === 'ShiftedSentimentIndicator') as any
+      if (shiftedStudy && shiftedStudy.inputs) fieldName = shiftedStudy.inputs.display
+    }
+    CIQ.addOwnIndicatorMAStudy(value, type, fieldName, criteria, index, showInput, categories)
+  }
+  if (type === 'roc') {
+    CIQ.addOwnIndicatorROCStudy(value, 'Close', criteria, index, showInput)
+  }
+  if (type === 'amplitude' || type === 'amplify') {
+    CIQ.addOwnIndicatorAmplitudeStudy(criteria, index, showInput)
+  }
+  if (['o', 'h', 'l', 'c'].includes(type)) {
+    CIQ.addSymbolOHLCVStudy(criteria, index)
+  }
+}
+
+/** 旧版 refreshMAState */
+function refreshMAState() {
+  if (!isPair.value) return
+  const first = components[0]!
+  const second = components[1]!
+  manageMICondStudies(componentMAValue(first), componentMAType(first), 'ma1', true)
+  manageMICondStudies(componentMAValue(second), componentMAType(second), 'ma2', true)
+}
+
+/** 旧版 findMaxFreq + getMaxTimeframe（周期取 indicator 的 updated，即 option.meta） */
+function findMaxFreq() {
+  const updatedFor = (url: string) => indicatorOptions.value
+    .find((option) => chartIndicatorUrl(option.url).toLowerCase() === url.toLowerCase())?.meta?.toLowerCase()
+  let frequencyArray: Array<string | undefined> = []
+  const categories = legacyCategory(form.category)
+  if (categories === 'Resample') {
+    frequencyArray = [updatedFor(components[0]?.url ?? '')]
+  } else if (form.category !== 'Weighted Indicator Combination') {
+    if (categories.includes('Indicator')) {
+      frequencyArray = [updatedFor(components[0]?.url ?? ''), updatedFor(components[1]?.url ?? '')]
+    }
+  } else {
+    frequencyArray = components.map((item) => (
+      isIndicatorChartUrl(item.url, indicatorOptions.value) ? updatedFor(item.url) : undefined
+    ))
+  }
+  const validTimeframes = ['daily', 'weekly', 'monthly']
+  const filtered = [...frequencyArray.filter((item): item is string => Boolean(item)), userSelectedTimeFrame.value]
+    .filter((item) => validTimeframes.includes(item))
+  if (!filtered.length) return 'daily'
+  return filtered.reduce((max, item) => (validTimeframes.indexOf(item) > validTimeframes.indexOf(max) ? item : max))
+}
+
+/** 读取原生 select/input 的当前值（避免依赖 v-model 与 @change 的监听顺序） */
+function eventValue(event: Event) {
+  return (event.target as HTMLSelectElement | null)?.value ?? ''
+}
+
+/** 旧版 changeTimeFrame 的图表部分 */
+async function handleTimeframeChange(value: string) {
+  form.timeframe = value
+  if (isResample.value) {
+    // 旧版 Resample 的 timeframe 由 condition 控制（changeResampleCondition 不改 userSelectedTimeFrame）
+    chartIQStore.getFrequency(timeframeTransform(value.toLowerCase()))
+    return
+  }
+  userSelectedTimeFrame.value = value.toLowerCase()
+  chartIQStore.getFrequency(timeframeTransform(findMaxFreq()))
+  if (!chartReady.value) return
+  if (form.category === 'Weighted Indicator Combination') {
+    await chartIQStore.set_miFormWeightedListRefresh()
+  } else if (isOhlcv.value) {
+    await changeOhlcvSymbol(components[0]?.url ?? '')
+  } else if (isTechnical.value) {
+    CIQ.stxx.loadChart({
+      symbol: components[0]?.url || CIQ.stxx.chart.symbol,
+      startDate: CHART_START_DATE,
+      endDate: new Date(),
+    }, () => {
+      CIQ.hideCover()
+      chartIQStore.set_mi_create_loading(false)
+    })
+  } else {
+    await chartIQStore.set_miFormStateRefresh()
+    refreshMAState()
+  }
+}
+
+/** 旧版 handleShiftChange */
+async function handleShiftChange(val: string | number, showInput: boolean) {
+  if (!chartReady.value) return
+  if (components[0]?.url !== components[1]?.url) return
+  const categories = legacyCategory(form.category)
+  CIQ.addCover()
+  chartIQStore.set_mi_create_loading(true)
+  // shift 变更时同步 shift 状态到 store
+  await chartIQStore.set_mi_form_shift({ display: true, showInput, value: Number(val) })
+  // offset 仅供显示
+  const offset = showInput ? Number(val) : 0
+  if (categories.includes('Indicator')) {
+    CIQ.addIndicatorShift(components[1]!.source, components[1]!.url, offset)
+    // 当 shift 变化时，需要重新添加 ma2（如果启用了）
+    const second = components[1]!
+    if (componentMAValue(second) !== '' && ['MA', 'EMA'].includes(componentMAType(second))) {
+      manageMICondStudies(componentMAValue(second), componentMAType(second), 'ma2', true)
+    }
+  } else {
+    CIQ.addSymbolShift(offset)
+  }
+}
+
+/** 旧版 changeSymbol（symbol OHLCV） */
+async function changeOhlcvSymbol(symbol: string) {
+  if (!chartReady.value) return
+  // 用 await 包裹 indicator 加载流程，确保其在 stma 加载之前执行
+  await chartIQStore.set_miFormSOHLCVChange({ data: { symbol } })
+  manageMICondStudies(ohlcvMAValue(), ohlcvMAType(), 'ma1', ohlcvShowInput())
+}
+
+/** 旧版 handleRowSelect / addRow / deleteRow 的图表刷新 */
+function refreshWeightedList() {
+  if (!chartReady.value) return
+  chartIQStore.getFrequency(timeframeTransform(findMaxFreq()))
+  chartIQStore.set_miFormWeightedListChange({
+    data: buildWeightData(components, indicatorOptions.value),
+    url: null,
+  })
+}
+
+/** 旧版 changeResampleIndicator */
+async function changeResampleIndicator(option: { value: string; url?: string; meta?: string; label?: string }) {
+  if (!chartReady.value) return
+  const url = option.url ?? option.value
+  const item = components[0]
+  if (item) {
+    item.source = option.value
+    item.url = url
+  }
+  // timeframe 用不上，直接同步为 condition 的值；切换 Indicator 后把 condition 切回 daily
+  form.timeframe = 'Daily'
+  userSelectedTimeFrame.value = 'daily'
+  await CIQ.changeUserOwnIndicatorResample({
+    url,
+    updated: option.meta ?? '',
+    label: option.label ?? option.value,
+  })
+}
+
+/** 旧版 handleSelectTech：ticker 选择 */
+function changeTechnicalTicker(option: { value: string; url?: string }) {
+  if (!chartReady.value) return
+  const item = components[0]
+  if (!item) return
+  item.source = option.value
+  item.url = option.url ?? option.value
+  CIQ.objIndicator = []
+  CIQ.stxx.loadChart({
+    symbol: item.url || CIQ.stxx.chart.symbol,
+    startDate: CHART_START_DATE,
+    endDate: new Date(),
+  }, () => {
+    CIQ.hideCover()
+    chartIQStore.set_mi_create_loading(false)
+  })
+}
+
+/** 旧版 handleSelectTech：technical indicator 选择 */
+function changeTechnicalIndicator(option: { value: string; url?: string }) {
+  if (!chartReady.value) return
+  for (const studyInstanceName in CIQ.stxx.layout.studies) {
+    CIQ.Studies.removeStudy(CIQ.stxx, CIQ.stxx.layout.studies[studyInstanceName])
+  }
+  CIQ.Studies.addStudy(CIQ.stxx, option.url ?? option.value, {}, null, {
+    criteria: 'entry1',
+    index: 0,
+  })
+  CIQ.hideCover()
+  chartIQStore.set_mi_create_loading(false)
+}
+
+/** 旧版 handleSelect：按当前分类分发到对应图表逻辑 */
+async function selectSource(index: number, option: { value: string; url?: string; meta?: string; label?: string; kind?: 'Indicator' | 'Symbol' }) {
+  const item = components[index]
+  if (!item) return
+  const previousUrl = item.url
+  item.source = option.value
+  // 【照搬旧版 sentimentList】stock 同名 indicator 的 chart url 带 `@indicator` 后缀
+  const selectingIndicator = option.kind ? option.kind === 'Indicator' : isIndicator.value
+  const baseUrl = option.url ?? option.value
+  item.url = selectingIndicator ? chartIndicatorUrl(baseUrl) : baseUrl
+
+  if (form.category === 'Weighted Indicator Combination') {
+    refreshWeightedList()
+    return
+  }
+  if (isOhlcv.value) {
+    await changeOhlcvSymbol(item.url)
+    return
+  }
+  if (isResample.value) {
+    await changeResampleIndicator({ ...option, url: item.url })
+    return
+  }
+  if (isTechnical.value) {
+    changeTechnicalTicker(option)
+    return
+  }
+  if (!isPair.value || !chartReady.value) return
+  // 防止重复加载同一个 indicator
+  if (previousUrl === item.url) return
+  const categories = legacyCategory(form.category)
+  if (categories.includes('Symbol')) {
+    // 旧版 selectSymbol 同步 shift 状态
+    chartIQStore.set_mi_form_shift({
+      display: components[0]?.url === components[1]?.url,
+      showInput: Number(components[1]?.shift ?? 0) > 0,
+      value: Number(components[1]?.shift ?? 0),
+    })
+  }
+  chartIQStore.getFrequency(timeframeTransform(findMaxFreq()))
+  await chartIQStore.set_miFormStateChange(chartState())
+  manageMICondStudies(componentMAValue(item), componentMAType(item), index === 0 ? 'ma1' : 'ma2', true)
+}
+
+/** 旧版 CheckInput 的 select change：立即刷新 study */
+function handleCalculationChange(index: number, event: Event) {
+  const item = components[index]
+  const value = (event.target as HTMLSelectElement | null)?.value
+  if (!item || !value) return
+  // 旧版 handleSelect 切换前保留原输入值（仅非数字时才清空）
+  const legacyValue = item.period === '' ? '' : item.period
+  item.calculation = value as Calculation
+  item.period = ['Simple Moving Average', 'Exponential Moving Average', 'Rate of Change'].includes(value) ? item.period : ''
+  if (!chartReady.value) return
+  if (form.category === 'Weighted Indicator Combination' || isResample.value || isTechnical.value || isOhlcv.value) return
+  if (value === 'Indicator Value') {
+    // 旧版 handleSelect：MAType 为 'i' 时以 ('MA', 原值, false) 调用，
+    // addOwnIndicatorMAStudy 会先移除该 index 的旧 MA study
+    manageMICondStudies(legacyValue, 'MA', index === 0 ? 'ma1' : 'ma2', false)
+    return
+  }
+  manageMICondStudies(componentMAValue(item), componentMAType(item), index === 0 ? 'ma1' : 'ma2', true)
+}
+
+/** 旧版 CheckInput 的 input（500ms debounce）：周期 */
+const handlePeriodChange = debounce((index: number) => {
+  const item = components[index]
+  if (!item || !chartReady.value || !isPair.value) return
+  manageMICondStudies(componentMAValue(item), componentMAType(item), index === 0 ? 'ma1' : 'ma2', true)
+}, 500)
+
+/** 旧版 shiftForm 的 input（500ms debounce） */
+const handleShiftInput = debounce(() => {
+  const value = components[1]?.shift ?? '0'
+  void handleShiftChange(value, Number(value) > 0)
+}, 500)
+
+/** 旧版 OHLCV price field change */
+function handleOhlcvConditionChange(event: Event) {
+  const item = components[0]
+  const value = (event.target as HTMLSelectElement | null)?.value
+  if (!item || !value) return
+  item.calculation = value as Calculation
+  manageMICondStudies(ohlcvMAValue(), ohlcvMAType(), 'ma1', ohlcvShowInput())
+}
+
+/** 旧版 OHLCV smoothing change（选中 None 等价于取消勾选：移除 MA） */
+function handleOhlcvSmoothingChange(event: Event) {
+  const value = (event.target as HTMLSelectElement | null)?.value as 'None' | 'SMA' | 'EMA' | undefined
+  if (!value) return
+  ohlcvSmoothing.value = value
+  manageMICondStudies(ohlcvMAValue(), ohlcvMAType(), 'ma1', ohlcvShowInput())
+}
+
+/** 旧版 maohlcvForm 的 input（500ms debounce） */
+const handleOhlcvPeriodChange = debounce(() => {
+  manageMICondStudies(ohlcvMAValue(), ohlcvMAType(), 'ma1', ohlcvShowInput())
+}, 500)
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Preview 管线（旧版 MIForm.savePreviewIndicator + previewIndicator）
+ * ═══════════════════════════════════════════════════════════════════ */
+
+async function runPreview() {
+  if (!chartReady.value) return
+  CIQ.addCover()
+  chartIQStore.set_mi_create_loading(true)
+  try {
+    const payload: CreateMyIndicatorPayload = {
+      ...indicatorPayload(),
+      // 在名字后加上四位随机小数
+      name: `${form.name.trim()}_${Math.round(Math.random() * 10000) / 10000}`,
+    }
+    const { status, body } = await createMyIndicatorForPreview(payload, controller.signal)
+    let url: string | null = null
+    if (status === 406) {
+      // 说明这条数据已经存在了，直接请求数据
+      url = String((body.data as Record<string, unknown> | undefined)?.url ?? '')
+      if (url) {
+        const indicatorData = await getMyIndicatorData(url, controller.signal)
+        ;(CIQ as any).previewIndicatorDataCache = (CIQ as any).previewIndicatorDataCache || {}
+        ;(CIQ as any).previewIndicatorDataCache[url] = indicatorData.data
+      }
+      chartIQStore.set_mi_create_loading(false)
+      CIQ.hideCover()
+    }
+    if (status === 405) {
+      message.value = 'No data available for this symbol'
+      chartIQStore.set_mi_create_loading(false)
+      CIQ.hideCover()
+    }
+    if (status === 201) {
+      url = String(body.url ?? '')
+      if (url) {
+        const indicatorData = await getMyIndicatorData(url, controller.signal)
+        // 暂存，删除临时记录后仍可用于预览
+        ;(CIQ as any).previewIndicatorDataCache = (CIQ as any).previewIndicatorDataCache || {}
+        ;(CIQ as any).previewIndicatorDataCache[url] = indicatorData.data
+        await deleteMyIndicator(url, controller.signal)
+      }
+    }
+    if (!url) {
+      chartIQStore.set_mi_create_loading(false)
+      CIQ.hideCover()
+      return
+    }
+    const combined = `${form.name}CREATE${url}`
+    const extremes = {
+      op: form.optimismEnabled ? form.optimism : 0,
+      ep: form.pessimismEnabled ? form.pessimism : 0,
+    }
+    const categories = legacyCategory(form.category)
+    if (categories.includes('Symbol')) {
+      CIQ.previewUserOwnIndicator(
+        [components[0]!.url, components[1]!.url, combined],
+        combined,
+        components[0]!.url,
+        extremes,
+        categories,
+      )
+    } else if (categories.includes('Indicator')) {
+      CIQ.previewUserOwnIndicator(
+        [components[0]!.url, components[1]!.url, combined],
+        combined,
+        null,
+        extremes,
+      )
+    } else if (form.category === 'Weighted Indicator Combination') {
+      CIQ.previewUserOwnIndicator(
+        [...buildWeightData(components, indicatorOptions.value).map((item) => item.indicator_url), combined],
+        combined,
+        CIQ.stxx.chart.symbol,
+      )
+    } else if (categories === 'OHLCV') {
+      CIQ.previewUserOwnIndicator([combined], combined, components[0]!.url)
+    } else if (categories === 'Resample') {
+      // timeframe 直接和更改的 condition 一致
+      chartIQStore.getFrequency(timeframeTransform(form.timeframe.toLowerCase()))
+      CIQ.previewUserOwnIndicator([combined], combined, null, extremes, 'Resample')
+    }
+    // Technical：旧版无该分支，不刷新图表
+    chartIQStore.set_mi_create_loading(false)
+  } catch {
+    chartIQStore.set_mi_create_loading(false)
+    CIQ.hideCover()
+  }
+}
+
+const previewIndicator = debounce(runPreview, 500)
+
+function handlePreviewClick() {
+  validateForm()
+  if (!validated.value) return
+  void previewIndicator()
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Benchmark 双向同步（旧版 watch handleGetMiBenmark）
+ * ═══════════════════════════════════════════════════════════════════ */
+watch(() => chartIQStore.miBenmark, async (newVal) => {
+  if (!chartReady.value || loadingRecord.value) return
+  form.benchmark = newVal
+  const categories = legacyCategory(form.category)
+  if (categories.includes('Indicator')) {
+    // 如果是空图标切换，则跳过还原表单 indicator 条件
+    if (!components[0]?.source && !components[1]?.source) return
+    await chartIQStore.set_miFormStateRefresh()
+    refreshMAState()
+  }
+  if (categories.includes('Symbol')) {
+    const item = components[0]
+    if (item) {
+      item.source = newVal
+      item.url = newVal
+    }
+    refreshMAState()
+    // 旧版只传一个参数，showInput 为 undefined（falsy），即 offset 归零
+    await handleShiftChange(components[1]?.shift ?? 0, false)
+  }
+  if (categories === 'WIC') {
+    const index = components.findIndex((item) => Boolean(item.url)
+      && !isIndicatorChartUrl(item.url, indicatorOptions.value))
+    if (index !== -1) {
+      components[index]!.source = newVal
+      components[index]!.url = newVal
+    }
+    await chartIQStore.set_miFormWeightedListRefresh({
+      data: buildWeightData(components, indicatorOptions.value),
+      url: null,
+    })
+  }
+  if (categories === 'OHLCV') {
+    const item = components[0]
+    if (item) {
+      item.source = newVal
+      item.url = newVal
+    }
+    manageMICondStudies(ohlcvMAValue(), ohlcvMAType(), 'ma1', ohlcvShowInput())
+  }
+  if (categories === 'Technical' && components[0]) {
+    components[0]!.source = newVal
+    components[0]!.url = newVal
+  }
+  if (categories === 'Resample' && components[0]?.url) {
+    // 旧版只从 CIQ.findSentiIndicator 取 chart_name，且不传 updated，也不改表单 source
+    const senti = CIQ.findSentiIndicator(null, components[0]!.url)
+    await changeResampleIndicator({
+      value: components[0]!.source,
+      url: components[0]!.url,
+      label: senti?.chart_name,
+    })
+  }
+})
 function addWeightedComponent() {
   if (components.length >= 10) return
+  // 旧版 addRow 只追加行，不刷新图表
   components.push({ source: '', url: '', calculation: 'Indicator Value', period: '', shift: '0', weight: '0' })
 }
-function removeWeightedComponent(index: number) { if (components.length > 2) components.splice(index, 1) }
+function removeWeightedComponent(index: number) {
+  if (components.length <= 2) return
+  components.splice(index, 1)
+  // 旧版 deleteRow 只更新 weightList，不重算 frequency
+  if (!chartReady.value) return
+  chartIQStore.set_miFormWeightedListChange({
+    data: buildWeightData(components, indicatorOptions.value),
+    url: null,
+  })
+}
 function validateForm() {
   message.value = ''
   if (!form.name.trim()) return void (message.value = 'Enter an indicator name.')
@@ -157,13 +678,16 @@ function hydrateForm(row: MyIndicatorRow) {
   form.name = row.name
   form.category = row.category as Category
   form.timeframe = row.timeframe
+  // 旧版 displayData: this.userSelectedTimeFrame = data.timeframe
+  userSelectedTimeFrame.value = row.timeframe.toLowerCase()
   form.optimism = String(row.raw.extreme_optimism ?? '')
   form.pessimism = String(row.raw.extreme_pessimism ?? '')
   form.optimismEnabled = Boolean(form.optimism && form.optimism !== '0')
   form.pessimismEnabled = Boolean(form.pessimism && form.pessimism !== '0')
   form.benchmark = String(row.raw.benchmark ?? 'SPX')
   if (isWeighted.value) {
-    components.splice(0, components.length, ...row.included.map((item) => ({ source: item.name, url: item.url, calculation: 'Indicator Value' as Calculation, period: '', shift: '0', weight: item.weight?.replace('%', '') ?? '0' })))
+    // 旧版 getWeightedIndicatorData + processIndicators：Indicator 行还原 `@indicator` 后缀
+    components.splice(0, components.length, ...row.included.map((item) => ({ source: item.name, url: item.kind === 'Indicator' ? restoreIndicatorChartUrl(item.url, indicatorOptions.value) : item.url, calculation: 'Indicator Value' as Calculation, period: '', shift: '0', weight: item.weight?.replace('%', '') ?? '0' })))
     loadingRecord.value = false
     return
   }
@@ -195,7 +719,9 @@ function hydrateForm(row: MyIndicatorRow) {
     const field = process[index]?.match(/_([a-z]+)$/i)?.[1] ?? 'c'
     const decoded = decodeCalculation(ma[index] ?? '', field)
     component.source = included?.name ?? ''
-    component.url = included?.url ?? String(row.raw[`indicator_${index + 1}`] ?? '')
+    const restoredUrl = included?.url ?? String(row.raw[`indicator_${index + 1}`] ?? '')
+    // 旧版 list/table.vue 仅对 indicator_1_url 还原 `@indicator` 后缀
+    component.url = isIndicator.value && index === 0 ? restoreIndicatorChartUrl(restoredUrl, indicatorOptions.value) : restoredUrl
     component.calculation = decoded.calculation
     component.period = decoded.period
     component.shift = process[index]?.match(/sh(\d+)_/)?.[1] ?? '0'
@@ -216,15 +742,31 @@ watch(() => form.category, () => {
   if (loadingRecord.value) return
   validated.value = false
   const count = isPair.value || isWeighted.value ? 2 : 1
-  components.splice(0, components.length, ...Array.from({ length: count }, (_, index) => ({ source: '', url: '', calculation: isIndicator.value || isWeighted.value ? 'Indicator Value' as Calculation : 'Close' as Calculation, period: index ? '20' : '', shift: '0', weight: isWeighted.value ? '50' : '' })))
+  components.splice(0, components.length, ...Array.from({ length: count }, () => ({ source: '', url: '', calculation: isIndicator.value || isWeighted.value ? 'Indicator Value' as Calculation : 'Close' as Calculation, period: '', shift: '0', weight: isWeighted.value ? '50' : '' })))
   technicalIndicator.value = ''
   technicalCode.value = ''
   ohlcvSmoothing.value = 'None'
   ohlcvPeriod.value = '20'
+  // 旧版 changeCategories 的图表部分
+  if (!chartReady.value) return
+  CIQ.isOHLCVSelectedMI = isOhlcv.value
+  chartIQStore.set_chart_type(isOhlcv.value ? 'candle' : 'line')
+  CIQ.stxx?.setChartType(chartIQStore.chartType)
+  void chartIQStore.set_miFormStateChange(chartState())
 }, { flush: 'sync' })
 watch(technicalIndicator, () => { if (!loadingRecord.value) technicalCode.value = '' }, { flush: 'sync' })
 watch([form, components], () => { validated.value = false; if (message.value === 'Formula validated and ready to save.') message.value = '' }, { deep: true })
+function mountChart() {
+  if (chartMounted.value) return
+  // 旧版 created 中 commit myindicator benchmark；新 store 默认 AAPL，这里恢复旧版缺省 SPX
+  chartIQStore.set_mi_benchmark(form.benchmark || 'SPX')
+  chartMounted.value = true
+}
+function onChartReady() {
+  chartReady.value = true
+}
 onMounted(async () => {
+  let editRow: MyIndicatorRow | undefined
   try {
     const [options, rows] = await Promise.all([
       fetchSentimentIndicatorOptions(controller.signal),
@@ -232,14 +774,27 @@ onMounted(async () => {
     ])
     indicatorOptions.value = options
     if (isEdit.value) {
-      const row = rows.find((item) => item.url === recordUrl.value)
-      if (!row) message.value = 'Unable to find this indicator.'
-      else hydrateForm(row)
+      editRow = rows.find((item) => item.url === recordUrl.value)
+      if (!editRow) message.value = 'Unable to find this indicator.'
+      else hydrateForm(editRow)
     }
   } catch (error) { message.value = error instanceof Error ? error.message : 'Unable to load the indicator.' }
-  finally { loadingOptions.value = false; loadingRecord.value = false }
+  finally {
+    loadingOptions.value = false
+    loadingRecord.value = false
+    // 编辑进入时先把数据还原成旧版 chart_data，图表 onChartReady 时交给
+    // CIQ.displayUserOwnIndicatorLayout 还原
+    if (editRow) legacyChartData.value = buildLegacyChartData(editRow, indicatorOptions.value)
+    mountChart()
+  }
 })
-onBeforeUnmount(() => controller.abort())
+onBeforeUnmount(() => {
+  previewIndicator.cancel()
+  handlePeriodChange.cancel()
+  handleShiftInput.cancel()
+  handleOhlcvPeriodChange.cancel()
+  controller.abort()
+})
 </script>
 
 <template>
@@ -248,15 +803,21 @@ onBeforeUnmount(() => controller.abort())
     <template #title-actions><button class="secondary-button h-8 px-3 text-xs" type="button" @click="router.push('/my-stuff/indicators')"><ArrowLeft :size="15" />Back to list</button></template>
     <template #summary><button class="secondary-button h-8 px-3 text-xs" type="button"><PlayCircle :size="15" />Watch Tutorial</button></template>
     <div class="builder-shell">
-      <section class="builder-card setup-card"><h2><span class="section-number">1</span>Indicator Setup</h2><div class="setup-grid"><label>Name<input v-model="form.name" class="builder-input" placeholder="e.g. Sugar Optix MA100 Spread" /></label><label>Category<select v-model="form.category" class="builder-input"><option v-for="item in categories" :key="item">{{ item }}</option></select></label><label>Timeframe<select v-model="form.timeframe" class="builder-input"><option v-for="item in timeframes" :key="item">{{ item }}</option></select></label></div></section>
+      <section class="builder-card setup-card"><h2><span class="section-number">1</span>Indicator Setup</h2><div class="setup-grid"><label>Name<input v-model="form.name" class="builder-input" placeholder="e.g. Sugar Optix MA100 Spread" /></label><label>Category<select v-model="form.category" class="builder-input"><option v-for="item in categories" :key="item">{{ item }}</option></select></label><label>Timeframe<select v-model="form.timeframe" class="builder-input" @change="handleTimeframeChange(eventValue($event))"><option v-for="item in timeframes" :key="item">{{ item }}</option></select></label></div></section>
       <section class="builder-card formula-section"><div class="formula-heading"><h2><span class="section-number">2</span>Build Formula</h2><p class="section-copy">Configure the inputs required for {{ form.category }}.</p></div>
-        <div v-if="isPair" class="component-grid"><template v-for="(item, index) in components" :key="index"><article class="component-card"><header><strong>{{ index ? 'B' : 'A' }}</strong>{{ index ? 'Second' : 'First' }} {{ isIndicator ? 'indicator' : 'symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="item.source" :options="sourceOptions" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" @select="selectSource(index, $event)" /></label><div class="component-options"><label>Calculation<select v-model="item.calculation" class="builder-input"><option v-for="option in calculationOptions" :key="option">{{ option }}</option></select></label><label v-if="needsPeriod(item)">Period<input v-model="item.period" class="builder-input" inputmode="numeric" /></label><label v-if="index === 1 && canShift && Number(item.shift) > 0">Shift (bars)<input v-model="item.shift" class="builder-input" inputmode="numeric" /></label></div></div></article><div v-if="index === 0" class="formula-operator"><span>{{ operationSymbol }}</span><strong>{{ operation }}</strong></div></template></div>
+        <div v-if="isPair" class="component-grid"><template v-for="(item, index) in components" :key="index"><article class="component-card"><header><strong>{{ index ? 'B' : 'A' }}</strong>{{ index ? 'Second' : 'First' }} {{ isIndicator ? 'indicator' : 'symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="item.source" :options="sourceOptions" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" @select="selectSource(index, $event)" /></label><div class="component-options"><label>Calculation<select v-model="item.calculation" class="builder-input" @change="handleCalculationChange(index, $event)"><option v-for="option in calculationOptions" :key="option">{{ option }}</option></select></label><label v-if="needsPeriod(item)">Period<input v-model="item.period" class="builder-input" inputmode="numeric" @input="handlePeriodChange(index)" /></label><label v-if="index === 1 && canShift && Number(item.shift) > 0">Shift (bars)<input v-model="item.shift" class="builder-input" inputmode="numeric" @input="handleShiftInput()" /></label></div></div></article><div v-if="index === 0" class="formula-operator"><span>{{ operationSymbol }}</span><strong>{{ operation }}</strong></div></template></div>
         <div v-else-if="isWeighted" class="weighted-grid"><article v-for="(item, index) in components" :key="index" class="component-card weighted-card"><header><strong>{{ index + 1 }}</strong>Weighted input<button type="button" :disabled="components.length <= 2" aria-label="Remove weighted input" @click="removeWeightedComponent(index)"><Trash2 :size="15" /></button></header><div class="component-body weighted-fields"><label>Indicator or symbol<SearchSelect v-model="item.source" :options="weightedSourceOptions" placeholder="Search input" @select="selectSource(index, $event)" /></label><label>Weight (%)<input v-model="item.weight" class="builder-input" type="number" step="1" /></label></div></article><button v-if="components.length < 10" class="add-component" type="button" @click="addWeightedComponent"><Plus :size="16" />Add weighted input</button></div>
-        <div v-else class="special-form-grid"><article class="component-card"><header><strong>1</strong>{{ isResample ? 'Source indicator' : 'Source symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="primaryComponent.source" :options="sourceOptions" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" @select="selectSource(0, $event)" /></label><div v-if="isOhlcv" class="component-options"><label>Price field<select v-model="primaryComponent.calculation" class="builder-input"><option v-for="field in ['Open', 'High', 'Low', 'Close', 'Volume']" :key="field">{{ field }}</option></select></label><label>Smoothing<select v-model="ohlcvSmoothing" class="builder-input"><option>None</option><option>SMA</option><option>EMA</option></select></label><label v-if="ohlcvSmoothing !== 'None'">Period<input v-model="ohlcvPeriod" class="builder-input" inputmode="numeric" /></label></div><label v-if="isTechnical">Technical indicator<SearchSelect v-model="technicalIndicator" :options="technicalOptions" placeholder="Search technical indicator" /></label><div v-if="isResample" class="special-note">Target timeframe: <strong>{{ form.timeframe }}</strong></div></div></article></div>
-        <div class="formula-summary"><div><strong>{{ isPair ? `Formula: A ${operationSymbol} B` : form.category }}</strong><span>{{ formula }}</span><small>{{ explanation }}</small></div><div class="formula-summary-actions"><span v-if="validated" class="validated"><Check :size="15" />Formula valid</span><button class="secondary-button" type="button" @click="validateForm"><Beaker :size="17" />Validate &amp; Preview</button><button class="primary-button" type="button" :disabled="saving || loadingRecord" @click="saveIndicator"><Save :size="17" />{{ saving ? 'Saving…' : isEdit ? 'Update Indicator' : 'Save Indicator' }}</button></div></div>
+        <div v-else class="special-form-grid"><article class="component-card"><header><strong>1</strong>{{ isResample ? 'Source indicator' : 'Source symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="primaryComponent.source" :options="sourceOptions" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" @select="selectSource(0, $event)" /></label><div v-if="isOhlcv" class="component-options"><label>Price field<select v-model="primaryComponent.calculation" class="builder-input" @change="handleOhlcvConditionChange($event)"><option v-for="field in ['Open', 'High', 'Low', 'Close', 'Volume']" :key="field">{{ field }}</option></select></label><label>Smoothing<select v-model="ohlcvSmoothing" class="builder-input" @change="handleOhlcvSmoothingChange($event)"><option>None</option><option>SMA</option><option>EMA</option></select></label><label v-if="ohlcvSmoothing !== 'None'">Period<input v-model="ohlcvPeriod" class="builder-input" inputmode="numeric" @input="handleOhlcvPeriodChange()" /></label></div><label v-if="isTechnical">Technical indicator<SearchSelect v-model="technicalIndicator" :options="technicalOptions" placeholder="Search technical indicator" @select="changeTechnicalIndicator($event)" /></label><div v-if="isResample" class="special-note">Target timeframe: <strong>{{ form.timeframe }}</strong></div></div></article></div>
+        <div class="formula-summary"><div><strong>{{ isPair ? `Formula: A ${operationSymbol} B` : form.category }}</strong><span>{{ formula }}</span><small>{{ explanation }}</small></div><div class="formula-summary-actions"><span v-if="validated" class="validated"><Check :size="15" />Formula valid</span><button class="secondary-button" type="button" @click="handlePreviewClick"><Beaker :size="17" />Validate &amp; Preview</button><button class="primary-button" type="button" :disabled="saving || loadingRecord" @click="saveIndicator"><Save :size="17" />{{ saving ? 'Saving…' : isEdit ? 'Update Indicator' : 'Save Indicator' }}</button></div></div>
       </section>
       <section v-if="isPair || isResample" class="builder-card thresholds-card"><h2><span class="section-number">3</span>Thresholds <small>(Optional)</small></h2><div class="thresholds"><label><span><input v-model="form.optimismEnabled" type="checkbox" />Extreme Optimism</span><input v-model="form.optimism" class="builder-input" placeholder="Enter value" :disabled="!form.optimismEnabled" /></label><label><span><input v-model="form.pessimismEnabled" type="checkbox" />Extreme Pessimism</span><input v-model="form.pessimism" class="builder-input" placeholder="Enter value" :disabled="!form.pessimismEnabled" /></label></div></section>
-      <section class="builder-card preview-card"><div><h2><span class="section-number">{{ isPair || isResample ? 4 : 3 }}</span>Preview</h2><span v-if="validated" class="validated"><Check :size="15" />Formula validated · Preview up to date</span></div><div class="preview-placeholder"><SlidersHorizontal :size="28" /><strong>{{ form.name || 'Your indicator preview' }}</strong><span>{{ formula }}</span><small>Chart preview will use the selected benchmark: {{ form.benchmark }}</small></div></section>
+      <section class="builder-card preview-card"><div><h2><span class="section-number">{{ isPair || isResample ? 4 : 3 }}</span>Preview</h2><span v-if="validated" class="validated"><Check :size="15" />Formula validated · Preview up to date</span></div><IndicatorBuilderChartIQ
+          v-if="chartMounted"
+          :symbol="form.benchmark || 'SPX'"
+          :chart-data="legacyChartData"
+          @chart-ready="onChartReady"
+        />
+        <div v-else class="preview-placeholder"><SlidersHorizontal :size="28" /><strong>{{ form.name || 'Your indicator preview' }}</strong><span>{{ formula }}</span><small>Chart preview will use the selected benchmark: {{ form.benchmark }}</small></div></section>
       <div v-if="message" class="builder-message" :class="validated ? 'success' : 'error'">{{ message }}</div>
     </div>
   </ListExplorerPage>
