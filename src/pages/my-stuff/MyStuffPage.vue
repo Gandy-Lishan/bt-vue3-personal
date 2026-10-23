@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  ArrowLeft,
   BellRing,
   Filter,
   ListChecks,
@@ -76,6 +77,16 @@ const indicatorQuery = ref('')
 const indicatorCategory = ref('')
 const indicatorTimeframe = ref('')
 const previewIndicator = ref<MyIndicatorRow | null>(null)
+const screenCount = ref(0)
+const screenView = ref<'saved' | 'build'>('saved')
+const screenMode = ref<'create' | 'edit' | 'view'>('create')
+const screenWorkspace = ref<InstanceType<typeof MyScreenWorkspace> | null>(null)
+const panelTitle = computed(() => {
+  if (!isScreens.value || screenView.value === 'saved') return activeConfig.value.label
+  if (screenMode.value === 'edit') return 'Edit Screen'
+  if (screenMode.value === 'view') return 'Screen Configuration'
+  return 'Create New Screen'
+})
 
 const timeframeOptions = computed(() => Array.from(new Set(rows.value.map((row) => row.timeframe).filter((value) => value && value !== '-'))).sort())
 const filteredRows = computed(() => {
@@ -364,7 +375,7 @@ onBeforeUnmount(() => abortController.abort())
   <ListExplorerPage
     title="My Stuff"
     description="Your personal indicators, signals, screens and watch lists."
-    :panel-title="activeConfig.label"
+    :panel-title="panelTitle"
     :panel-description="activeConfig.description"
     :show-view-mode-toggle="false"
   >
@@ -391,6 +402,9 @@ onBeforeUnmount(() => abortController.abort())
         Email alerts
       </button>
     </template>
+    <template v-else-if="isScreens && screenView === 'build'" #title-actions>
+      <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-xs font-bold text-[var(--app-text-secondary)] hover:bg-[var(--app-surface-soft)]" type="button" @click="screenWorkspace?.showSaved()"><ArrowLeft :size="15" />Back to list</button>
+    </template>
 
     <template v-if="isSignals" #summary>
       <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-sky-500" /><span><strong>{{ rows.length }}</strong> signals</span></span>
@@ -400,6 +414,9 @@ onBeforeUnmount(() => abortController.abort())
     <template v-else-if="isIndicators" #summary>
       <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-violet-500" /><span><strong>{{ indicatorRows.length }}</strong> indicators</span></span>
       <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-sky-500" /><span><strong>{{ indicatorCategories.length }}</strong> categories</span></span>
+    </template>
+    <template v-else-if="isScreens && screenView === 'saved'" #summary>
+      <span class="indicator-summary-pill"><span class="indicator-summary-pill__dot bg-violet-500" /><span><strong>{{ screenCount }}</strong> screens</span></span>
     </template>
 
     <template v-if="isSignals" #tabs>
@@ -440,7 +457,7 @@ onBeforeUnmount(() => abortController.abort())
       <div v-if="indicatorError" class="mx-4 mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ indicatorError }} <button class="ml-2 font-extrabold underline" type="button" @click="loadIndicators">Retry</button></div>
       <MyIndicatorTable class="m-4" :rows="indicatorTable.pagedRows.value" :loading="indicatorLoading" :sort-key="indicatorTable.sortKey.value" :sort-direction="indicatorTable.sortDirection.value" :deleting-id="indicatorDeletingId" @sort="handleIndicatorSort" @preview="previewIndicator = $event" @edit="editIndicator" @delete="handleIndicatorDelete" />
     </div>
-    <MyScreenWorkspace v-else-if="isScreens" />
+    <MyScreenWorkspace ref="screenWorkspace" v-else-if="isScreens" @count-change="screenCount = $event" @view-change="(view, mode) => { screenView = view; screenMode = mode }" />
     <WatchListWorkspace v-else-if="isWatchList" />
     <div v-else class="flex min-h-[420px] flex-col items-center justify-center px-6 text-center"><component :is="activeConfig.icon" :size="42" class="text-[var(--app-primary)]" /><h3 class="mt-4 text-xl font-extrabold">{{ activeConfig.label }}</h3><p class="mt-2 max-w-md text-sm text-[var(--app-text-muted)]">This workspace is coming soon.</p></div>
 

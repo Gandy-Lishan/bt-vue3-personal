@@ -5,6 +5,7 @@ import { Check, Search } from '@lucide/vue'
 interface SearchSelectOption {
   value: string
   label: string
+  displayValue?: string
   description?: string
   meta?: string
 }
@@ -38,7 +39,7 @@ const isOpen = ref(false)
 const activeIndex = ref(0)
 
 const selectedOption = computed(() => props.options.find((option) => option.value === props.modelValue) ?? null)
-const selectedDisplayValue = computed(() => selectedOption.value?.value ?? props.modelValue)
+const selectedDisplayValue = computed(() => selectedOption.value?.displayValue ?? selectedOption.value?.value ?? props.modelValue)
 
 const visibleOptions = computed(() => {
   const needle = standardize(query.value)
@@ -97,7 +98,7 @@ function moveActive(delta: number) {
 function selectOption(option: SearchSelectOption) {
   emit('update:modelValue', option.value)
   emit('select', option)
-  query.value = option.value
+  query.value = option.displayValue ?? option.value
   closeDropdown(false)
 }
 
@@ -151,9 +152,10 @@ function fuzzyMatch(text: string, needle: string) {
 function scoreOption(option: SearchSelectOption, needle: string) {
   const symbol = standardize(option.value)
   const label = standardize(option.label)
+  const displayValue = standardize(option.displayValue ?? '')
   const description = standardize(option.description ?? '')
   const meta = standardize(option.meta ?? '')
-  const haystack = `${symbol} ${label} ${description} ${meta}`
+  const haystack = `${symbol} ${label} ${displayValue} ${description} ${meta}`
 
   if (symbol === needle || label === needle) return 100
   if (symbol.startsWith(needle)) return 80
@@ -211,7 +213,7 @@ onBeforeUnmount(() => {
         @mousedown.prevent="selectOption(option)"
       >
         <span class="search-select__option-main">
-          <span class="search-select__option-symbol">{{ option.value }}</span>
+          <span class="search-select__option-symbol">{{ option.displayValue || option.value }}</span>
           <span class="search-select__option-name">{{ option.description || option.label }}</span>
         </span>
         <span class="search-select__option-meta">
