@@ -36,6 +36,11 @@ const sourceLabel = computed(() => {
   return source || report.value?.category || 'Reports'
 })
 
+const isDailyReport = computed(() => {
+  const level = report.value?.userLevel.toLowerCase()
+  return report.value?.category === 'Daily Report' || level === 'basic' || level === 'public' || level === 'free'
+})
+
 function positiveInteger(value: unknown) {
   const parsed = Number(value)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
@@ -237,7 +242,7 @@ watch(slug, () => void loadReport())
 </script>
 
 <template>
-  <main class="report-detail-page">
+  <main class="report-detail-page" :class="{ 'report-detail-page--daily': isDailyReport }">
     <div v-if="isLoading" class="report-state">
       <LoaderCircle :size="32" class="animate-spin text-[var(--app-primary)]" />
       <p>Loading report...</p>
@@ -340,12 +345,12 @@ watch(slug, () => void loadReport())
 .report-product-banner img { display: block; width: min(100%, 564px); height: auto; }
 .report-back { display: flex; width: fit-content; min-height: 36px; align-items: center; gap: .4rem; border: 0; padding: 0 .15rem; color: var(--app-primary); background: transparent; font-size: .75rem; font-weight: 700; }
 .report-back:hover { color: var(--app-primary-hover); }
-.report-related h2 { margin: 0 0 1rem; color: #000; font-size: 1.65rem; font-weight: 300; line-height: 1.25; }
+.report-related h2 { margin: 0 0 1rem; color: var(--app-text); font-size: 1.65rem; font-weight: 300; line-height: 1.25; }
 .report-article__header { padding: .25rem 0 1rem; border-bottom: 1px solid var(--app-border-muted); }
 .report-article__header h1 { margin: 0; color: var(--app-text); font-size: clamp(1.8rem, 3vw, 2.45rem); font-weight: 500; line-height: 1.2; letter-spacing: -.02em; }
 .report-article__byline { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; margin-top: .85rem; color: var(--app-text-muted); font-size: .75rem; }
 .report-article__byline span { display: inline-flex; align-items: center; gap: .4rem; }
-.report-rich-text { padding: 1rem 0 2.2rem; color: var(--app-text-secondary); font-size: .875rem; line-height: 1.5; }
+.report-rich-text { min-width: 0; overflow-wrap: anywhere; padding: 1rem 0 2.2rem; color: var(--app-text-secondary); font-size: .875rem; line-height: 1.65; }
 .report-forecasts { margin-top: 1rem; overflow: hidden; border: 1px solid var(--app-border-muted); border-radius: .45rem; }
 .report-forecasts header { position: relative; display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 1rem; padding: .65rem 1rem; border-bottom: 1px solid var(--app-border-muted); background: var(--app-surface-muted); }
 .report-forecasts h2 { margin: 0; color: var(--app-text); font-size: 1rem; font-weight: 600; text-align: center; }
@@ -365,10 +370,57 @@ watch(slug, () => void loadReport())
 .report-rich-text :deep(ul) { list-style: disc; }
 .report-rich-text :deep(ol) { list-style: decimal; }
 .report-rich-text :deep(img) { display: block; max-width: 100% !important; height: auto !important; margin: 1rem auto; border-radius: .35rem; }
-.report-rich-text :deep(table) { width: 100% !important; max-width: 100%; border-collapse: collapse; }
-.report-rich-text :deep(td), .report-rich-text :deep(th) { padding: .35rem; }
+.report-rich-text :deep(table) { width: 100% !important; max-width: 100%; border-collapse: collapse; color: inherit; }
+.report-rich-text :deep(td), .report-rich-text :deep(th) { padding: .55rem; border-color: var(--app-border-muted); }
+.report-rich-text :deep(th) { color: var(--app-text); background: var(--app-surface-muted); }
+.report-rich-text :deep(blockquote) { margin: 1rem 0; border-left: 3px solid var(--app-primary); padding: .25rem 1rem; color: var(--app-text-muted); background: var(--app-surface-soft); }
+.report-rich-text :deep(hr) { margin: 1.25rem 0; border: 0; border-top: 1px solid var(--app-border-muted); }
 .report-rich-text :deep(a) { color: var(--app-primary); text-decoration: underline; }
 .report-rich-text :deep(iframe) { max-width: 100%; }
+:global(:root[data-theme='dark'] .report-rich-text [bgcolor]),
+:global(:root[data-theme='dark'] .report-rich-text [style*="background"]) { background: transparent !important; }
+:global(:root[data-theme='dark'] .report-rich-text [color]),
+:global(:root[data-theme='dark'] .report-rich-text [style*="color"]) { color: var(--app-text-secondary) !important; }
+:global(:root[data-theme='dark'] .report-rich-text a[style*="color"]) { color: var(--app-primary) !important; }
+:global(:root[data-theme='dark'] .report-rich-text th),
+:global(:root[data-theme='dark'] .report-rich-text th[style*="background"]) { color: var(--app-text) !important; background: var(--app-surface-muted) !important; }
+:global(:root[data-theme='dark'] .report-detail-page--daily) { background: radial-gradient(circle at 50% 0, rgb(20 48 77 / 42%), transparent 32rem), var(--app-bg); }
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-toolbar),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-article) { border-color: color-mix(in srgb, var(--app-border) 82%, var(--app-primary)); box-shadow: 0 14px 36px rgb(0 0 0 / 24%); }
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-previous-research) { background: var(--app-surface-soft); box-shadow: 0 14px 36px rgb(0 0 0 / 18%); }
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-article__header) { border-bottom-color: var(--app-border); }
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text img) { box-sizing: border-box; border: 1px solid var(--app-border); padding: .4rem; background: #fff; box-shadow: 0 10px 28px rgb(0 0 0 / 24%); }
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text td) { color: var(--app-text-secondary) !important; }
+.report-detail-page--daily .report-rich-text :deep(h1),
+.report-detail-page--daily .report-rich-text :deep(h2),
+.report-detail-page--daily .report-rich-text :deep(h3),
+.report-detail-page--daily .report-rich-text :deep(h4),
+.report-detail-page--daily .report-rich-text :deep(h5),
+.report-detail-page--daily .report-rich-text :deep(h6),
+.report-detail-page--daily .report-rich-text :deep(strong),
+.report-detail-page--daily .report-rich-text :deep(b) { color: var(--app-text) !important; }
+.report-detail-page--daily .report-rich-text :deep(h1) { margin: 1.5rem 0 .75rem !important; font-size: 1.3rem !important; font-weight: 650 !important; line-height: 1.3 !important; }
+.report-detail-page--daily .report-rich-text :deep(h2) { margin: 1.35rem 0 .65rem !important; font-size: 1.16rem !important; font-weight: 650 !important; line-height: 1.35 !important; }
+.report-detail-page--daily .report-rich-text :deep(h3) { margin: 1.15rem 0 .55rem !important; font-size: 1.02rem !important; font-weight: 600 !important; line-height: 1.4 !important; }
+.report-detail-page--daily .report-rich-text :deep(h4),
+.report-detail-page--daily .report-rich-text :deep(h5),
+.report-detail-page--daily .report-rich-text :deep(h6) { margin: .9rem 0 .45rem !important; font-size: .92rem !important; font-weight: 600 !important; line-height: 1.4 !important; }
+.report-detail-page--daily .report-rich-text :deep(p),
+.report-detail-page--daily .report-rich-text :deep(li),
+.report-detail-page--daily .report-rich-text :deep(dd),
+.report-detail-page--daily .report-rich-text :deep(dt) { color: var(--app-text-secondary) !important; }
+.report-detail-page--daily .report-rich-text :deep(small),
+.report-detail-page--daily .report-rich-text :deep(figcaption),
+.report-detail-page--daily .report-rich-text :deep(caption) { color: var(--app-text-muted) !important; }
+.report-detail-page--daily .report-rich-text :deep(a) { color: var(--app-primary) !important; }
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text h1),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text h2),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text h3),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text h4),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text h5),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text h6),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text strong),
+:global(:root[data-theme='dark'] .report-detail-page--daily .report-rich-text b) { color: var(--app-text) !important; }
 .report-tags { margin-top: .5rem; padding: 1rem 0 .25rem; border-top: 1px solid var(--app-border-muted); }
 .report-tags h2 { margin: 0; color: var(--app-text); font-size: 1.15rem; font-weight: 500; }
 .report-tags ul { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 0; padding: 0; list-style: none; }
@@ -384,10 +436,10 @@ watch(slug, () => void loadReport())
 .report-actions--inline { display: flex; flex: none; justify-self: end; gap: .45rem; margin-top: 0; }
 .report-actions--inline button { width: 36px; min-width: 36px; padding: 0; }
 .report-related a { display: grid; gap: .3rem; padding: .7rem 0; border-bottom: 1px solid var(--app-border-muted); text-decoration: none; }
-.report-related a strong { color: #000; font-size: .95rem; font-weight: 400; line-height: 1.4; }
+.report-related a strong { color: var(--app-text); font-size: .95rem; font-weight: 400; line-height: 1.4; }
 .report-related a span { color: var(--app-text-muted); font-size: .7rem; }
 .report-related a:hover strong { color: var(--app-primary); }
-.report-related .report-related__all { display: flex; min-height: 38px; align-items: center; justify-content: center; margin-top: .9rem; padding: .5rem; color: #000; background: #fbc01f; font-size: .76rem; font-weight: 400; }
+.report-related .report-related__all { display: flex; min-height: 38px; align-items: center; justify-content: center; margin-top: .9rem; padding: .5rem; color: var(--app-report-bar-text); background: var(--app-report-bar-bg); font-size: .76rem; font-weight: 400; }
 .report-state { display: grid; min-height: 55vh; place-items: center; align-content: center; gap: .65rem; text-align: center; }
 .report-state h1 { font-size: 1.4rem; font-weight: 800; }
 .report-state p { max-width: 500px; color: var(--app-text-muted); font-size: .85rem; }

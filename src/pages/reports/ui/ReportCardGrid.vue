@@ -96,15 +96,15 @@ function formatDate(value: string) {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.3rem 0.9rem;
-  color: #172554;
-  background: linear-gradient(100deg, #fbbf24, #fcd34d);
+  color: var(--app-report-bar-text);
+  background: var(--app-report-bar-bg);
   font-size: 0.76rem;
   font-weight: 400;
 }
 
 .report-grid-card__bar--public {
-  color: #14532d;
-  background: linear-gradient(100deg, #bbf7d0, #dcfce7);
+  color: var(--app-report-public-bar-text);
+  background: var(--app-report-public-bar-bg);
 }
 
 .report-grid-card__brand {

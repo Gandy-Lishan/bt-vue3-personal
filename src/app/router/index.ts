@@ -50,6 +50,11 @@ const router = createRouter({
       component: () => import('@/pages/reports/MinutesPage.vue'),
     },
     {
+      path: '/MR/minutes/:minuteId',
+      name: 'minute-detail',
+      component: () => import('@/pages/reports/MinuteDetailPage.vue'),
+    },
+    {
       path: '/MR/archived_studies',
       name: 'archived-studies',
       component: () => import('@/pages/reports/ArchivedStudiesPage.vue'),

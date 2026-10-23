@@ -43,6 +43,10 @@
   --app-negative: #be123c;
   /* Favourited star. Yellow reads as "saved" at a glance, where the brand blue does not. */
   --app-favorite: #eab308;
+  --app-report-bar-bg: linear-gradient(110deg, #ffbc16, #ffc833);
+  --app-report-bar-text: #071539;
+  --app-report-public-bar-bg: linear-gradient(110deg, #b8ebcd, #d8f5e3);
+  --app-report-public-bar-text: #075d35;
   /* Third and later lines of a multi-line chart, where blue/red are already taken. */
   --app-accent: #7c3aed;
   --app-overlay: rgba(6, 17, 31, 0.55);
@@ -110,6 +114,10 @@
   --app-positive: #34d399;
   --app-negative: #fb7185;
   --app-favorite: #facc15;
+  --app-report-bar-bg: linear-gradient(110deg, #5e4507, #7a5a08);
+  --app-report-bar-text: #fff3c4;
+  --app-report-public-bar-bg: linear-gradient(110deg, #12382f, #18493c);
+  --app-report-public-bar-text: #b7f7dc;
   --app-accent: #a78bfa;
   --app-overlay: rgba(2, 8, 15, 0.72);
   --chart-grid: #263b55;

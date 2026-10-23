@@ -102,15 +102,15 @@ function formatDate(value: string) {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.3rem 0.85rem;
-  background: linear-gradient(110deg, #ffbc16, #ffc833);
-  color: #071539;
+  background: var(--app-report-bar-bg);
+  color: var(--app-report-bar-text);
   font-size: 0.7rem;
   font-weight: 400;
 }
 
 .report-card__bar--public {
-  background: linear-gradient(110deg, #b8ebcd, #d8f5e3);
-  color: #075d35;
+  background: var(--app-report-public-bar-bg);
+  color: var(--app-report-public-bar-text);
 }
 
 .report-card__brand,

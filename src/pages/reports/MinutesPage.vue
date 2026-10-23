@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { AlertCircle, ArrowUp, Clock3, Crown, List, LoaderCircle, RefreshCw, UserRound } from '@lucide/vue'
+import { useRouter } from 'vue-router'
+import { AlertCircle, ArrowRight, Clock3, Crown, List, LoaderCircle, RefreshCw, UserRound } from '@lucide/vue'
 import { fetchIntradayMinutes } from '@/entities/minute/api/minute.api'
 import { formatMinuteDate } from '@/entities/minute/model/minute.adapter'
+import { minutePlaceholderImage } from '@/entities/minute/model/minute.constants'
 import type { IntradayMinute } from '@/entities/minute/model/minute.types'
 import { getCurrentAccessLevels, hasAnyAccess } from '@/shared/auth/permission'
 import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
@@ -11,6 +13,7 @@ const minutes = ref<IntradayMinute[]>([])
 const loading = ref(true)
 const loadError = ref('')
 const requestController = new AbortController()
+const router = useRouter()
 
 const hasPremiumAccess = computed(() => hasAnyAccess(getCurrentAccessLevels(), [
   'premium',
@@ -20,31 +23,24 @@ const hasPremiumAccess = computed(() => hasAnyAccess(getCurrentAccessLevels(), [
   'everything',
 ]))
 
-function safeContent(html: string) {
-  if (!html || typeof document === 'undefined') return html
+function minuteExcerpt(html: string) {
+  if (!html || typeof document === 'undefined') return ''
   const template = document.createElement('template')
   template.innerHTML = html
-  template.content.querySelectorAll('script, object, embed').forEach((element) => element.remove())
-  template.content.querySelectorAll<HTMLElement>('*').forEach((element) => {
-    for (const attribute of [...element.attributes]) {
-      if (attribute.name.toLowerCase().startsWith('on')) element.removeAttribute(attribute.name)
-      if (['href', 'src'].includes(attribute.name.toLowerCase()) && /^javascript:/i.test(attribute.value.trim())) {
-        element.removeAttribute(attribute.name)
-      }
-    }
-  })
-  return template.innerHTML
+  const value = (template.content.textContent ?? '').replace(/\s+/g, ' ').trim()
+  return value.length > 240 ? `${value.slice(0, 237).trimEnd()}...` : value
+}
+
+function minuteDetailRoute(minute: IntradayMinute) {
+  return { name: 'minute-detail', params: { minuteId: minute.id } }
 }
 
 function jumpToMinute(event: Event) {
   const index = Number((event.target as HTMLSelectElement).value)
   if (!Number.isInteger(index) || index < 0) return
-  document.getElementById(`minute-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const minute = minutes.value[index]
+  if (minute) void router.push(minuteDetailRoute(minute))
   ;(event.target as HTMLSelectElement).value = ''
-}
-
-function returnToQuickAccess() {
-  document.getElementById('minutes-quick-access')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 async function loadMinutes() {
@@ -138,36 +134,68 @@ onBeforeUnmount(() => requestController.abort())
         </select>
       </nav>
 
-      <div class="grid gap-4">
-      <article v-for="(minute, index) in minutes" :id="`minute-${index}`" :key="`${minute.id}-${index}`" class="scroll-mt-24 overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] shadow-[0_8px_24px_rgb(15_35_75_/_6%)]">
-        <header class="border-b border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] px-5 py-4">
-          <div class="flex items-start gap-3">
-            <span class="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-[var(--app-primary-soft)] px-2 text-xs font-extrabold text-[var(--app-primary)]">{{ index + 1 }}</span>
-            <h2 class="text-xl font-extrabold leading-tight text-[var(--app-text)]">{{ minute.title }}</h2>
+      <div class="minute-list" role="list">
+        <article
+          v-for="(minute, index) in minutes"
+          :id="`minute-${index}`"
+          :key="`${minute.id}-${index}`"
+          class="minute-list-card"
+          role="listitem"
+        >
+          <RouterLink class="minute-list-card__image-link" :to="minuteDetailRoute(minute)" :aria-label="`Read ${minute.title}`">
+            <img :src="minutePlaceholderImage" :alt="`${minute.title} preview`" class="minute-list-card__image" loading="lazy" />
+          </RouterLink>
+
+          <div class="minute-list-card__summary">
+            <div class="minute-list-card__bar">
+              <span><Clock3 :size="14" /> Latest Minute</span>
+              <span>{{ formatMinuteDate(minute.publishedAt) }}</span>
+            </div>
+            <div class="minute-list-card__body">
+              <div class="minute-list-card__copy">
+                <RouterLink :to="minuteDetailRoute(minute)" class="minute-list-card__title">{{ minute.title }}</RouterLink>
+                <p>{{ minuteExcerpt(minute.contentHtml) || 'Open this Minute to read the latest intraday market note.' }}</p>
+                <div class="minute-list-card__meta">
+                  <span><Clock3 :size="14" />{{ formatMinuteDate(minute.publishedAt) }}</span>
+                  <span aria-hidden="true">•</span>
+                  <span><UserRound :size="14" />{{ minute.author }}</span>
+                </div>
+              </div>
+              <RouterLink class="minute-list-card__action" :to="minuteDetailRoute(minute)">Read Minute <ArrowRight :size="16" /></RouterLink>
+            </div>
           </div>
-          <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold text-[var(--app-text-muted)]">
-            <span class="inline-flex items-center gap-1.5"><Clock3 :size="14" />Published: {{ formatMinuteDate(minute.publishedAt) }}</span>
-            <span class="inline-flex items-center gap-1.5"><UserRound :size="14" />Author: {{ minute.author }}</span>
-          </div>
-        </header>
-        <div class="minute-rich-text px-5 py-5 text-sm leading-7 text-[var(--app-text-secondary)]" v-html="safeContent(minute.contentHtml)" />
-        <footer class="flex justify-end border-t border-[var(--app-border-muted)] px-5 py-2.5">
-          <button class="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--app-text-muted)] transition hover:text-[var(--app-primary)]" type="button" @click="returnToQuickAccess">
-            <ArrowUp :size="14" /> Back to quick access
-          </button>
-        </footer>
-      </article>
+        </article>
       </div>
     </div>
   </ListExplorerPage>
 </template>
 
 <style scoped>
-.minute-rich-text :deep(p) { margin: 0 0 1rem; }
-.minute-rich-text :deep(p:last-child) { margin-bottom: 0; }
-.minute-rich-text :deep(a) { color: var(--app-primary); font-weight: 700; text-decoration: underline; }
-.minute-rich-text :deep(img) { max-width: 100%; height: auto; border-radius: 0.5rem; }
-.minute-rich-text :deep(ul), .minute-rich-text :deep(ol) { margin: 0.75rem 0; padding-left: 1.5rem; }
-.minute-rich-text :deep(blockquote) { margin: 1rem 0; border-left: 3px solid var(--app-primary); padding-left: 1rem; color: var(--app-text-muted); }
+.minute-list { display: grid; gap: 1rem; }
+.minute-list-card { display: grid; grid-template-columns: 180px minmax(0, 1fr); min-height: 184px; scroll-margin-top: 6rem; overflow: hidden; border: 1px solid var(--app-border); border-radius: 1rem; background: var(--app-surface); box-shadow: 0 10px 28px rgb(15 35 75 / 8%); transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.minute-list-card:hover { border-color: color-mix(in srgb, var(--app-primary) 38%, var(--app-border)); box-shadow: 0 16px 34px rgb(15 35 75 / 13%); transform: translateY(-2px); }
+.minute-list-card__image-link { display: block; width: 180px; min-height: 184px; overflow: hidden; border-right: 1px solid var(--app-border-muted); background: var(--app-surface-soft); }
+.minute-list-card__image { display: block; width: 100%; height: 100%; min-height: 184px; object-fit: cover; transition: transform 220ms ease; }
+.minute-list-card:hover .minute-list-card__image { transform: scale(1.02); }
+.minute-list-card__summary { display: grid; min-width: 0; grid-template-rows: auto minmax(0, 1fr); }
+.minute-list-card__bar { display: flex; min-height: 30px; align-items: center; justify-content: space-between; gap: 1rem; padding: .35rem .9rem; color: var(--app-report-bar-text); background: var(--app-report-bar-bg); font-size: .7rem; }
+.minute-list-card__bar span { display: inline-flex; align-items: center; gap: .45rem; }
+.minute-list-card__body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 1rem; padding: 1rem; }
+.minute-list-card__copy { display: flex; min-width: 0; flex-direction: column; }
+.minute-list-card__title { display: -webkit-box; overflow: hidden; color: var(--app-text); font-size: clamp(1rem, 1.35vw, 1.25rem); font-weight: 800; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.minute-list-card__title:hover { color: var(--app-primary); }
+.minute-list-card__copy > p { display: -webkit-box; overflow: hidden; margin-top: .55rem; color: var(--app-text-muted); font-size: .84rem; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.minute-list-card__meta { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; margin-top: auto; padding-top: .7rem; color: var(--app-text-muted); font-size: .72rem; }
+.minute-list-card__meta span { display: inline-flex; align-items: center; gap: .4rem; }
+.minute-list-card__action { display: inline-flex; min-width: 124px; min-height: 38px; align-items: center; justify-content: center; gap: .55rem; align-self: end; border-radius: .65rem; padding: .55rem .8rem; color: white; background: linear-gradient(135deg, var(--app-primary), var(--app-primary-hover)); font-size: .78rem; font-weight: 800; box-shadow: 0 8px 18px rgb(28 104 235 / 24%); transition: filter 150ms ease, transform 150ms ease; }
+.minute-list-card__action:hover { filter: brightness(1.08); transform: translateY(-1px); }
+@media (max-width: 639px) {
+  .minute-list-card { display: block; min-height: 0; border-radius: .8rem; }
+  .minute-list-card__image-link { width: 100%; height: 180px; min-height: 0; border-right: 0; border-bottom: 1px solid var(--app-border-muted); }
+  .minute-list-card__image { height: 180px; min-height: 0; }
+  .minute-list-card__bar { align-items: flex-start; font-size: .65rem; }
+  .minute-list-card__body { grid-template-columns: minmax(0, 1fr); padding: .9rem; }
+  .minute-list-card__action { width: 100%; }
+}
 </style>
 
