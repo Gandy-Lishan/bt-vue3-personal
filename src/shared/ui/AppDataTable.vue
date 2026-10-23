@@ -11,12 +11,15 @@ const props = withDefaults(
     emptyMessage?: string
     sortKey?: string
     sortDirection?: 'asc' | 'desc'
+    /** 隐藏表头（原版 Z-score 表 :show-header="false"） */
+    hideHeader?: boolean
   }>(),
   {
     loading: false,
     emptyMessage: 'No rows found',
     sortKey: '',
     sortDirection: 'asc',
+    hideHeader: false,
   },
 )
 
@@ -57,7 +60,7 @@ function sortIcon(column: AppDataTableColumn) {
   <div class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
     <div class="overflow-x-auto">
       <table class="min-w-full border-collapse text-[0.8125rem] text-[var(--app-text)]">
-        <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
+        <thead v-if="!props.hideHeader" class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
           <tr class="border-b border-[var(--app-border)]">
             <th
               v-for="column in props.columns"

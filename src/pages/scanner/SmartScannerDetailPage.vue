@@ -22,7 +22,7 @@ type DetailTab = 'history' | 'summary'
 const route = useRoute()
 const detail = ref<SmartScannerBacktestDetail | null>(null)
 const loading = ref(false)
-const activeTab = ref<DetailTab>('summary')
+const activeTab = ref<DetailTab>('history')
 const tradePage = ref(1)
 const pageSize = 10
 let abortController: AbortController | null = null
@@ -89,33 +89,23 @@ const pagedTradeRows = computed(() => {
   return tradeRows.value.slice(start, start + pageSize)
 })
 
-const historyRows = computed<Array<Record<string, unknown>>>(() =>
-  (detail.value?.backtestHistory ?? []).map((row) => ({
-    id: row.id,
-    entryDate: row.entryDate,
-    oneMonth: row.oneMonth,
-    twoMonths: row.twoMonths,
-    threeMonths: row.threeMonths,
-    fourMonths: row.fourMonths,
-    fiveMonths: row.fiveMonths,
-    sixMonths: row.sixMonths,
-    oneYear: row.oneYear,
-  })),
-)
+/**
+ * History 页签数据。
+ * 【Vue2→Vue3 架构差异】原版计算结果 commit 到 Vuex（form/STORE_BACKTESTRESULT、
+ * form/STORE_BACKTEST_ZSCORE_RESULT），新版由 SmartScannerChartIQ 计算后 emit，
+ * 页面以组件本地状态持有。
+ */
+const backtestResultRows = ref<Array<Record<string, unknown>>>([])
+const backtestZScoreRows = ref<Array<Record<string, unknown>>>([])
 
-const periodRows = computed<Array<Record<string, unknown>>>(() =>
-  (detail.value?.periodSummary ?? []).map((row) => ({
-    id: row.id,
-    metric: row.metric,
-    oneMonth: row.oneMonth,
-    twoMonths: row.twoMonths,
-    threeMonths: row.threeMonths,
-    fourMonths: row.fourMonths,
-    fiveMonths: row.fiveMonths,
-    sixMonths: row.sixMonths,
-    oneYear: row.oneYear,
-  })),
-)
+function onBacktestHistoryReady(payload: {
+  backtestResult: Array<Record<string, unknown>>
+  backtestZScoreResult: Array<Record<string, unknown>> | null
+}) {
+  backtestResultRows.value = payload.backtestResult
+  // 原版 calculateZScore early return 时不 commit，保留上一次结果
+  if (payload.backtestZScoreResult) backtestZScoreRows.value = payload.backtestZScoreResult
+}
 
 const tradeColumns: AppDataTableColumn[] = [
   { key: 'index', label: '#', minWidth: 80, align: 'center' },
@@ -138,34 +128,50 @@ const tradeColumns: AppDataTableColumn[] = [
   },
 ]
 
-const periodColumns: AppDataTableColumn[] = [
-  { key: 'entryDate', label: 'Entry Date', minWidth: 140, align: 'center' },
-  ...periodValueColumns(),
+// 原版 defaultTableLabels（ScannerChart/index.vue:145-154）
+const HISTORY_TABLE_LABELS = [
+  'Entry Date',
+  '1 Month [%]',
+  '2 Months [%]',
+  '3 Months [%]',
+  '4 Months [%]',
+  '5 Months [%]',
+  '6 Months [%]',
+  '1 Year [%]',
 ]
 
-const summaryColumns: AppDataTableColumn[] = [
-  { key: 'metric', label: 'Metric', minWidth: 150, align: 'center' },
-  ...periodValueColumns(),
-]
-
-function periodValueColumns(): AppDataTableColumn[] {
-  return [
-    ['oneMonth', '1 Month Later (%)'],
-    ['twoMonths', '2 Months Later (%)'],
-    ['threeMonths', '3 Months Later (%)'],
-    ['fourMonths', '4 Months Later (%)'],
-    ['fiveMonths', '5 Months Later (%)'],
-    ['sixMonths', '6 Months Later (%)'],
-    ['oneYear', '1 Year Later (%)'],
-  ].map(([key, label]) => ({
-    key,
-    label,
-    minWidth: 130,
-    align: 'center' as const,
-    format: (value: unknown) => formatScannerPercent(typeof value === 'number' ? value : null),
-    cellClass: (value: unknown) => valueTone(typeof value === 'number' ? value : null),
-  }))
+/**
+ * 原版直接渲染 scope.row[label]；空值渲染为空白，
+ * 避免 AppDataTable 默认的 — 占位符。
+ */
+function historyCellFormat(value: unknown) {
+  if (value === undefined || value === null) return ''
+  return String(value)
 }
+
+/** 原版 getCellStyle：value < 0 标红 */
+function historyCellClass(value: unknown) {
+  return Number(value) < 0 ? 'text-[var(--app-negative)]' : ''
+}
+
+const historyTableColumns: AppDataTableColumn[] = HISTORY_TABLE_LABELS.map((label) => ({
+  key: label,
+  label: label.replace('[%]', 'Later [%]'),
+  minWidth: label === 'Entry Date' ? 140 : 90,
+  align: 'center',
+  format: historyCellFormat,
+  cellClass: historyCellClass,
+}))
+
+// Z-score 表：首列 property，其余列为 period 标签；原版 :show-header="false"
+const zScoreTableColumns: AppDataTableColumn[] = HISTORY_TABLE_LABELS.map((label, index) => ({
+  key: index === 0 ? 'property' : label,
+  label: index === 0 ? 'Property' : label,
+  minWidth: index === 0 ? 140 : 90,
+  align: 'center',
+  format: (value: unknown) => (Number.isNaN(value) ? '' : historyCellFormat(value)),
+  cellClass: historyCellClass,
+}))
 
 function valueTone(value: number | null) {
   if ((value ?? 0) < 0) return 'text-[var(--app-negative)]'
@@ -201,11 +207,59 @@ async function loadDetail() {
   }
 }
 
+/**
+ * 原版 displayData（ScannerChart/index.vue:210-225），仅用于 History 导出的 z-score 行。
+ */
+function displayData(data: unknown, removeZero = false, decimal = 1) {
+  const numberRegex = /^-?\d+(\.\d+)?$/
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  const text = String(data)
+
+  if (numberRegex.test(text)) {
+    if (!removeZero) return parseFloat(text).toFixed(decimal)
+    return parseFloat(text).toFixed(decimal).replace(/\.0$/, '')
+  } else if (dateRegex.test(text)) {
+    return text
+  } else if (typeof data == 'string') {
+    return data
+  } else {
+    return ''
+  }
+}
+
 function exportActiveTable() {
   if (!detail.value) return
-  const { headers, rows } = smartScannerBacktestCsvTable(detail.value, activeTab.value)
+
+  if (activeTab.value === 'summary') {
+    const { headers, rows } = smartScannerBacktestCsvTable(detail.value, 'summary')
+    if (!rows.length) return
+    downloadCsv(`smart-scanner-${detail.value.symbol}-summary.csv`, toCsv(headers, rows))
+    return
+  }
+
+  // History：原版把 Table A + Z-score 行合并成一张表导出（handleDownloadCsv）
+  const headers = HISTORY_TABLE_LABELS.map((label) => label.replace('[%]', 'Later [%]'))
+  const rows: unknown[][] = []
+
+  backtestResultRows.value.forEach((item) => {
+    rows.push(HISTORY_TABLE_LABELS.map((label) => item[label]))
+  })
+
+  backtestZScoreRows.value.forEach((item) => {
+    const zscore: unknown[] = [item['property']]
+    for (let i = 1; i < HISTORY_TABLE_LABELS.length; i++) {
+      const value = item[HISTORY_TABLE_LABELS[i]]
+      if (!isNaN(value as number) || (typeof value === 'string' && value.endsWith('%'))) {
+        zscore.push(displayData(value))
+      } else {
+        zscore.push('')
+      }
+    }
+    rows.push(zscore)
+  })
+
   if (!rows.length) return
-  downloadCsv(`smart-scanner-${detail.value.symbol}-${activeTab.value}.csv`, toCsv(headers, rows))
+  downloadCsv(`smart-scanner-${detail.value.symbol}-history.csv`, toCsv(headers, rows))
 }
 
 watch(() => route.query.rowData, () => {
@@ -268,7 +322,11 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="mt-4 grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,0.95fr)]">
-          <SmartScannerChartIQ :detail="detail" :loading="loading" />
+          <SmartScannerChartIQ
+            :detail="detail"
+            :loading="loading"
+            @backtest-history-ready="onBacktestHistoryReady"
+          />
 
           <aside class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
             <div class="flex items-start justify-between gap-3">
@@ -361,18 +419,20 @@ onBeforeUnmount(() => {
               empty-message="No trades found"
             />
 
+            <!-- History：还原旧版「回报表 + 无表头 Z-score 表」同区块展示 -->
             <div v-else class="space-y-4">
               <AppDataTable
-                :columns="periodColumns"
-                :rows="historyRows"
+                :columns="historyTableColumns"
+                :rows="backtestResultRows"
                 :loading="loading"
                 empty-message="No backtest history rows found"
               />
               <AppDataTable
-                :columns="summaryColumns"
-                :rows="periodRows"
+                :columns="zScoreTableColumns"
+                :rows="backtestZScoreRows"
                 :loading="loading"
-                empty-message="No period summary rows found"
+                :hide-header="true"
+                empty-message="No z-score data"
               />
             </div>
 

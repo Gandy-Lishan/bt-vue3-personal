@@ -20,12 +20,29 @@ import LoadingOverlayChart from '@/shared/ui/LoadingOverlayChart.vue'
 // @ts-ignore ChartIQ does not ship with TS declarations
 import { CIQ } from '@/shared/lib/chartiq/st-development/js/components'
 import { useChartIQStore } from '@/entities/chartiq/model/chartiq.store'
+import { createBacktestHistoryCalculator } from '@/entities/chartiq/model/backtest-history'
 
 const chartIQStore = useChartIQStore()
 
 const props = defineProps<{
   detail: SmartScannerBacktestDetail | null
   loading?: boolean
+}>()
+
+const emit = defineEmits<{
+  /**
+   * 【Vue2→Vue3 架构差异】原版 calculateBacktestHistory/calculateZScore 直接
+   * commit 到 Vuex（form/STORE_BACKTESTRESULT、form/STORE_BACKTEST_ZSCORE_RESULT）。
+   * 新版改为组件本地状态：计算结果通过该事件交给页面组件持有。
+   * backtestZScoreResult 为 null 表示 Vue2 的「early return 不 commit」语义。
+   */
+  (
+    e: 'backtest-history-ready',
+    payload: {
+      backtestResult: Array<Record<string, unknown>>
+      backtestZScoreResult: Array<Record<string, unknown>> | null
+    },
+  ): void
 }>()
 
 const chartWrapper = ref<HTMLElement>()
@@ -50,8 +67,9 @@ function onChartInitialized(data: { chartEngine: any; uiContext: any; config: Re
  */
 function applyScannerLogic() {
   if (!chartEngine || !CIQ.stxx || !props.detail) return
-  if (lastAppliedSymbol === props.detail.symbol) return
-  lastAppliedSymbol = props.detail.symbol
+  const detail = props.detail
+  if (lastAppliedSymbol === detail.symbol) return
+  lastAppliedSymbol = detail.symbol
 
   // Match the original component: lock study editing, derive the indicator URL,
   // then load the chart with the full historical range up to the signal date.
@@ -79,6 +97,31 @@ function applyScannerLogic() {
   CIQ.initiateChart([symbolUrl], endDate, async () => {
     try {
       hideComponents()
+
+      // 【Vue2→Vue3 完全一致迁移】原版 onChartReady 在 hideComponents() 之后、
+      // loadDefaultStudy() 之前同步计算 History 两张表（ChartComponent.vue:125-135）。
+      const periodArray = [
+        { period: 1, timeframe: 'Month' },
+        { period: 2, timeframe: 'Month' },
+        { period: 3, timeframe: 'Month' },
+        { period: 4, timeframe: 'Month' },
+        { period: 5, timeframe: 'Month' },
+        { period: 6, timeframe: 'Month' },
+        { period: 1, timeframe: 'Year' },
+      ]
+      const calculator = createBacktestHistoryCalculator(CIQ.stxx)
+      const backtestResult = calculator.calculateBacktestHistory(
+        detail.raw['EntryTradeDate'],
+        periodArray,
+        detail.direction,
+      )
+      const backtestZScoreResult = calculator.calculateZScore(
+        detail.raw,
+        periodArray,
+        detail.direction,
+      )
+      emit('backtest-history-ready', { backtestResult, backtestZScoreResult })
+
       // Delay study addition to avoid DOM timing issues with ChartIQ legend rendering
       await new Promise(resolve => requestAnimationFrame(resolve))
       await loadDefaultStudy()
