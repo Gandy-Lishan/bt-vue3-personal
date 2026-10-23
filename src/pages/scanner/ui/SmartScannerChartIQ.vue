@@ -9,11 +9,13 @@
     - Shows the full ChartIQ chrome (toolbar, study legend, watermark).
 -->
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { SmartScannerBacktestDetail } from '@/entities/scanner/model/smart-scanner.types'
 
 // ChartIQ Engine — full chart component with complete web component HTML structure
 import ChartIQEngine from '@/shared/lib/chartiq/AdvancedChartComponent.vue'
+// 【Vue2→Vue3 兼容】图表加载遮罩层，照搬原版 LoadingOverlayChart
+import LoadingOverlayChart from '@/shared/ui/LoadingOverlayChart.vue'
 
 // @ts-ignore ChartIQ does not ship with TS declarations
 import { CIQ } from '@/shared/lib/chartiq/st-development/js/components'
@@ -69,6 +71,10 @@ function applyScannerLogic() {
   }
 
   const endDate = props.detail.asOfDate || props.detail.request.date
+
+  // 【Vue2→Vue3 兼容】照搬原版 ChartComponent.vue 在 created()/切换 timeframe 时的
+  // CIQ.addCover() —— 这里在每次真正加载图表前先显示遮罩，加载完成后 hideCover()
+  CIQ.addCover()
 
   CIQ.initiateChart([symbolUrl], endDate, async () => {
     try {
@@ -496,8 +502,16 @@ watch(
   },
 )
 
+onMounted(() => {
+  // 【Vue2→Vue3 兼容】原版 ChartComponent.vue created() 中先调用 CIQ.addCover()
+  // 子组件 AdvancedChartComponent 的 onMounted 已先执行并设置 CIQ.store
+  if (!props.detail) return
+  if (typeof CIQ.addCover === 'function') CIQ.addCover()
+})
+
 onBeforeUnmount(() => {
   editStudies(true)
+  // 原版此处未调用 CIQ.hideCover()，遮罩清理由 AdvancedChartComponent 的 onBeforeUnmount 负责
 })
 </script>
 
@@ -517,6 +531,11 @@ onBeforeUnmount(() => {
       :on-chart-ready="applyScannerLogic"
       @chart-initialized="onChartInitialized"
     />
+    <!-- 【Vue2→Vue3 兼容】原版 chart 组件的 slot 中渲染 LoadingOverlayChart -->
+    <LoadingOverlayChart
+      :is-loading="chartIQStore.chartLoadingSetting.isChartLoading"
+      :progress-text="chartIQStore.chartLoadingSetting.progressText"
+    />
   </div>
 
   <div
@@ -532,6 +551,8 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 100%;
+  /* 与原版 .chart-wrapper 一致，避免隐藏状态的遮罩占位撑出容器 */
+  overflow: hidden;
 }
 
 .chartiq-scanner-chart :deep(.ciq-menu.ciq-studies) {
