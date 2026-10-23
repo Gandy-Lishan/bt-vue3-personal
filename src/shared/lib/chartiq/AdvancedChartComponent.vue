@@ -1127,10 +1127,25 @@ select {
 
 .tradeMarkerWrapper {
   margin-left: 28px;
+  gap: 6px;
+  align-items: center;
 }
 
-.tradeMarkerWrapper span {
-  margin-left: 2px;
+.tradeMarkerWrapper cq-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  flex: none;
+}
+
+.tradeMarkerWrapper cq-toggle > span {
+  width: 30px !important;
+  height: 30px !important;
+  margin: 0 !important;
+  background-image: none !important;
 }
 
 .icon-toggles.ciq-toggles {
@@ -1201,8 +1216,8 @@ html:not([ciq-last-interaction='touch'])
 
 /* 【Vue2→Vue3 兼容】页面布局的 Tailwind .grid 类导致 ChartIQ 雪碧图规则 .grid span 误匹配工具栏图标
    使用 ChartIQ CSS 定义的原始坐标覆盖：lastP=-2071, CH=-443, HU=-400, grid=-1443 */
-.lastp-group cq-toggle > span { background-position: -2071px -25px !important; }
-.ch-headsup  cq-toggle > span  { background-position:  -443px -25px !important; }
-.hu-tooltip   cq-toggle > span  { background-position:  -400px -25px !important; }
-.grid-group   cq-toggle > span  { background-position: -1443px -25px; }
+.lastp-group cq-toggle.lastP > span { background-position: -2071px -25px !important; }
+.ch-headsup  cq-toggle.ciq-CH > span  { background-position:  -443px -25px !important; }
+.hu-tooltip   cq-toggle.ciq-HU > span  { background-position:  -400px -25px !important; }
+.grid-group   cq-toggle.grid > span  { background-position: -1443px -25px !important; }
 </style>
