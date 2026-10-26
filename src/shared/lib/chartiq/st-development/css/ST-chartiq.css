@@ -937,7 +937,7 @@ cq-reports-lookup {
   border-left: none !important;
 }
 .ciq-search.stxMenuActive input {
-  border-right: solid 1px black !important;
+  border-right: solid 1px rgb(213, 227, 247) !important;
 }
 
 cq-lookup-input {
@@ -970,7 +970,7 @@ cq-lookup-icon {
   height: 27px;
   width: 27px;
   right: 0px;
-  top: -1px;
+  top: -5px;
   background-image: url(img/stx-sprite-ui.svg);
   background-position: -50px -25px;
   opacity: .6;
@@ -1170,7 +1170,7 @@ html:not([ciq-last-interaction='touch']) .ciq-menu:hover {
   left: 0;
   top: 10px;
   bottom: 0px;
-  width: 1px;
+  width: 0px;
   background: #ddd;
 }
 

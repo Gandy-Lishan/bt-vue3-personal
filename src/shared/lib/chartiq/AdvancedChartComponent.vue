@@ -1168,7 +1168,7 @@ cq-context {
 
 .search-bar-group {
   margin: 0 10px;
-  border-right: solid 1px black;
+  border-right: solid 1px rgb(213, 227, 247);
   display: flex;
   flex-direction: row;
 }
