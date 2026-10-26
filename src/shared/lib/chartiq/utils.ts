@@ -41,7 +41,8 @@ export function getPropertyByString(obj: any, path: string, subField?: string): 
     if (current == null) return undefined
     current = current[part]
   }
-  if (current && subField) {
+  // Only access subField if the result is an object (matching Vue2 behavior)
+  if (current && typeof current === "object" && subField) {
     current = current[subField]
   }
   return current
@@ -70,8 +71,21 @@ export function uniqueObjectArray<T extends Record<string, unknown>>(arr: T[]): 
 
 export function getSymbolInfo(url: string): { name: string; url: string; type: string; symbol?: string } {
   const store = (CIQ as any).store
-  const stockList = store?.getters?.getStockList ?? store?.state?.chart?.stocksList ?? []
-  const indexList = store?.getters?.getIndexList ?? store?.state?.chart?.indexsList ?? []
+  // 【Vue2→Vue3】Vue2 用 Vuex getters.getStockList/getIndexList；
+  // Vue3 是 Pinia，stocksList/indexsList 为顶层 state，需兼容读取。
+  // 否则所有股票都会识别失败 → 回退到 VUE_APP_DEFAULT_SYMBOL（SPX）。
+  const stockList =
+    store?.getters?.getStockList ??
+    store?.stocksList ??
+    store?.$state?.stocksList ??
+    store?.state?.chart?.stocksList ??
+    []
+  const indexList =
+    store?.getters?.getIndexList ??
+    store?.indexsList ??
+    store?.$state?.indexsList ??
+    store?.state?.chart?.indexsList ??
+    []
 
   const stockName = stockList.find((x: { stock: string }) => x.stock === url)
   const indexName = indexList.find((x: { symbol: string }) => x.symbol === url)
