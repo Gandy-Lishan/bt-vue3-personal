@@ -35,8 +35,8 @@ const emit = defineEmits<{
 const chartIQStore = useChartIQStore()
 
 /**
- * 【Vue2→Vue3 兼容】AdvancedChartComponent 会在同一次初始化里既 emit
- * `chart-initialized` 又回调 config.onChartReady（fallback），这里保证只执行一次。
+ * 【Vue2→Vue3 完全一致】与旧版 MIChart.vue onChartReady 相同：由 ChartIQ 在首次
+ * symbol 加载完成后回调（一次），这里只做一次执行保护。
  */
 let initialized = false
 
@@ -45,6 +45,9 @@ function onChartReady() {
   if (initialized) return
   initialized = true
   hideComponents()
+  // 自定义指标 panel 高亮：loadChart 会重建全部 panel，挂 drawPanels 后钩子
+  // 每次重绘按 CIQ.__miOwnIndicatorHighlight 重新核对标记
+  CIQ.stxx?.append?.('drawPanels', () => CIQ.applyMIOwnIndicatorHighlight())
   // 还原自定义 indicator Layout
   if (props.chartData?.name) {
     CIQ.displayUserOwnIndicatorLayout(props.chartData)

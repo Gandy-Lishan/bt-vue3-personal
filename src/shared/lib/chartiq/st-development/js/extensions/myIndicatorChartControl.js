@@ -21,7 +21,34 @@
     // user's own indicator的 weight indicator加载函数单独设定
     //var symbol
 
+    // 预览/编辑时高亮“正在创建的自定义指标”所在panel，与同图加载的内置指标区分。
+    // loadChart 会重建全部panel，所以不能只在 addStudy 时打标记：由
+    // IndicatorBuilderChartIQ 在图表就绪后挂 stx.append('drawPanels')，
+    // 每次重绘按 __miOwnIndicatorHighlight 重新核对标记。
+    CIQ.setMIOwnIndicatorHighlight = function(indicator){
+        CIQ.__miOwnIndicatorHighlight = indicator || ''
+    }
+    CIQ.applyMIOwnIndicatorHighlight = function(){
+        var stxx = CIQ.stxx
+        if(!stxx || !stxx.panels) return
+        var target = CIQ.__miOwnIndicatorHighlight || ''
+        var highlightedPanels = {}
+        if(target){
+            for(var studyInstanceName in stxx.layout.studies){
+                var sd = stxx.layout.studies[studyInstanceName]
+                if(sd.type === target) highlightedPanels[sd.panel] = true
+            }
+        }
+        for(var panelName in stxx.panels){
+            var panel = stxx.panels[panelName]
+            if(!panel || !panel.holder) continue
+            panel.holder.classList.toggle('mi-custom-indicator-panel', !!highlightedPanels[panelName])
+        }
+    }
+
     CIQ.displayWeightOwnIndicator = async function(previousState,updatedState,combinedStudy){
+        // combinedStudy 为 null 表示编辑中的实时刷新（此时组合指标已被移除）
+        CIQ.setMIOwnIndicatorHighlight(combinedStudy)
         CIQ.addCover()
         CIQ.store.set_mi_create_loading(true)
         //编辑时对内容修改或者preview应该移除生成的indicator
@@ -220,10 +247,12 @@
             CIQ.addCover()
             CIQ.store.set_mi_create_loading(true)
             //编辑时对内容修改或者preview应该移除生成的indicator
-            for (var studyInstanceName in CIQ.stxx.layout.studies) { 
-                var sd = CIQ.stxx.layout.studies[studyInstanceName]; 
-                if(CIQ.isOwnIndicator(sd.type)) CIQ.Studies.removeStudy(CIQ.stxx, sd); 
+            for (var studyInstanceName in CIQ.stxx.layout.studies) {
+                var sd = CIQ.stxx.layout.studies[studyInstanceName];
+                if(CIQ.isOwnIndicator(sd.type)) CIQ.Studies.removeStudy(CIQ.stxx, sd);
             }
+            // 组合指标已随上面一并移除，等 preview 重新生成后再高亮
+            CIQ.setMIOwnIndicatorHighlight('')
 
             if(oldData.categories != newData.categories){
                 // 仅当大类切换（indicator->symbol->wic）才移除现存studies
@@ -424,6 +453,8 @@
 
     // 预览生成的新indicator
     CIQ.previewUserOwnIndicator = function(indicatorList,indicator,symbol,extremeLines,category){
+                // indicator 即预览生成的自定义指标（name+CREATE+url）
+                CIQ.setMIOwnIndicatorHighlight(indicator)
                 //编辑时对内容修改或者preview应该移除生成的indicator
                 for (var studyInstanceName in CIQ.stxx.layout.studies) { 
                     var sd = CIQ.stxx.layout.studies[studyInstanceName]; 
@@ -494,6 +525,8 @@
             calculate: _newVal.calculate, //symbol ohlcv field(Open,High...)
             tech_code: _newVal.tech_code
         }
+        // 进入编辑恢复时，newData.url 就是待还原的自定义指标
+        CIQ.setMIOwnIndicatorHighlight(newData.url)
         const extremeLines = {op:_newVal.upper_extreme_value,ep:_newVal.lower_extreme_value}
            
         if(newData.categories == 'Symbol Spread' || newData.categories == 'Symbol Ratio' || newData.categories == 'Symbol Addition'){
@@ -960,14 +993,15 @@
         CIQ.store.set_mi_create_loading(true)
         //编辑时对内容修改或者preview应该移除生成的indicator
 
-        for (var studyInstanceName in CIQ.stxx.layout.studies) { 
-            var sd = CIQ.stxx.layout.studies[studyInstanceName]; 
-            if(CIQ.isOwnIndicator(sd.type)) CIQ.Studies.removeStudy(CIQ.stxx, sd); 
+        for (var studyInstanceName in CIQ.stxx.layout.studies) {
+            var sd = CIQ.stxx.layout.studies[studyInstanceName];
+            if(CIQ.isOwnIndicator(sd.type)) CIQ.Studies.removeStudy(CIQ.stxx, sd);
         }
+        CIQ.setMIOwnIndicatorHighlight('')
 
         const benchmark = CIQ.store.$state.miBenmark
         CIQ.stxx.loadChart({
-            symbol: data.symbol?data.symbol:benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL, 
+            symbol: data.symbol?data.symbol:benchmark?benchmark:process.env.VUE_APP_DEFAULT_SYMBOL,
             startDate:new Date(parseInt(process.env.VUE_APP_START_DATE)),endDate:new Date(),
         }, function(){
             CIQ.hideCover()
@@ -1100,11 +1134,12 @@
         CIQ.store.set_mi_create_loading(true)
         //编辑时对内容修改或者preview应该移除生成的indicator
 
-        for (var studyInstanceName in CIQ.stxx.layout.studies) { 
-            var sd = CIQ.stxx.layout.studies[studyInstanceName]; 
+        for (var studyInstanceName in CIQ.stxx.layout.studies) {
+            var sd = CIQ.stxx.layout.studies[studyInstanceName];
             CIQ.Studies.removeStudy(CIQ.stxx, sd);
-            // if(CIQ.isOwnIndicator(sd.type) || sd.type != indicator.url) CIQ.Studies.removeStudy(CIQ.stxx, sd); 
+            // if(CIQ.isOwnIndicator(sd.type) || sd.type != indicator.url) CIQ.Studies.removeStudy(CIQ.stxx, sd);
         }
+        CIQ.setMIOwnIndicatorHighlight('')
 
         addSingleIndicator([indicator.url],indicator.url,null,null,()=>{});
     }

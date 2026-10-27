@@ -9026,6 +9026,16 @@ button.btnFav:hover span{
   border-bottom: solid 1.5px #3d3d3d;
 }
 
+/* My Indicator 预览/编辑：被打标记的自定义指标（CREATE）panel 背景高亮，
+   与同图加载的内置指标区分。标记由 CIQ.applyMIOwnIndicatorHighlight 维护 */
+.stx-holder.mi-custom-indicator-panel > .stx-subholder {
+  background-color: var(--chart-custom-panel-bg);
+}
+
+.ciq-night .stx-holder.mi-custom-indicator-panel > .stx-subholder {
+  background-color: var(--chart-custom-panel-bg-night);
+}
+
 .ciq-indicators-search {
   width: 27px;
   height: 45px;
