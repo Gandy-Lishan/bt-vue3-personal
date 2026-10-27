@@ -316,7 +316,7 @@ function initializeChart() {
     onChartReady: props.onChartReady,
   })
 
-  const containerEl = document.getElementById('cq-context-root') as HTMLElement | null
+  const containerEl = document.getElementById('chart_box') as HTMLElement | null
   if (!containerEl) return
 
   overrideStudyDef()
@@ -470,7 +470,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <cq-context id="cq-context-root">
+  <cq-context id="chart_box" class="chart_box">
     <cq-color-picker></cq-color-picker>
 
     <div class="ciq-nav full-screen-hide">
@@ -1227,11 +1227,4 @@ html:not([ciq-last-interaction='touch'])
 .ciq-menu.collapse {
   visibility: visible !important;
 }
-
-/* 【Vue2→Vue3 兼容】页面布局的 Tailwind .grid 类导致 ChartIQ 雪碧图规则 .grid span 误匹配工具栏图标
-   使用 ChartIQ CSS 定义的原始坐标覆盖：lastP=-2071, CH=-443, HU=-400, grid=-1443 */
-.lastp-group cq-toggle.lastP > span { background-position: -2071px -25px !important; }
-.ch-headsup  cq-toggle.ciq-CH > span  { background-position:  -443px -25px !important; }
-.hu-tooltip   cq-toggle.ciq-HU > span  { background-position:  -400px -25px !important; }
-.grid-group   cq-toggle.grid > span  { background-position: -1443px -25px !important; }
 </style>

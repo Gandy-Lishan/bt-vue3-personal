@@ -1441,7 +1441,7 @@ html:not([ciq-last-interaction='touch']) .break-sm .ciq-menu.collapse:hover>span
   background-position-y: 3px;
 }
 
-.grid span {
+cq-context .grid span {
   background-position: -1443px -25px;
 }
 
@@ -4692,7 +4692,7 @@ cq-keyboard-selected-highlight.disabled {
   color: white;
 }
 
-.ciq-night .grid span {
+.ciq-night cq-context .grid span {
   background-position: -1443px -50px
 }
 
