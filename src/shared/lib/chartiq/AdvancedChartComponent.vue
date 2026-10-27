@@ -383,23 +383,19 @@ function initializeChart() {
     // Emit initialized event
     emit('chart-initialized', { chartEngine: uiContext.stx, uiContext, config })
 
-    // Fallback: if ChartIQ itself did not fire config.onChartReady, call it now.
-    if (typeof config.onChartReady === 'function') {
-      config.onChartReady()
-    }
+    // 【Vue2→Vue3 完全一致】旧版 mounted 到此结束，不在这里回调 onChartReady，
+    // 也不再重复 changeSymbol：createChartAndUI 已经用 config.initialSymbol 走
+    // changeSymbol → addIndicators 完成首次加载，加载结束后由 ChartIQ 的
+    // cbChartReady 调用 config.onChartReady（componentUI.js loadSymbol）。
+    // 这里提前调用会让 MIChart 的 displayUserOwnIndicatorLayout 与首次加载竞争；
+    // 重复 changeSymbol 还会再发一轮空 addIndicators，其 getIndicatorMatedata([])
+    // 会把刚还原的 studies 全部移除。
 
     // Initialize UI features
     initializeToggle(uiContext.stx)
     createResizeListener()
     symbolMutationObserver()
     initializeReportsFilter()
-
-    // Ensure the chart reflects the current symbol prop after initialization.
-    // createChartAndUI loads config.initialSymbol, but if the prop changed
-    // before mount or the initial load failed, explicitly switch to it.
-    if (props.symbol && uiContext.changeSymbol) {
-      uiContext.changeSymbol({ symbol: props.symbol })
-    }
 
     // Trigger a layout resize once the container has been laid out by the browser.
     window.requestAnimationFrame(() => {
