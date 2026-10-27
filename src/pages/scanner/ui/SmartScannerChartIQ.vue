@@ -626,16 +626,12 @@ onBeforeUnmount(() => {
 .scanner-chart-watermark .watermark-tagline {
   font-size: 10px;
   font-weight: 600;
-  color: #6f7fa8;
+  color: var(--app-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .ciq-night .scanner-chart-watermark .watermark-logo {
   filter: brightness(0) invert(1);
-}
-
-.ciq-night .scanner-chart-watermark .watermark-tagline {
-  color: #9fb2cc;
 }
 </style>

@@ -73,6 +73,24 @@
 | `--chart-primary` | `#111827` | `#f0f7ff` | 图表主色 |
 | `--chart-flag-true` | `#ff0000` | `#ff4d4d` | 图表标记（真） |
 | `--chart-flag-false` | `#000000` | `#ffffff` | 图表标记（假） |
+| `--chart-custom-panel-bg` | `rgba(0,108,255,0.07)` | `rgba(0,108,255,0.07)` | My Indicator 自定义指标 panel 高亮（叠加在图表自身背景上，与 Highcharts 子图 plot band 同色） |
+
+### ChartIQ 映射
+
+ChartIQ 图表（My Indicator 预览/编辑、Scanner 详情）的主题 class 跟随 App `data-theme`：App 暗色 → `ciq-night`，App 亮色 → `ciq-day`。图表内 Day/Night 菜单已移除。`ST-chartiq.css` 中将原有硬编码色值替换为 Token：
+
+| ChartIQ 选择器组 | Token | 对齐 Highcharts |
+|---|---|---|
+| `.chartContainer` / `.ciq-chart-area` / `.ciq-footer` 背景 | `--app-surface` | 图表卡片表面 |
+| `.stx_xaxis` / `.stx_yaxis` 坐标轴文字 | `--app-text-secondary` | `axisLabelStyle()` |
+| `.stx_grid` 网格 | `--chart-grid` | `gridLineColor` |
+| `.stx_line_chart` 价格线 | `--chart-primary` | `marketLine` |
+| `.stx_candle_up` / `.stx_line_up` 涨 | `--app-positive` | 涨跌色 |
+| `.stx_candle_down` / `.stx_line_down` 跌 | `--app-negative` | 涨跌色 |
+| `.stx_panel_border` / `.stx-subholder` 分隔线 | `--app-border` | 卡片边框 |
+| `.stx-float-price` / `.stx-float-date` 浮层 | `--app-surface` / `--app-text` | — |
+| `.stx_range_slider.shading` Range slider | `--chart-selection-fill` / `--chart-selection-border` | Navigator 遮罩 |
+| `cq-menu-dropdown` / `cq-lookup-results` 菜单 | `--app-surface` / `--app-text` | 全局菜单 |
 
 ---
 

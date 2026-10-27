@@ -346,9 +346,11 @@
  // 封装成了一个promise函数
  // 原版
  CIQ.getIndicatorMatedata2 = function(indicatorList,stx){
-    var senti_color = ["#000000"]
+    // Use CSS-driven default color (stx.defaultColor reads .stx_line_chart computed CSS)
+    const indicatorLineAuto = "auto";
+    var senti_color = [indicatorLineAuto]
     var tech_color_1 = ["#5B9BD1","#368DF0"]
-    var tech_color_2 = ["#000000","#6b7280"]
+    var tech_color_2 = [indicatorLineAuto, "#6b7280"]
     if(!stx) return
     for (var studyInstanceName in stx.layout.studies) {  
        var sd = stx.layout.studies[studyInstanceName]; 
@@ -686,9 +688,13 @@
         CIQ.Studies.removeStudy(stx, stx.layout.studies[studyInstanceName]);
     }
     //console.log('****************Clear existing studies from the chart Done')
-    const senti_color = document.querySelector("cq-context").classList.value.indexOf("ciq-night") != -1 ? ["#FFFFFF"] : ["#000000"];
-    // const tech_color_1 = ["#5B9BD1", "#368DF0"]; // Not used in the provided code
-    // const tech_color_2 = ["#000000", "#6b7280"]; // Not used in the provided code
+    const isNight = document.querySelector("cq-context").classList.value.indexOf("ciq-night") != -1;
+    // Use CSS-driven default color (stx.defaultColor reads .stx_line_chart computed CSS)
+    const indicatorLineAuto = "auto";
+    // Built-in sentiment indicators use CSS default (auto); custom indicators get brand blue in myIndicatorChartControl.js
+    const senti_color = [indicatorLineAuto];
+    const tech_color_1 = ["#5B9BD1", "#368DF0"]; // 蓝色系，日夜通用
+    const tech_color_2 = [indicatorLineAuto, "#6b7280"];
 
     let sentiUrlList = []; // For sentiment indicators requiring API calls
     let studiesToLoad = []; // Unified list for all studies to be added

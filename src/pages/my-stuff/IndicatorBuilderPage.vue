@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Beaker, BellRing, Check, Filter, ListChecks, PlayCircle, Plus, Save, SlidersHorizontal, Trash2 } from '@lucide/vue'
+import { ArrowLeft, Beaker, Check, PlayCircle, Plus, Save, SlidersHorizontal, Trash2 } from '@lucide/vue'
 // @ts-ignore lodash does not ship with TS declarations
 import { debounce } from 'lodash'
 import indexesData from '@/assets/indexes_list.json'
@@ -28,12 +28,6 @@ interface BuilderOption { value: string; label: string; description?: string; me
 const router = useRouter()
 const route = useRoute()
 const controller = new AbortController()
-const sections = [
-  { label: 'My Signal', path: '/my-stuff/signals', description: 'Create and monitor custom market signals.', icon: BellRing },
-  { label: 'My Indicator', path: '/my-stuff/indicators', description: 'Build and manage personal indicators.', icon: SlidersHorizontal },
-  { label: 'My Screen', path: '/my-stuff/screens', description: 'Save and run stock screens.', icon: Filter },
-  { label: 'My Watch List', path: '/my-stuff/watchlist', description: 'Keep the symbols you follow together.', icon: ListChecks },
-]
 const pairCategories: Category[] = ['Indicator Spread', 'Indicator Ratio', 'Indicator Addition', 'Symbol Spread', 'Symbol Ratio', 'Symbol Addition']
 const categories: Category[] = [...pairCategories, 'Weighted Indicator Combination', 'Symbol OHLCV', 'Indicator Resample', 'Technical Indicator']
 const timeframes = ['Daily', 'Weekly', 'Monthly']
@@ -799,8 +793,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <ListExplorerPage title="My Stuff" description="Your personal indicators, signals, screens and watch lists." :panel-title="isEdit ? 'Edit Indicator' : 'Create New Indicator'" panel-description="Combine market data into a reusable custom indicator." :show-view-mode-toggle="false" sidebar-width="220px" content-class="indicator-builder-panel">
-    <template #sidebar><aside class="h-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3"><RouterLink v-for="section in sections" :key="section.path" :to="section.path" class="mb-1 flex items-center gap-3 rounded-md px-3 py-3 text-left transition" :class="section.label === 'My Indicator' ? 'bg-[var(--app-primary-soft)]' : 'hover:bg-[var(--app-surface-soft)]'"><component :is="section.icon" :size="20" class="text-[var(--app-primary)]" /><span class="min-w-0"><span class="block text-sm font-semibold">{{ section.label }}</span><span class="block truncate text-xs text-[var(--app-text-muted)]">{{ section.description }}</span></span></RouterLink></aside></template>
+  <ListExplorerPage title="My Stuff" description="Your personal indicators, signals, screens and watch lists." :panel-title="isEdit ? 'Edit Indicator' : 'Create New Indicator'" panel-description="Combine market data into a reusable custom indicator." :show-view-mode-toggle="false" content-class="indicator-builder-panel">
     <template #title-actions><button class="secondary-button h-8 px-3 text-xs" type="button" @click="router.push('/my-stuff/indicators')"><ArrowLeft :size="15" />Back to list</button></template>
     <template #summary><button class="secondary-button h-8 px-3 text-xs" type="button"><PlayCircle :size="15" />Watch Tutorial</button></template>
     <div class="builder-shell">

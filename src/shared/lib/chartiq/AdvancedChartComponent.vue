@@ -19,6 +19,9 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { createVNode, render } from 'vue'
 
+// App theme — ChartIQ theme follows the app theme (dark → ciq-night, light → ciq-day)
+import { useTheme } from '@/shared/theme/theme'
+
 // Register <cq-context> as a real Custom Element so Vue treats it as native
 import './cq-context-element'
 
@@ -72,6 +75,25 @@ const isShowStrategyDescription = ref(false)
 const aISuplineloading = ref(false)
 const modalBox = ref<HTMLElement>()
 const routeName = ref(props.routeName ?? (route.name as string ?? null))
+
+// ChartIQ theme follows app theme
+const { isDarkTheme } = useTheme()
+
+function applyChartTheme() {
+  const uiContext = uiContextRef.value as { topNode?: HTMLElement; stx?: { setThemeSettings?: () => void } } | undefined
+  const topNode = uiContext?.topNode ?? (document.getElementById('chart_box') as HTMLElement | null)
+  if (!topNode) return
+  topNode.classList.toggle('ciq-night', isDarkTheme.value)
+  topNode.classList.toggle('ciq-day', !isDarkTheme.value)
+  const stx = uiContext?.stx
+  if (stx?.setThemeSettings) {
+    stx.setThemeSettings()
+  } else if (stx) {
+    ;(stx as any).styles = {}
+    if (typeof (stx as any).clearPixelCache === 'function') (stx as any).clearPixelCache()
+    if (typeof (stx as any).draw === 'function') (stx as any).draw()
+  }
+}
 
 // Resize observer
 let resizeObserver: ResizeObserver | null = null
@@ -319,6 +341,10 @@ function initializeChart() {
   const containerEl = document.getElementById('chart_box') as HTMLElement | null
   if (!containerEl) return
 
+  // Apply theme class before chart creation to avoid first-frame flash
+  containerEl.classList.toggle('ciq-night', isDarkTheme.value)
+  containerEl.classList.toggle('ciq-day', !isDarkTheme.value)
+
   overrideStudyDef()
   portalizeContextDialogs(containerEl)
 
@@ -349,6 +375,9 @@ function initializeChart() {
     CIQ.stxx.maxDataSetSize = 0
     CIQ.stxx.minimumCandleWidth = 0.001
     CIQ.periodicity = { period: 1, interval: 1, timeUnit: 'day' }
+
+    // Apply ChartIQ theme (reset canvas color cache, notify theme listeners, redraw)
+    applyChartTheme()
 
     // Iterator setup
     const iter = CIQ.stxx.chart.market.newIterator({
@@ -421,6 +450,9 @@ watch(
     }
   },
 )
+
+// ChartIQ theme follows app theme — toggle class, clear canvas cache, redraw
+watch(isDarkTheme, applyChartTheme, { flush: 'post' })
 
 onMounted(() => {
   initializeChart()
@@ -926,11 +958,6 @@ onBeforeUnmount(() => {
                 ></cq-menu-container>
                 <cq-separator></cq-separator>
               </cq-menu-dropdown-section>
-              <cq-menu-dropdown-section class="chart-theme">
-                <cq-heading>Themes</cq-heading>
-                <cq-themes></cq-themes>
-                <cq-separator></cq-separator>
-              </cq-menu-dropdown-section>
             </cq-menu-dropdown>
           </cq-menu>
         </div>
@@ -1117,7 +1144,7 @@ select {
 
 /* 【照搬旧版 chart/index.vue .chart-wrapper】图表外框黑边 */
 cq-context {
-  border: 1px solid rgb(213, 227, 247);
+  border: 1px solid var(--app-border);
   /*border-radius: 7px;*/
 }
 

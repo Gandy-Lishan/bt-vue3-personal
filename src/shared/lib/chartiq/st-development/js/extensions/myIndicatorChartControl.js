@@ -831,9 +831,12 @@
         }) 
     }
     const getUserOwnIndicatorMatedata = async function(indicator,extremeLines){
-        var color = "#000000"
+        // Determine if this is a custom indicator (user-defined formula) or built-in
+        const isCustomIndicator = CIQ.isOwnIndicator(indicator);
+        // Custom indicators get brand blue; built-in indicators use CSS default
+        var color = isCustomIndicator ? "#368DF0" : "auto";
         return new Promise(resolve=>{
-                if(CIQ.isOwnIndicator(indicator)){
+                if(isCustomIndicator){
                 /********************lishan modify end*************************/
                     var newStudy = {
                         inputs: { Period: 13, Overlay: false},

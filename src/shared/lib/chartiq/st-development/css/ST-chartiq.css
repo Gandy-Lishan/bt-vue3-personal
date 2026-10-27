@@ -4688,11 +4688,11 @@ cq-keyboard-selected-highlight.disabled {
 
 /* Night theme. Use this as a base if you wish to design your own themes. */
 .ciq-night {
-  background: #151f28;
-  color: white;
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 
-.ciq-night cq-context .grid span {
+.ciq-night .grid span {
   background-position: -1443px -50px
 }
 
@@ -4772,18 +4772,18 @@ html:not([ciq-last-interaction='touch']) .ciq-night .stxMenuActive cq-indicators
 }
 
 .ciq-night .ciq-nav {
-  border: 1px solid black;
-  background: #151f28;
-  color: white;
+  border: 1px solid var(--app-border-muted);
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 
 .ciq-night .sidenav {
-  border-left: 1px solid black;
-  background: #151f28;
+  border-left: 1px solid var(--app-border-muted);
+  background: var(--app-surface);
 }
 
 .ciq-night cq-toolbar {
-  border-bottom: 1px solid #131d24;
+  border-bottom: 1px solid var(--app-border-muted);
 }
 
 .ciq-night cq-undo-section cq-undo.ciq-icon-btn {
@@ -4799,7 +4799,7 @@ html:not([ciq-last-interaction='touch']) .ciq-night .stxMenuActive cq-indicators
 }
 
 .ciq-night .ciq-chart-area {
-  background: #151f28;
+  background: var(--app-surface);
 }
 
 .ciq-night .ciq-chart {
@@ -4817,24 +4817,24 @@ html:not([ciq-last-interaction='touch']) .ciq-night .stxMenuActive cq-indicators
 }
 
 .ciq-night .ciq-chart:first-of-type {
-  background: #1c2a35;
+  background: var(--app-surface);
 }
 
 .ciq-night .chartContainer {
-  background: #1c2a35;
-  color: #fff;
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 
 .ciq-night .ciq-footer {
-  border-top: 1px solid black;
-  background: #151f28;
-  color: #fff;
+  border-top: 1px solid var(--app-border-muted);
+  background: var(--app-surface);
+  color: var(--app-text-secondary);
 }
 
 .ciq-night cq-lookup-input input {
-  background: rgba(21, 31, 40, 0);
-  border-bottom: #000 solid 1px !important;
-  color: #fff;
+  background: rgba(0, 0, 0, 0);
+  border-bottom: 1px solid var(--app-border-strong) !important;
+  color: var(--app-text);
 }
 
 html:not([ciq-last-interaction='touch']) .ciq-night cq-lookup-input:hover input {
@@ -4861,8 +4861,8 @@ html:not([ciq-last-interaction='touch']) .ciq-night cq-lookup-input:hover input 
 cq-dialog.ciq-night hr {
   border: none;
   /* clear out the default border because we're not using left and right here */
-  border-top: solid 1px #13171a;
-  border-bottom: solid 1px #495764;
+  border-top: solid 1px var(--app-border-muted);
+  border-bottom: solid 1px var(--app-border);
 }
 
 cq-context.ciq-night input,
@@ -4908,57 +4908,57 @@ html:not([ciq-last-interaction='touch']) .ciq-night cq-color-picker ul li span:h
 cq-menu-dropdown.ciq-night,
 .ciq-night cq-lookup-results,
 cq-lookup-results.ciq-night {
-  background: #151f28;
-  color: #fff;
-  -webkit-box-shadow: 0px 2px 4px rgba(255, 255, 255, 0.2);
-  -moz-box-shadow: 0px 2px 4px rgba(255, 255, 255, 0.2);
-  box-shadow: 0px 2px 4px rgba(255, 255, 255, 0.2);
+  background: var(--app-surface);
+  color: var(--app-text);
+  -webkit-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+  -moz-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Applies only to "lifted" menus */
 cq-menu-dropdown.ciq-night {
-  -webkit-box-shadow: 1 1px 5px #495764;
-  -moz-box-shadow: 1 1px 5px #495764;
-  box-shadow: 1 1px 5px #495764;
+  -webkit-box-shadow: 1px 1px 5px var(--app-border-strong);
+  -moz-box-shadow: 1px 1px 5px var(--app-border-strong);
+  box-shadow: 1px 1px 5px var(--app-border-strong);
 }
 
 html:not([ciq-last-interaction='touch']) .ciq-night cq-item:hover,
 html[ciq-last-interaction='touch'] .ciq-night cq-item:active,
 .ciq-night cq-item[cq-focused] {
-  background-color: #2c4154;
-  color: #fff;
+  background-color: var(--app-surface-hover);
+  color: var(--app-text);
 }
 
 .ciq-night cq-menu {
-  color: #c5c7c9;
+  color: var(--app-text-secondary);
 }
 
 html:not([ciq-last-interaction='touch']) .ciq-night cq-menu cq-item:hover,
 html[ciq-last-interaction='touch'] .ciq-night cq-menu cq-item:active,
 .ciq-night cq-menu cq-item[cq-focused] {
-  background-color: #2c4154;
-  color: #fff;
+  background-color: var(--app-surface-hover);
+  color: var(--app-text);
 }
 
 html:not([ciq-last-interaction='touch']) .ciq-night cq-menu:hover {
-  color: #fff;
+  color: var(--app-text);
 }
 
 .ciq-night cq-menu:active {
-  color: #fff;
+  color: var(--app-text);
 }
 
 .ciq-night cq-menu.stxMenuActive {
-  color: #fff;
+  color: var(--app-text);
 }
 
 .ciq-night .break-sm cq-menu.stxMenuActive {
-  color: #fff;
+  color: var(--app-text);
 }
 
 .ciq-night .ciq-menu:after {
-  border-right: solid thin #8a8f94;
-  border-bottom: solid thin #8a8f94;
+  border-right: solid thin var(--app-text-muted);
+  border-bottom: solid thin var(--app-text-muted);
 }
 
 .ciq-night cq-study-legend cq-section-dynamic {
@@ -4990,23 +4990,23 @@ cq-dialog.ciq-night h4 {
 }
 
 .ciq-night cq-lookup-results cq-item span:nth-of-type(3) {
-  color: #000;
+  color: var(--app-text-muted);
 }
 
 /*
 	Context Menu
 */
 html:not([ciq-last-interaction='touch']) .ciq-night .ciq-context-menu div:hover {
-  background-color: #2c4154;
-  color: #fff;
+  background-color: var(--app-surface-hover);
+  color: var(--app-text);
 }
 
 .ciq-night .ciq-context-menu div {
-  color: #fff;
+  color: var(--app-text);
 }
 
 .ciq-night .ciq-context-menu .context-button-right-arrow {
-  border-left-color: #fff;
+  border-left-color: var(--app-text);
 }
 
 /*
@@ -5238,6 +5238,12 @@ cq-toolbar-settings>* {
   background-position: -253px -50px;
 }
 
+.ciq-night body .stx-btn.stx-ico>span,
+html:not([ciq-last-interaction='touch']) .ciq-night body .stx-btn.stx-ico:hover>span,
+.ciq-night body .stx-btn.stx-ico:active>span {
+  background-position: -250px -50px;
+}
+
 span.ciq-line.ciq-selected,
 cq-toolbar-settings .ciq-selected.ciq-solid-1,
 cq-toolbar-settings .ciq-selected.ciq-dotted-1,
@@ -5390,12 +5396,12 @@ cq-hu-static>div>* {
 }
 
 .ciq-night cq-chart-title {
-  background: #1c2a35;
-  color: #fff;
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 
 .ciq-night cq-chart-title cq-chart-price {
-  color: #8e959a;
+  color: var(--app-text-muted);
 }
 
 .ciq-night .stx-panel-title {
@@ -5458,7 +5464,7 @@ html:not([ciq-last-interaction='touch']) .ciq-night cq-comparison-item:hover {
 
 /* --------------------------------------------------------- FOOTER --------------------------------------------------------- */
 .ciq-night .ciq-footer {
-  color: #c5c7c9;
+  color: var(--app-text-secondary);
 }
 
 cq-show-range {
@@ -5585,86 +5591,92 @@ html:not([ciq-last-interaction='touch']) .ciq-night cq-share-button:hover {
 
 /* ------- chart controls -----*/
 .ciq-night .stx-float-date {
-  background-color: #fff;
-  color: #000000;
+  background-color: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
 }
 
 .ciq-night .stx-float-price {
-  background-color: #fff;
-  color: #000000;
+  background-color: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
 }
 
 .ciq-night .stx_xaxis {
-  color: #c5c7c9;
+  color: var(--app-text-secondary);
 }
 
 .ciq-night .stx_xaxis_dark {
-  color: #fff;
+  color: var(--app-text);
 }
 
 .ciq-night .stx_yaxis {
-  color: #c5c7c9;
+  color: var(--app-text-secondary);
 }
 
 .ciq-night .stx_crosshair {
-  background-color: rgba(255, 255, 255, 0.4);
+  background-color: var(--app-text-muted);
+  opacity: 0.45;
 }
 
 .ciq-night .stx_crosshair_drawing {
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: var(--app-text-muted);
+  opacity: 0.7;
 }
 
 .ciq-night .stx_panel_border {
-  color: #666;
+  color: var(--app-border);
 }
 
 .ciq-night .stx_panel_drag {
-  color: #ccc;
+  color: transparent;
 }
 
 .ciq-night .stx_grid {
-  color: #21323f;
+  color: var(--chart-grid);
 }
 
 .ciq-night .stx_grid_dark {
-  color: #253746;
+  color: var(--app-border-strong);
 }
 
 .ciq-night .stx_line_chart {
-  color: #fff;
+  color: var(--chart-primary);
 }
 
 .ciq-night .stx_bar_chart {
-  color: #fff;
+  color: var(--chart-primary);
 }
 
 .ciq-night .stx_candle_shadow,
 .ciq-night .stx_bar_even {
-  color: #ccc;
+  color: var(--app-text-muted);
 }
 
 .ciq-night .stx_candle_down,
 .ciq-night .stx_line_down,
 .ciq-night .stx_histogram_down {
-  border-left-color: #e34621;
+  color: var(--app-negative);
+  border-left-color: var(--app-negative);
 }
 
 .ciq-night .stx_candle_up,
 .ciq-night .stx_line_up,
 .ciq-night .stx_histogram_up {
-  border-left-color: #b8dea8;
+  color: var(--app-positive);
+  border-left-color: var(--app-positive);
 }
 
 .ciq-night .stx_histogram_even {
-  border-left-color: #cccccc;
+  border-left-color: var(--app-text-muted);
 }
 
 .ciq-night .stx_hollow_candle_even {
-  color: #cccccc;
+  color: var(--app-text-muted);
 }
 
 .ciq-night .stx_baseline {
-  color: #ccc;
+  color: var(--app-text-muted);
 }
 
 .ciq-night .stx_mountain_chart {
@@ -5681,17 +5693,17 @@ html:not([ciq-last-interaction='touch']) .ciq-night cq-share-button:hover {
 
 /* Volume underlay styles */
 .ciq-night .stx_volume_underlay_up {
-  color: #8cc176;
+  color: var(--app-positive);
   /* legacy only. Use study library output "Up Volume" instead */
   opacity: .4;
-  border-left-color: #94c97e;
+  border-left-color: var(--app-positive);
 }
 
 .ciq-night .stx_volume_underlay_down {
-  color: #b82d0c;
+  color: var(--app-negative);
   /* legacy only. Use study library output "Down Volume" instead */
   opacity: .4;
-  border-left-color: #f26746;
+  border-left-color: var(--app-negative);
 }
 
 /* Volume profile styles */
@@ -6452,8 +6464,8 @@ body .trade .stx-btn.stx-ico {
 
 /* ------------------------------------------------------- RANGE SLIDER SHADING ------------------------------------------------------ */
 .stx_range_slider.shading {
-  background-color: rgba(128, 128, 128, 0.3);
-  border: solid 2px #0090b7;
+  background-color: var(--chart-selection-fill);
+  border: solid 2px var(--chart-selection-border);
   width: 5px;
 }
 
@@ -9022,18 +9034,15 @@ button.btnFav:hover span{
 }
 
 .stx-panel-study .stx-subholder {
-  border-top: solid 1.5px #3d3d3d;
-  border-bottom: solid 1.5px #3d3d3d;
+  border-top: solid 1.5px var(--app-border);
+  border-bottom: solid 1.5px var(--app-border);
 }
 
 /* My Indicator 预览/编辑：被打标记的自定义指标（CREATE）panel 背景高亮，
-   与同图加载的内置指标区分。标记由 CIQ.applyMIOwnIndicatorHighlight 维护 */
+   与同图加载的内置指标区分。标记由 CIQ.applyMIOwnIndicatorHighlight 维护。
+   半透明品牌蓝，叠加在图表自身背景上，与 Highcharts 子图 plot band 同一色调 */
 .stx-holder.mi-custom-indicator-panel > .stx-subholder {
   background-color: var(--chart-custom-panel-bg);
-}
-
-.ciq-night .stx-holder.mi-custom-indicator-panel > .stx-subholder {
-  background-color: var(--chart-custom-panel-bg-night);
 }
 
 .ciq-indicators-search {
@@ -9258,12 +9267,12 @@ cq-indicators-lookup-results cq-item span:nth-of-type(3) {
 cq-menu-dropdown.ciq-night,
 .ciq-night cq-indicators-lookup-results,
 cq-indicators-lookup-results.ciq-night {
-  background: #151f28;
-  color: #fff;
+  background: var(--app-surface);
+  color: var(--app-text);
 
-  -webkit-box-shadow: 0px 2px 4px rgba(255, 255, 255, 0.2);
-  -moz-box-shadow: 0px 2px 4px rgba(255, 255, 255, 0.2);
-  box-shadow: 0px 2px 4px rgba(255, 255, 255, 0.2);
+  -webkit-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+  -moz-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
 }
 .ciq-night cq-indicators-lookup-results cq-item span:nth-of-type(1),
 .ciq-night cq-indicators-lookup-results cq-item span:nth-of-type(3) {
@@ -9584,3 +9593,236 @@ cq-indicators-lookup cq-indicators-scroll.ps {
 
 /* END 隐藏默认scrollbar防止其与动态滑动加载冲突 */
 
+
+/* ================================================================
+   ChartIQ → App Design Token bridge: .ciq-day (日间)
+   当 App 为亮色时，ChartIQ 主题 class 为 ciq-day（由 AdvancedChartComponent
+   在 initializeChart 时设置），此处将图表全部色值桥接到项目 Token。
+   与 .ciq-night 同一套 var(--app-*)/var(--chart-*)，解析为亮色值。
+   ================================================================ */
+
+.ciq-day {
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.ciq-day .ciq-nav {
+  border: 1px solid var(--app-border-muted);
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.ciq-day .sidenav {
+  border-left: 1px solid var(--app-border-muted);
+  background: var(--app-surface);
+}
+
+.ciq-day cq-toolbar {
+  border-bottom: 1px solid var(--app-border-muted);
+}
+
+.ciq-day .ciq-chart-area {
+  background: var(--app-surface);
+}
+
+.ciq-day .ciq-chart:first-of-type {
+  background: var(--app-surface);
+}
+
+.ciq-day .chartContainer {
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.ciq-day .ciq-footer {
+  border-top: 1px solid var(--app-border-muted);
+  background: var(--app-surface);
+  color: var(--app-text-secondary);
+}
+
+.ciq-day cq-chart-title {
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.ciq-day cq-chart-title cq-chart-price {
+  color: var(--app-text-muted);
+}
+
+.ciq-day cq-lookup-input input {
+  background: rgba(0, 0, 0, 0);
+  border-bottom: 1px solid var(--app-border-strong) !important;
+  color: var(--app-text);
+}
+
+.ciq-day cq-separator {
+  border: none;
+  border-top: solid 1px var(--app-border-muted);
+  border-bottom: solid 1px var(--app-border);
+}
+
+.ciq-day cq-menu-dropdown,
+cq-menu-dropdown.ciq-day,
+.ciq-day cq-lookup-results,
+cq-lookup-results.ciq-day,
+.ciq-day cq-indicators-lookup-results,
+cq-indicators-lookup-results.ciq-day {
+  background: var(--app-surface);
+  color: var(--app-text);
+  -webkit-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+  -moz-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.ciq-day cq-item:hover,
+.ciq-day cq-item[cq-focused] {
+  background-color: var(--app-surface-hover);
+  color: var(--app-text);
+}
+
+.ciq-day cq-menu {
+  color: var(--app-text-secondary);
+}
+
+.ciq-day cq-menu cq-item:hover,
+.ciq-day cq-menu cq-item[cq-focused] {
+  background-color: var(--app-surface-hover);
+  color: var(--app-text);
+}
+
+.ciq-day cq-menu:hover {
+  color: var(--app-text);
+}
+
+.ciq-day cq-menu:active,
+.ciq-day cq-menu.stxMenuActive,
+.ciq-day .break-sm cq-menu.stxMenuActive {
+  color: var(--app-text);
+}
+
+.ciq-day .ciq-menu:after {
+  border-right: solid thin var(--app-text-muted);
+  border-bottom: solid thin var(--app-text-muted);
+}
+
+.ciq-day .ciq-footer {
+  color: var(--app-text-secondary);
+}
+
+.ciq-day .stx-float-date {
+  background-color: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+}
+
+.ciq-day .stx-float-price {
+  background-color: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+}
+
+.ciq-day .stx_xaxis,
+.ciq-day .stx_yaxis {
+  color: var(--app-text-secondary);
+}
+
+.ciq-day .stx_xaxis_dark {
+  color: var(--app-text);
+}
+
+.ciq-day .stx_crosshair {
+  background-color: var(--app-text-muted);
+  opacity: 0.45;
+}
+
+.ciq-day .stx_crosshair_drawing {
+  background-color: var(--app-text-muted);
+  opacity: 0.7;
+}
+
+.ciq-day .stx_panel_border {
+  color: var(--app-border);
+}
+
+.ciq-day .stx_panel_drag {
+  color: transparent;
+}
+
+.ciq-day .stx_grid {
+  color: var(--chart-grid);
+}
+
+.ciq-day .stx_grid_dark {
+  color: var(--app-border-strong);
+}
+
+.ciq-day .stx_grid_border {
+  color: var(--app-border);
+}
+
+.ciq-day .stx_line_chart {
+  color: var(--chart-primary);
+}
+
+.ciq-day .stx_bar_chart {
+  color: var(--chart-primary);
+}
+
+.ciq-day .stx_candle_shadow,
+.ciq-day .stx_bar_even {
+  color: var(--app-text-muted);
+}
+
+.ciq-day .stx_candle_down,
+.ciq-day .stx_line_down,
+.ciq-day .stx_histogram_down {
+  color: var(--app-negative);
+  border-left-color: var(--app-negative);
+}
+
+.ciq-day .stx_candle_up,
+.ciq-day .stx_line_up,
+.ciq-day .stx_histogram_up {
+  color: var(--app-positive);
+  border-left-color: var(--app-positive);
+}
+
+.ciq-day .stx_histogram_even {
+  border-left-color: var(--app-text-muted);
+}
+
+.ciq-day .stx_hollow_candle_even {
+  color: var(--app-text-muted);
+}
+
+.ciq-day .stx_baseline {
+  color: var(--app-text-muted);
+}
+
+.ciq-day .stx_volume_underlay_up {
+  color: var(--app-positive);
+  opacity: .4;
+  border-left-color: var(--app-positive);
+}
+
+.ciq-day .stx_volume_underlay_down {
+  color: var(--app-negative);
+  opacity: .4;
+  border-left-color: var(--app-negative);
+}
+
+/* Range slider — 与 Highcharts navigator 遮罩同源 */
+.ciq-day .stx_range_slider.shading {
+  background-color: var(--chart-selection-fill);
+  border: solid 2px var(--chart-selection-border);
+  width: 5px;
+}
+
+.ciq-day .stx-panel-study .stx-subholder {
+  border-top: solid 1.5px var(--app-border);
+  border-bottom: solid 1.5px var(--app-border);
+}
+
+/* ================================================================
+   结束 ChartIQ → App Design Token bridge
+   ================================================================ */

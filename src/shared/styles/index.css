@@ -60,10 +60,12 @@
   --chart-selection-border: #8fb6f2;
   /* My Indicator preview: tint the panel of the custom indicator being built so it
      stands apart from the built-in indicators loaded beside it. Translucent, the
-     study line is drawn on the canvas underneath. Keyed to the chart's own
-     ciq-day / ciq-night class, which can differ from the app theme. */
-  --chart-custom-panel-bg: rgba(0, 108, 255, 0.1);
-  --chart-custom-panel-bg-night: rgba(97, 180, 255, 0.16);
+     study line is drawn on the canvas underneath. Same brand-blue tint the
+     Highcharts pages use for their subplot bands (rgba(0,108,255,0.07), see
+     CpmToolWorkspace beta plot bands), so the builder chart and those charts
+     render the same panel colour over each chart's own surface — ChartIQ's
+     ciq-day/ciq-night is independent of the app data-theme. */
+  --chart-custom-panel-bg: rgba(0, 108, 255, 0.07);
   /* Light chrome: the header and footer are a light bar here, not the dark one the
      dark theme uses. Text colours flip with --chrome-text. */
   --chrome-bg: #ffffff;
