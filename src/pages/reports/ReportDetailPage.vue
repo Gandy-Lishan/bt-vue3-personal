@@ -337,7 +337,8 @@ watch(slug, () => void loadReport())
 
 <style scoped>
 .report-detail-page { min-height: 100vh; padding: 1.5rem var(--page-gutter) 3rem; background: var(--app-bg); color: var(--app-text); }
-.report-detail-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(220px, 1fr); gap: 1.875rem; max-width: 1170px; margin: 0 auto; align-items: start; }
+.report-detail-layout { display: grid; grid-template-columns: minmax(0, 2.5fr) minmax(280px, 1fr); gap: 1.875rem; max-width: 1170px; margin: 0 auto; align-items: start; }
+.report-detail-page--daily .report-detail-layout { max-width: none; }
 .report-toolbar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid var(--app-border); border-radius: .75rem; padding: .5rem .85rem; background: var(--app-surface); box-shadow: 0 8px 24px rgb(15 23 42 / 5%); }
 .report-article { min-width: 0; overflow: visible; border: 1px solid var(--app-border); border-radius: .75rem; padding: 1.25rem 1.4rem; background: var(--app-surface); box-shadow: 0 8px 24px rgb(15 23 42 / 5%); }
 .report-previous-research { position: static; min-width: 0; border: 1px solid var(--app-border); border-radius: .75rem; padding: 1.15rem; background: var(--app-surface); box-shadow: 0 8px 24px rgb(15 23 42 / 5%); }
@@ -345,7 +346,7 @@ watch(slug, () => void loadReport())
 .report-product-banner img { display: block; width: min(100%, 564px); height: auto; }
 .report-back { display: flex; width: fit-content; min-height: 36px; align-items: center; gap: .4rem; border: 0; padding: 0 .15rem; color: var(--app-primary); background: transparent; font-size: .75rem; font-weight: 700; }
 .report-back:hover { color: var(--app-primary-hover); }
-.report-related h2 { margin: 0 0 1rem; color: var(--app-text); font-size: 1.65rem; font-weight: 300; line-height: 1.25; }
+.report-related h2 { margin: 0 0 1rem; color: var(--app-text); font-size: 1.65rem; font-weight: 700; line-height: 1.25; }
 .report-article__header { padding: .25rem 0 1rem; border-bottom: 1px solid var(--app-border-muted); }
 .report-article__header h1 { margin: 0; color: var(--app-text); font-size: clamp(1.8rem, 3vw, 2.45rem); font-weight: 500; line-height: 1.2; letter-spacing: -.02em; }
 .report-article__byline { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; margin-top: .85rem; color: var(--app-text-muted); font-size: .75rem; }
@@ -439,7 +440,7 @@ watch(slug, () => void loadReport())
 .report-related a strong { color: var(--app-text); font-size: .95rem; font-weight: 400; line-height: 1.4; }
 .report-related a span { color: var(--app-text-muted); font-size: .7rem; }
 .report-related a:hover strong { color: var(--app-primary); }
-.report-related .report-related__all { display: flex; min-height: 38px; align-items: center; justify-content: center; margin-top: .9rem; padding: .5rem; color: var(--app-report-bar-text); background: var(--app-report-bar-bg); font-size: .76rem; font-weight: 400; }
+.report-related .report-related__all { display: flex; min-height: 38px; align-items: center; justify-content: center; margin-top: .9rem; border-radius: .4rem; padding: .5rem; color: var(--app-report-bar-text); background: var(--app-report-bar-bg); font-size: .76rem; font-weight: 400; }
 .report-state { display: grid; min-height: 55vh; place-items: center; align-content: center; gap: .65rem; text-align: center; }
 .report-state h1 { font-size: 1.4rem; font-weight: 800; }
 .report-state p { max-width: 500px; color: var(--app-text-muted); font-size: .85rem; }
