@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   showUpdated?: boolean
   footerMetricColumn?: IndicatorTableColumn
   footerMetricLabel?: string
+  layout?: 'responsive' | 'two-column'
 }>(), {
   showFavorite: true,
   showSentiment: true,
@@ -39,6 +40,7 @@ const props = withDefaults(defineProps<{
   primaryMetricLabel: 'Current Value',
   secondaryMetricLabel: 'Change (1d)',
   subtitleColumns: undefined,
+  layout: 'responsive',
 })
 
 defineEmits<{
@@ -122,7 +124,11 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
     No data
   </div>
 
-  <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3">
+  <div
+    v-else
+    class="indicator-card-grid grid gap-3"
+    :class="layout === 'two-column' ? 'indicator-card-grid--two-column' : 'sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3'"
+  >
     <article
       v-for="indicator in indicators"
       :key="indicator.id"
@@ -194,3 +200,12 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
     </article>
   </div>
 </template>
+
+<style scoped>
+.indicator-card-grid--two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  height: 100%;
+}
+</style>

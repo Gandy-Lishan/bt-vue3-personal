@@ -2,7 +2,12 @@
 import { ArrowRight, CalendarDays, LockKeyhole, LockKeyholeOpen, Star } from '@lucide/vue'
 import type { ReportLibraryItem } from '@/entities/report/model/report.types'
 
-defineProps<{ reports: ReportLibraryItem[] }>()
+withDefaults(defineProps<{
+  reports: ReportLibraryItem[]
+  compact?: boolean
+}>(), {
+  compact: false,
+})
 
 function formatDate(value: string) {
   const date = new Date(value.length === 10 ? `${value}T00:00:00` : value)
@@ -17,7 +22,7 @@ function formatDate(value: string) {
 </script>
 
 <template>
-  <div class="report-card-grid">
+  <div class="report-card-grid" :class="{ 'report-card-grid--compact': compact }">
     <article v-for="report in reports" :key="report.id" class="report-grid-card">
       <div class="report-grid-card__bar" :class="{ 'report-grid-card__bar--public': report.isPublic }">
         <div class="report-grid-card__brand">
@@ -238,6 +243,65 @@ function formatDate(value: string) {
 .report-grid-card__action:hover {
   filter: brightness(1.08);
   transform: translateX(2px);
+}
+
+.report-card-grid--compact {
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  height: 100%;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.report-card-grid--compact .report-grid-card {
+  height: 100%;
+  min-height: 0;
+  border-radius: 0.65rem;
+  box-shadow: 0 5px 16px rgb(15 23 42 / 7%);
+}
+
+.report-card-grid--compact .report-grid-card__bar {
+  min-height: 25px;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.62rem;
+}
+
+.report-card-grid--compact .report-grid-card__image-link {
+  height: 132px;
+}
+
+.report-card-grid--compact .report-grid-card__content {
+  padding: 0.7rem;
+}
+
+.report-card-grid--compact .report-grid-card__title {
+  font-size: 0.82rem;
+  line-height: 1.3;
+  -webkit-line-clamp: 2;
+}
+
+.report-card-grid--compact .report-grid-card__description {
+  margin-top: 0.45rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  -webkit-line-clamp: 2;
+}
+
+.report-card-grid--compact .report-grid-card__footer {
+  padding-top: 0.65rem;
+}
+
+.report-card-grid--compact .report-grid-card__meta {
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.6rem;
+}
+
+.report-card-grid--compact .report-grid-card__action {
+  min-height: 31px;
+  border-radius: 0.45rem;
+  font-size: 0.66rem;
 }
 
 @media (max-width: 1100px) {

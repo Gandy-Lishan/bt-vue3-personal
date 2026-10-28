@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -18,6 +18,7 @@ const props = withDefaults(
 )
 
 const lines = computed(() => props.series.filter((line) => line.length >= 2))
+const sparklineId = useId()
 
 /**
  * A stacked chart compares its lines against each other, so they must share one Y scale.
@@ -59,6 +60,14 @@ function polyline(line: number[]) {
     })
     .join(' ')
 }
+
+function areaPoints(line: number[]) {
+  return `0,${props.height} ${polyline(line)} ${props.width},${props.height}`
+}
+
+function gradientId(index: number) {
+  return `${sparklineId}-gradient-${index}`
+}
 </script>
 
 <template>
@@ -71,6 +80,19 @@ function polyline(line: number[]) {
     :style="svgStyle"
     aria-hidden="true"
   >
+    <defs>
+      <linearGradient v-for="(_, index) in lines" :id="gradientId(index)" :key="gradientId(index)" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" :stop-color="lineStroke(index)" stop-opacity="0.28" />
+        <stop offset="100%" :stop-color="lineStroke(index)" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    <polygon
+      v-for="(line, index) in lines"
+      :key="`area-${index}`"
+      :points="areaPoints(line)"
+      :fill="`url(#${gradientId(index)})`"
+      stroke="none"
+    />
     <polyline
       v-for="(line, index) in lines"
       :key="index"

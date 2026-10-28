@@ -194,12 +194,14 @@ export async function fetchReportLibrary(query: ReportLibraryQuery = {}, signal?
   return fetchStDataReportLibrary(query, signal)
 }
 
-export async function fetchReportFavorites(page = 1, signal?: AbortSignal): Promise<ReportLibraryResponse> {
+export async function fetchReportFavorites(page = 1, signal?: AbortSignal, limit?: number): Promise<ReportLibraryResponse> {
   const searchParams = new URLSearchParams()
   if (page > 1) searchParams.set('page', String(page))
+  if (limit && limit > 0) searchParams.set('page_size', String(limit))
   const path = `/dev/st_data/blog_favortie_list${searchParams.size ? `?${searchParams.toString()}` : ''}`
   const payload = await fetchPayload(path, signal)
-  const rows = extractRows(payload)
+  const allRows = extractRows(payload)
+  const rows = limit && limit > 0 ? allRows.slice(0, limit) : allRows
   // The favorite list response omits user_level, so every entry would fall back
   // to the Daily Report category. blog_info is authoritative for user_level.
   const enriched = await Promise.all(rows.map(async (row) => {
@@ -213,7 +215,7 @@ export async function fetchReportFavorites(page = 1, signal?: AbortSignal): Prom
       return row
     }
   }))
-  return { items: normalizeItems(enriched), ...paginationMeta(payload, rows.length) }
+  return { items: normalizeItems(enriched), ...paginationMeta(payload, allRows.length) }
 }
 
 export async function fetchReportDetail(url: string, signal?: AbortSignal): Promise<ReportDetail> {
