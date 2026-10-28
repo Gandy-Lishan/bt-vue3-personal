@@ -1145,7 +1145,7 @@ select {
 /* 【照搬旧版 chart/index.vue .chart-wrapper】图表外框黑边 */
 cq-context {
   border: 1px solid var(--app-border);
-  /*border-radius: 7px;*/
+  border-radius: 0.5rem;
 }
 
 .dropdown {
@@ -1191,7 +1191,7 @@ cq-context {
 
 .search-bar-group {
   margin: 0 10px;
-  border-right: solid 1px rgb(213, 227, 247);
+  border-right: solid 1px var(--app-border-muted);
   display: flex;
   flex-direction: row;
 }

@@ -177,6 +177,7 @@ npm run test:e2e      # E2E 测试
 2. **触摸目标** - 移动端按钮最小 `44x44px`
 3. **加载状态** - 表格/图表要有 loading 状态
 4. **空状态** - 数据为空时显示友好提示
+5. **ChartIQ 表单加载状态** - 加载指标期间**禁用表单元素**（input/select/SearchSelect/button 加 `:disabled="chartIQStore.isCreateLoading"`），不使用全屏遮罩，用户可见表单但不可编辑
 
 ---
 

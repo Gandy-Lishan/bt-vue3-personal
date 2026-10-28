@@ -135,6 +135,12 @@ function handleDocumentPointerDown(event: PointerEvent) {
   if (!rootElement.value?.contains(target)) closeDropdown()
 }
 
+function handleDocumentMousedown(event: MouseEvent) {
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (!rootElement.value?.contains(target)) closeDropdown()
+}
+
 function standardize(value: string) {
   return value.trim().toLowerCase().replace(/[_\s-]+/g, ' ')
 }
@@ -167,10 +173,12 @@ function scoreOption(option: SearchSelectOption, needle: string) {
 
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown)
+  document.addEventListener('mousedown', handleDocumentMousedown)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
+  document.removeEventListener('mousedown', handleDocumentMousedown)
 })
 </script>
 

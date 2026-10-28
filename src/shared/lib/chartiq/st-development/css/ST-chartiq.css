@@ -562,7 +562,8 @@ cq-toolbar,
 /* Navigation Bar */
 .ciq-nav {
   height: 45px;
-  border-bottom: 1px solid #ddd;
+  border-radius: 0.5rem 0.5rem 0 0;
+  border-bottom: 1px solid var(--app-border-muted);
 }
 
 cq-toolbar {
@@ -651,6 +652,7 @@ cq-side-panel[cq-active] {
   overflow: hidden;
   text-align: center;
   border-top: 1px solid #ddd;
+  border-radius: 0 0 0.5rem 0.5rem;
 }
 
 .ciq-chart-area,
@@ -4772,7 +4774,6 @@ html:not([ciq-last-interaction='touch']) .ciq-night .stxMenuActive cq-indicators
 }
 
 .ciq-night .ciq-nav {
-  border: 1px solid var(--app-border-muted);
   background: var(--app-surface);
   color: var(--app-text);
 }
@@ -9607,7 +9608,6 @@ cq-indicators-lookup cq-indicators-scroll.ps {
 }
 
 .ciq-day .ciq-nav {
-  border: 1px solid var(--app-border-muted);
   background: var(--app-surface);
   color: var(--app-text);
 }

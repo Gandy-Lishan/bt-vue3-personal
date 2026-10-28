@@ -13,7 +13,6 @@ import { useChartIQStore } from '@/entities/chartiq/model/chartiq.store'
 // @ts-ignore ChartIQ does not ship with TS declarations
 import { CIQ } from '@/shared/lib/chartiq/st-development/js/components'
 import { timeframeTransform } from '@/shared/lib/chartiq/utils'
-import LoadingOverlay from '@/shared/ui/LoadingOverlay.vue'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
 // 【Vue2→Vue3 完全一致迁移】旧版 MIForm.vue 的 chart 同步逻辑依赖的映射与数据构造
 import { buildLegacyChartData, buildWeightData, calculationToMAType, chartIndicatorUrl, CHART_START_DATE, isIndicatorChartUrl, legacyCategory, restoreIndicatorChartUrl } from './model/indicator-chart-adapter'
@@ -868,9 +867,9 @@ onBeforeUnmount(() => {
         <section ref="setupSection" class="builder-card editor-step-section" :class="activeStep === 1 && 'editor-step-section--active'" @focusin="activeStep = 1">
           <h3 class="section-title">1. Indicator Setup</h3>
           <div class="mt-4 grid gap-4 md:grid-cols-3">
-            <label class="builder-label">Name<input v-model="form.name" class="builder-input mt-1" placeholder="e.g. Sugar Optix MA100 Spread" /></label>
-            <label class="builder-label">Category<select v-model="form.category" class="builder-input mt-1"><option v-for="item in categories" :key="item">{{ item }}</option></select></label>
-            <label class="builder-label">Timeframe<select v-model="form.timeframe" class="builder-input mt-1" @change="handleTimeframeChange(eventValue($event))"><option v-for="item in timeframes" :key="item">{{ item }}</option></select></label>
+            <label class="builder-label">Name<input v-model="form.name" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" placeholder="e.g. Sugar Optix MA100 Spread" /></label>
+            <label class="builder-label">Category<select v-model="form.category" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading"><option v-for="item in categories" :key="item">{{ item }}</option></select></label>
+            <label class="builder-label">Timeframe<select v-model="form.timeframe" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" @change="handleTimeframeChange(eventValue($event))"><option v-for="item in timeframes" :key="item">{{ item }}</option></select></label>
           </div>
         </section>
 
@@ -878,9 +877,9 @@ onBeforeUnmount(() => {
         <section ref="formulaSection" class="builder-card editor-step-section" :class="activeStep === 2 && 'editor-step-section--active'" @focusin="activeStep = 2">
           <h3 class="section-title">2. Build Formula</h3>
           <p class="section-description mt-1">Configure the inputs required for {{ form.category }}.</p>
-          <div v-if="isPair" class="component-grid"><template v-for="(item, index) in components" :key="index"><article class="component-card"><header><strong>{{ index ? 'B' : 'A' }}</strong>{{ index ? 'Second' : 'First' }} {{ isIndicator ? 'indicator' : 'symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="item.source" :options="sourceOptions" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" @select="selectSource(index, $event)" /></label><div class="component-options"><label>Calculation<select v-model="item.calculation" class="builder-input mt-1" @change="handleCalculationChange(index, $event)"><option v-for="option in calculationOptions" :key="option">{{ option }}</option></select></label><label v-if="needsPeriod(item)">Period<input v-model="item.period" class="builder-input mt-1" inputmode="numeric" @input="handlePeriodChange(index)" /></label><label v-if="index === 1 && canShift && Number(item.shift) > 0">Shift (bars)<input v-model="item.shift" class="builder-input mt-1" inputmode="numeric" @input="handleShiftInput()" /></label></div></div></article><div v-if="index === 0" class="formula-operator"><span>{{ operationSymbol }}</span><strong>{{ operation }}</strong></div></template></div>
-          <div v-else-if="isWeighted" class="weighted-grid"><article v-for="(item, index) in components" :key="index" class="component-card weighted-card"><header><strong>{{ index + 1 }}</strong>Weighted input<button type="button" :disabled="components.length <= 2" aria-label="Remove weighted input" @click="removeWeightedComponent(index)"><Trash2 :size="15" /></button></header><div class="component-body weighted-fields"><label>Indicator or symbol<SearchSelect v-model="item.source" :options="weightedSourceOptions" placeholder="Search input" @select="selectSource(index, $event)" /></label><label>Weight (%)<input v-model="item.weight" class="builder-input mt-1" type="number" step="1" /></label></div></article><button v-if="components.length < 10" class="add-component" type="button" @click="addWeightedComponent"><Plus :size="16" /> Add weighted input</button></div>
-          <div v-else class="special-form-grid"><article class="component-card"><header><strong>1</strong>{{ isResample ? 'Source indicator' : 'Source symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="primaryComponent.source" :options="sourceOptions" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" @select="selectSource(0, $event)" /></label><div v-if="isOhlcv" class="component-options"><label>Price field<select v-model="primaryComponent.calculation" class="builder-input mt-1" @change="handleOhlcvConditionChange($event)"><option v-for="field in ['Open', 'High', 'Low', 'Close', 'Volume']" :key="field">{{ field }}</option></select></label><label>Smoothing<select v-model="ohlcvSmoothing" class="builder-input mt-1" @change="handleOhlcvSmoothingChange($event)"><option>None</option><option>SMA</option><option>EMA</option></select></label><label v-if="ohlcvSmoothing !== 'None'">Period<input v-model="ohlcvPeriod" class="builder-input mt-1" inputmode="numeric" @input="handleOhlcvPeriodChange()" /></label></div><label v-if="isTechnical">Technical indicator<SearchSelect v-model="technicalIndicator" :options="technicalOptions" placeholder="Search technical indicator" @select="changeTechnicalIndicator($event)" /></label><div v-if="isResample" class="special-note">Target timeframe: <strong>{{ form.timeframe }}</strong></div></div></article></div>
+          <div v-if="isPair" class="component-grid"><template v-for="(item, index) in components" :key="index"><article class="component-card"><header><strong>{{ index ? 'B' : 'A' }}</strong>{{ index ? 'Second' : 'First' }} {{ isIndicator ? 'indicator' : 'symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="item.source" :options="sourceOptions" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" :disabled="chartIQStore.isCreateLoading" @select="selectSource(index, $event)" /></label><div class="component-options"><label>Calculation<select v-model="item.calculation" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" @change="handleCalculationChange(index, $event)"><option v-for="option in calculationOptions" :key="option">{{ option }}</option></select></label><label v-if="needsPeriod(item)">Period<input v-model="item.period" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" inputmode="numeric" @input="handlePeriodChange(index)" /></label><label v-if="index === 1 && canShift && Number(item.shift) > 0">Shift (bars)<input v-model="item.shift" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" inputmode="numeric" @input="handleShiftInput()" /></label></div></div></article><div v-if="index === 0" class="formula-operator"><span>{{ operationSymbol }}</span><strong>{{ operation }}</strong></div></template></div>
+          <div v-else-if="isWeighted" class="weighted-grid"><article v-for="(item, index) in components" :key="index" class="component-card weighted-card"><header><strong>{{ index + 1 }}</strong>Weighted input<button type="button" :disabled="components.length <= 2 || chartIQStore.isCreateLoading" aria-label="Remove weighted input" @click="removeWeightedComponent(index)"><Trash2 :size="15" /></button></header><div class="component-body weighted-fields"><label>Indicator or symbol<SearchSelect v-model="item.source" :options="weightedSourceOptions" :disabled="chartIQStore.isCreateLoading" placeholder="Search input" @select="selectSource(index, $event)" /></label><label>Weight (%)<input v-model="item.weight" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" type="number" step="1" /></label></div></article><button v-if="components.length < 10" class="add-component" type="button" :disabled="chartIQStore.isCreateLoading" @click="addWeightedComponent"><Plus :size="16" /> Add weighted input</button></div>
+          <div v-else class="special-form-grid"><article class="component-card"><header><strong>1</strong>{{ isResample ? 'Source indicator' : 'Source symbol' }}</header><div class="component-body"><label>Source<SearchSelect v-model="primaryComponent.source" :options="sourceOptions" :disabled="chartIQStore.isCreateLoading" :placeholder="loadingOptions ? 'Loading sources…' : 'Search source'" @select="selectSource(0, $event)" /></label><div v-if="isOhlcv" class="component-options"><label>Price field<select v-model="primaryComponent.calculation" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" @change="handleOhlcvConditionChange($event)"><option v-for="field in ['Open', 'High', 'Low', 'Close', 'Volume']" :key="field">{{ field }}</option></select></label><label>Smoothing<select v-model="ohlcvSmoothing" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" @change="handleOhlcvSmoothingChange($event)"><option>None</option><option>SMA</option><option>EMA</option></select></label><label v-if="ohlcvSmoothing !== 'None'">Period<input v-model="ohlcvPeriod" class="builder-input mt-1" :disabled="chartIQStore.isCreateLoading" inputmode="numeric" @input="handleOhlcvPeriodChange()" /></label></div><label v-if="isTechnical">Technical indicator<SearchSelect v-model="technicalIndicator" :options="technicalOptions" :disabled="chartIQStore.isCreateLoading" placeholder="Search technical indicator" @select="changeTechnicalIndicator($event)" /></label><div v-if="isResample" class="special-note">Target timeframe: <strong>{{ form.timeframe }}</strong></div></div></article></div>
 
           <!-- Formula summary bar (bottom of Formula card) -->
           <div class="formula-summary">
@@ -901,22 +900,15 @@ onBeforeUnmount(() => {
         <section v-if="isPair || isResample" ref="thresholdsSection" class="builder-card editor-step-section" :class="activeStep === 3 && 'editor-step-section--active'" @focusin="activeStep = 3">
           <h3 class="section-title">3. Thresholds <small class="text-[var(--app-text-muted)] font-normal">(Optional)</small></h3>
           <div class="thresholds mt-4">
-            <label><span><input v-model="form.optimismEnabled" type="checkbox" /> Extreme Optimism</span><input v-model="form.optimism" class="builder-input" placeholder="Enter value" :disabled="!form.optimismEnabled" /></label>
-            <label><span><input v-model="form.pessimismEnabled" type="checkbox" /> Extreme Pessimism</span><input v-model="form.pessimism" class="builder-input" placeholder="Enter value" :disabled="!form.pessimismEnabled" /></label>
+            <label><span><input v-model="form.optimismEnabled" type="checkbox" :disabled="chartIQStore.isCreateLoading" /> Extreme Optimism</span><input v-model="form.optimism" class="builder-input" :disabled="!form.optimismEnabled || chartIQStore.isCreateLoading" placeholder="Enter value" /></label>
+            <label><span><input v-model="form.pessimismEnabled" type="checkbox" :disabled="chartIQStore.isCreateLoading" /> Extreme Pessimism</span><input v-model="form.pessimism" class="builder-input" :disabled="!form.pessimismEnabled || chartIQStore.isCreateLoading" placeholder="Enter value" /></label>
           </div>
         </section>
-
-        <LoadingOverlay
-          :is-loading="chartIQStore.isCreateLoading"
-          :show-progress="false"
-          :percentage="0"
-          progress-text="Loading..."
-        />
       </main>
 
       <!-- Right: Chart -->
       <aside class="chart-column">
-        <div class="chart-container rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+        <div class="chart-container rounded-lg overflow-hidden">
           <IndicatorBuilderChartIQ
             v-if="chartMounted"
             :symbol="form.benchmark || 'SPX'"
@@ -953,7 +945,8 @@ onBeforeUnmount(() => {
 .builder-shell { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:12px; align-items:start; }
 .builder-card { margin-bottom:12px; border:1px solid var(--app-border); border-radius:8px; background:var(--app-surface); padding:14px; }
 .chart-column { position:sticky; top:16px; align-self:start; }
-.chart-container { height:680px; }
+.chart-container { height:680px; overflow:hidden; }
+.chart-container :deep(.stx_chart_controls) { position:absolute; display:block; left:109px !important; bottom:-36px !important; }
 .progress-track { display:flex; align-items:center; margin:12px 6px; }
 .progress-step { display:flex; flex:none; align-items:center; gap:8px; color:var(--app-text-muted); font-size:.76rem; }
 .progress-track button.progress-step { border-radius:6px; padding:3px 5px; transition:background-color .15s ease,color .15s ease; }
