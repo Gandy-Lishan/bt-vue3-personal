@@ -57,7 +57,7 @@ const isWatchList = computed(() => activeSection.value === 'watchlist')
 
 const listKind = ref<MySignalListKind>('mine')
 /** Flips to true after copying a signal, so fresh copies sort to the top by create date. */
-const sortCopiesFirst = ref(false)
+const sortCopiesFirst = ref(route.query.copied === '1')
 const rows = ref<MySignalRow[]>([])
 const loading = ref(false)
 const actionLoading = ref(false)
@@ -148,6 +148,11 @@ function applyDefaultSort() {
 }
 
 applyDefaultSort()
+
+if (route.query.copied === '1') {
+  noticeMessage.value = 'Signal duplicated successfully.'
+  void router.replace({ path: route.path })
+}
 
 const pagedRows = computed(() => signalTable.pagedRows.value)
 const pageCount = computed(() => signalTable.pageCount.value)

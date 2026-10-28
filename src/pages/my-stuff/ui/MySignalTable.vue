@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Pencil, Settings2, Trash2 } from '@lucide/vue'
+import { Copy, Pencil, Settings2, Trash2 } from '@lucide/vue'
 import type { MySignalRow } from '@/entities/my-stuff/model/my-signal.types'
+import MySignalHeaderCell from './MySignalHeaderCell.vue'
+import { mySignalHeaderColumns } from './my-signal-table.columns'
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   rows: MySignalRow[]
   loading: boolean
   library: boolean
@@ -10,41 +12,6 @@ const props = withDefaults(defineProps<{
   sortDirection?: 'asc' | 'desc'
 }>(), { sortKey: '', sortDirection: 'asc' })
 const emit = defineEmits<{ preview: [row: MySignalRow]; edit: [row: MySignalRow]; copy: [row: MySignalRow]; delete: [row: MySignalRow]; sort: [key: string] }>()
-
-interface HeaderColumn {
-  key: string
-  label: string
-  align: 'left' | 'right'
-  pad: string
-  sortable: boolean
-  width?: string
-}
-
-const headerColumns: HeaderColumn[] = [
-  { key: 'name', label: 'Name', align: 'left', pad: 'px-4', sortable: true },
-  { key: 'symbol', label: 'Symbol', align: 'left', pad: 'px-3', sortable: true },
-  { key: 'timeframe', label: 'Timeframe', align: 'left', pad: 'px-3', sortable: true },
-  { key: 'signal', label: 'Signal', align: 'left', pad: 'px-3', sortable: false },
-  { key: 'lastSignalDate', label: 'Last signal', align: 'left', pad: 'px-3', sortable: true },
-  { key: 'barsSinceSignal', label: 'Bars since signal', align: 'right', pad: 'px-3', sortable: true },
-  { key: 'currentReturn', label: 'Return since signal', align: 'right', pad: 'px-3', sortable: true },
-  { key: 'actions', label: 'Actions', align: 'right', pad: 'px-4', sortable: false, width: 'w-[164px]' },
-]
-
-function isSorted(key: string) {
-  return props.sortKey === key
-}
-
-function sortIcon(key: string) {
-  if (!isSorted(key)) return ArrowUpDown
-  return props.sortDirection === 'asc' ? ArrowUp : ArrowDown
-}
-
-function sortAria(key: string) {
-  if (!headerColumns.some((column) => column.key === key && column.sortable)) return undefined
-  if (!isSorted(key)) return 'none'
-  return props.sortDirection === 'asc' ? 'ascending' : 'descending'
-}
 
 function returnClass(value: number | null) {
   if (value === null || value === 0) return 'text-[var(--app-text-muted)]'
@@ -63,26 +30,7 @@ function formatReturn(value: number | null) {
       <table class="w-full min-w-[940px] border-collapse text-left text-[0.8125rem] text-[var(--app-text)]">
         <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
           <tr class="border-b border-[var(--app-border)]">
-            <th
-              v-for="column in headerColumns"
-              :key="column.key"
-              scope="col"
-              class="box-border py-2.5"
-              :class="[column.pad, column.width, column.align === 'right' ? 'text-right' : 'text-left']"
-              :aria-sort="sortAria(column.key)"
-            >
-              <button
-                v-if="column.sortable"
-                class="inline-flex w-full min-w-0 items-center gap-1 text-[0.6875rem] font-semibold transition hover:text-[var(--app-primary)]"
-                :class="[column.align === 'right' ? 'justify-end' : 'justify-start', isSorted(column.key) ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]']"
-                type="button"
-                @click="emit('sort', column.key)"
-              >
-                <span class="min-w-0">{{ column.label }}</span>
-                <component :is="sortIcon(column.key)" :size="13" class="shrink-0" aria-hidden="true" />
-              </button>
-              <span v-else>{{ column.label }}</span>
-            </th>
+            <MySignalHeaderCell v-for="column in mySignalHeaderColumns" :key="column.key" :column="column" :sort-key="sortKey" :sort-direction="sortDirection" @sort="emit('sort', $event)" />
           </tr>
         </thead>
         <tbody>
