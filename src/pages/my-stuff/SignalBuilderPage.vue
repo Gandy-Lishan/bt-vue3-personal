@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, ArrowRight, BarChart3, BellRing, Check, ChevronDown, ChevronUp, CircleCheck, Clock3, Copy, Filter, Info, Layers3, ListChecks, PlayCircle, Plus, Settings, SlidersHorizontal, Trash2 } from '@lucide/vue'
+import { ChevronLeft, ArrowRight, BarChart3, Check, ChevronDown, ChevronUp, CircleCheck, Clock3, Copy, Info, Layers3, PlayCircle, Plus, Settings, Trash2 } from '@lucide/vue'
 import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
 import { fetchMySignals } from '@/entities/my-stuff/api/my-signal.api'
@@ -22,7 +22,6 @@ import {
   type SymbolConditionFields,
 } from '@/entities/my-stuff/model/symbol-condition'
 import { userIndicatorConditionComplete, type UserIndicatorFields } from '@/entities/my-stuff/model/user-indicator'
-import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
 import { hasFormValue } from '@/shared/utils/form-value'
 import TechnicalConditionEditor from './ui/TechnicalConditionEditor.vue'
@@ -98,13 +97,6 @@ const sentimentIndicatorOptions = ref<SignalIndicatorOption[]>([])
 const sentimentIndicatorsLoading = ref(false)
 const sentimentIndicatorsError = ref(false)
 const indicatorListController = new AbortController()
-
-const sections = [
-  { key: 'signals', label: 'My Signal', path: '/my-stuff/signals', description: 'Create and monitor custom market signals.', icon: BellRing },
-  { key: 'indicators', label: 'My Indicator', path: '/my-stuff/indicators', description: 'Build and manage personal indicators.', icon: SlidersHorizontal },
-  { key: 'screens', label: 'My Screen', path: '/my-stuff/screens', description: 'Save and run stock screens.', icon: Filter },
-  { key: 'watchlist', label: 'My Watch List', path: '/my-stuff/watchlist', description: 'Keep the symbols you follow together.', icon: ListChecks },
-]
 
 const symbolSearchOptions = [...new Map([
   ...(stocksData as Array<{ stock?: string; symbol?: string; name?: string; category?: string }>).map((entry) => ({
@@ -265,14 +257,22 @@ onBeforeUnmount(() => { indicatorListController.abort(); window.removeEventListe
 </script>
 
 <template>
-  <ListExplorerPage title="My Stuff" description="Your personal indicators, signals, screens and watch lists." :panel-title="isEdit ? 'Edit Signal' : 'Create New Signal'" panel-description="Define the rules for your custom signal using sentiment indicators and conditions." :show-view-mode-toggle="false">
-    <template #sidebar>
-      <aside class="h-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
-        <RouterLink v-for="section in sections" :key="section.key" class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition" :class="section.key === 'signals' ? 'bg-[var(--app-primary-soft)] text-[var(--app-text)]' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]'" :to="section.path"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" :class="section.key === 'signals' ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"><component :is="section.icon" :size="21" /></span><span class="min-w-0"><span class="block text-sm font-semibold leading-5">{{ section.label }}</span><span class="block truncate text-xs text-[var(--app-text-muted)]">{{ section.description }}</span></span></RouterLink>
-      </aside>
-    </template>
-    <template #title-actions><button class="secondary-button h-8 px-3 text-xs" type="button" @click="leaveBuilder"><ArrowLeft :size="15" />Back to list</button></template>
-    <template #summary><button class="secondary-button h-8 px-3 text-xs" type="button"><PlayCircle :size="15" />Watch Tutorial</button></template>
+  <main class="min-h-screen bg-[var(--app-bg)] px-[var(--page-gutter)] py-5">
+    <section class="signal-builder-header">
+      <nav class="signal-builder-breadcrumb" aria-label="Signal builder breadcrumb">
+        <button class="signal-builder-breadcrumb__back" type="button" @click="leaveBuilder"><ChevronLeft :size="16" />Back to Signal List</button>
+        <span class="signal-builder-breadcrumb__divider" />
+        <span class="signal-builder-breadcrumb__item">{{ isEdit ? 'Edit Signal' : 'Create New Signal' }}</span>
+      </nav>
+      <div class="signal-builder-header__row">
+        <div>
+          <h1 class="signal-builder-title">{{ isEdit ? 'Edit Signal' : 'Create New Signal' }}</h1>
+          <p class="signal-builder-description">Define the rules for your custom signal using sentiment indicators and conditions.</p>
+        </div>
+        <button class="secondary-button h-8 px-3 text-xs shrink-0" type="button"><PlayCircle :size="15" />Watch Tutorial</button>
+      </div>
+    </section>
+
     <div class="signal-editor-page">
     <nav class="progress-track" aria-label="Signal setup progress"><button class="progress-step" :class="[basicComplete && 'progress-step--complete', activeEditorStep === 'basic' && 'progress-step--selected']" type="button" @click="selectEditorStep('basic')"><span>1</span><strong>Basic Setup</strong></button><div class="progress-line" :class="basicComplete && 'progress-line--active'" /><button class="progress-step" :class="[conditionsComplete && 'progress-step--complete', activeEditorStep === 'criteria' && 'progress-step--selected']" type="button" @click="selectEditorStep('criteria')"><span>2</span><strong>Define Criteria</strong></button><div class="progress-line" :class="conditionsComplete && 'progress-line--active'" /><div class="progress-step"><span>3</span><strong>Review &amp; Save</strong></div></nav>
     <div class="builder-guide" role="status"><Info :size="16" /><span><strong>Quick guide:</strong> {{ nextStepHint }}</span><small>Name &amp; market → trigger logic → conditions → review</small></div>
@@ -430,10 +430,20 @@ onBeforeUnmount(() => { indicatorListController.abort(); window.removeEventListe
 
     <div class="result-bar"><strong>Result <span>(Natural Language)</span></strong><p>{{ logicSummary }}</p><button class="link-button" type="button"><Settings :size="15" />Signal Options (Advanced)</button></div>
     </div>
-  </ListExplorerPage>
+  </main>
 </template>
 
 <style scoped>
+.signal-builder-header { border:1px solid var(--app-border); border-radius:10px; background:var(--app-surface); padding:18px 22px; margin-bottom:14px; }
+.signal-builder-header__row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.signal-builder-breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:0.8125rem; font-weight:700; line-height:1.2; color:var(--app-text-secondary); }
+.signal-builder-breadcrumb__back { display:inline-flex; align-items:center; gap:4px; color:var(--app-primary); font-weight:700; background:none; border:none; cursor:pointer; padding:0; }
+.signal-builder-breadcrumb__back:hover { text-decoration:underline; }
+.signal-builder-breadcrumb__divider { width:1px; height:14px; background:var(--app-border); }
+.signal-builder-breadcrumb__item { color:inherit; font-weight:500; }
+.signal-builder-title { font-size:1.75rem; font-weight:700; color:var(--app-text); line-height:1.15; }
+.signal-builder-description { margin-top:6px; color:var(--app-text-muted); font-size:.82rem; }
+
 .signal-editor-page :deep(input::placeholder),.signal-editor-page :deep(textarea::placeholder) { font-weight:400 !important; }
 .signal-editor-page { min-width:0; padding:12px; background:var(--app-surface-soft); }.section-description { color:var(--app-text-muted); font-size:.78rem; }
 .progress-track { display:flex; align-items:center; margin:12px 6px; }.progress-step { display:flex; flex:none; align-items:center; gap:8px; color:var(--app-text-muted); font-size:.76rem; }.progress-track button.progress-step { border-radius:6px; padding:3px 5px; transition:background-color .15s ease,color .15s ease; }.progress-track button.progress-step:hover { background:var(--app-surface); color:var(--app-text); }.progress-step span { display:flex; width:27px; height:27px; align-items:center; justify-content:center; border-radius:9999px; background:var(--app-surface-muted); font-weight:900; }.progress-step--complete { color:var(--app-primary); }.progress-step--complete span { background:var(--app-primary); color:white; }.progress-step--selected:not(.progress-step--complete) { color:var(--app-text); }.progress-line { height:1px; flex:1; margin:0 11px; background:var(--app-border-strong); }.progress-line--active { background:var(--app-primary); }

@@ -220,11 +220,21 @@ const router = createRouter({
     {
       path: '/my-stuff/indicators/new',
       name: 'my-indicator-new',
-      component: () => import('@/pages/my-stuff/IndicatorBuilderPage.vue'),
+      component: () => import('@/pages/my-stuff/IndicatorBuilderPageV2.vue'),
     },
     {
       path: '/my-stuff/indicators/edit',
       name: 'my-indicator-edit',
+      component: () => import('@/pages/my-stuff/IndicatorBuilderPageV2.vue'),
+    },
+    {
+      path: '/my-stuff/indicators/new-v1',
+      name: 'my-indicator-new-v1',
+      component: () => import('@/pages/my-stuff/IndicatorBuilderPage.vue'),
+    },
+    {
+      path: '/my-stuff/indicators/edit-v1',
+      name: 'my-indicator-edit-v1',
       component: () => import('@/pages/my-stuff/IndicatorBuilderPage.vue'),
     },
     {
