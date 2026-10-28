@@ -142,6 +142,11 @@ const router = createRouter({
       component: () => import('@/pages/indicators/IndicatorsPage.vue'),
     },
     {
+      path: '/market-screen',
+      name: 'market-screen',
+      component: () => import('@/pages/market-screen/MarketScreenPage.vue'),
+    },
+    {
       path: '/indicators/:id',
       name: 'indicator-detail',
       meta: { needsIndicatorFavorites: true },

@@ -71,20 +71,22 @@ function sortIcon(column: AppDataTableColumn) {
               :style="{ minWidth: column.minWidth ? `calc(${column.minWidth}px * var(--fixed-ui-scale, 1))` : undefined }"
               :aria-sort="column.sortable && props.sortKey === column.key ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
             >
-              <button
-                v-if="column.sortable"
-                class="inline-flex w-full items-center gap-1 transition hover:text-[var(--app-primary)]"
-                :class="[
-                  props.sortKey === column.key ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]',
-                  column.align === 'right' ? 'justify-end' : column.align === 'center' ? 'justify-center' : 'justify-start',
-                ]"
-                type="button"
-                @click="emit('sort', column.key)"
-              >
-                <span>{{ column.label }}</span>
-                <component :is="sortIcon(column)" :size="13" aria-hidden="true" />
-              </button>
-              <span v-else>{{ column.label }}</span>
+              <slot :name="`header-${column.key}`" :column="column">
+                <button
+                  v-if="column.sortable"
+                  class="inline-flex w-full items-center gap-1 transition hover:text-[var(--app-primary)]"
+                  :class="[
+                    props.sortKey === column.key ? 'text-[var(--app-primary)]' : 'text-[var(--app-text)]',
+                    column.align === 'right' ? 'justify-end' : column.align === 'center' ? 'justify-center' : 'justify-start',
+                  ]"
+                  type="button"
+                  @click="emit('sort', column.key)"
+                >
+                  <span>{{ column.label }}</span>
+                  <component :is="sortIcon(column)" :size="13" aria-hidden="true" />
+                </button>
+                <span v-else>{{ column.label }}</span>
+              </slot>
             </th>
           </tr>
         </thead>
@@ -111,10 +113,12 @@ function sortIcon(column: AppDataTableColumn) {
                 class="box-border px-3 py-2.5 font-semibold"
                 :class="[alignClass(column), cellClass(column, row)]"
               >
-                <span v-if="column.badgeClass" class="inline-flex rounded-md px-2.5 py-1 text-xs font-extrabold" :class="badgeClass(column, row)">
-                  {{ displayValue(column, row) }}
-                </span>
-                <span v-else>{{ displayValue(column, row) }}</span>
+                <slot :name="`cell-${column.key}`" :row="row" :column="column" :value="row[column.key]">
+                  <span v-if="column.badgeClass" class="inline-flex rounded-md px-2.5 py-1 text-xs font-extrabold" :class="badgeClass(column, row)">
+                    {{ displayValue(column, row) }}
+                  </span>
+                  <span v-else>{{ displayValue(column, row) }}</span>
+                </slot>
               </td>
             </tr>
           </template>
