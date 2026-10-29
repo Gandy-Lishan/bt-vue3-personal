@@ -18,12 +18,14 @@ const props = withDefaults(
     emptyMessage?: string
     ariaLabel?: string
     maxVisible?: number
+    disabled?: boolean
   }>(),
   {
     placeholder: 'Search',
     emptyMessage: 'No results found.',
     ariaLabel: 'Search',
     maxVisible: 12,
+    disabled: false,
   },
 )
 
@@ -186,9 +188,11 @@ onBeforeUnmount(() => {
   <div ref="rootElement" class="search-select">
     <div
       class="search-select__field"
+      :class="{ 'search-select__field--disabled': disabled }"
       role="combobox"
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
+      :style="disabled ? 'pointer-events: none;' : ''"
     >
       <Search :size="16" class="search-select__icon" />
       <input
@@ -197,9 +201,11 @@ onBeforeUnmount(() => {
         class="search-select__input"
         :placeholder="placeholder"
         :aria-label="ariaLabel"
+        :disabled="disabled"
+        :style="disabled ? 'pointer-events: none;' : ''"
         autocomplete="off"
         spellcheck="false"
-        @focus="openDropdown(true)"
+        @focus="!disabled && openDropdown(true)"
         @input="handleInput"
         @keydown="handleKeydown"
       />
@@ -262,6 +268,10 @@ onBeforeUnmount(() => {
   border-color: var(--app-primary);
   box-shadow: 0 0 0 3px var(--app-primary-shadow);
 }
+.search-select__field--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
 
 .search-select__icon {
   flex-shrink: 0;
@@ -277,6 +287,10 @@ onBeforeUnmount(() => {
   font-size: 0.8125rem;
   font-weight: 700;
   outline: none;
+}
+.search-select__input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .search-select__input::placeholder {

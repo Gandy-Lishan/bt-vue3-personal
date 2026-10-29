@@ -96,7 +96,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="relative h-[420px] w-full overflow-hidden md:h-[520px]" style="margin-top: 16px;">
+  <div class="relative w-full" style="margin-top: 16px;">
     <ChartIQEngine
       :symbol="props.symbol"
       :restore="false"

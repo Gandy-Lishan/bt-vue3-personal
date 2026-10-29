@@ -498,6 +498,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <div class="chart-wrapper">
   <cq-context id="chart_box" class="chart_box">
     <cq-color-picker></cq-color-picker>
 
@@ -1135,9 +1136,18 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </cq-context>
+  </div>
 </template>
 
 <style scoped>
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 680px;
+  resize: auto;
+  overflow: hidden;
+}
+
 select {
   font-weight: bold !important;
 }

@@ -324,16 +324,24 @@ if (CIQ.ChartEngine) {
 				// : 80
 				: 100
 		const studiesPanelsSize = studiesLen * studiesHeight
-		//let chartPanelSize = 680
-		// 目前解决方案: 判断是否为report page,是的话就动态设置高度
-		let chartPanelSize = window.location.pathname=='/reports'?window.innerHeight - 260:680
+		// 旧版实测绘图区域：
+		//   0 study：1130×790 → 比例 1.43
+		//   2 study：1130×990 → 比例 1.14
+		// 旧版公式：总高度 = 680 + 110 + studiesPanelsSize（rangeSliderOffSet 实际为 0）
+		// 新版需要按宽度比例缩放总高度，保持视觉比例一致
+		const baseTotalHeight = 680 + 110 + studiesPanelsSize  // 旧版基准总高度
+		const oldWidth = 1130
+		const currentWidth = chartContainer.clientWidth || 1130
+		// 按宽度比例缩放总高度
+		const scaledTotalHeight = Math.round(baseTotalHeight * (currentWidth / oldWidth))
+		// /reports 页面使用窗口高度
+		let chartPanelSize = window.location.pathname=='/reports' ? window.innerHeight - 260 - studiesPanelsSize - 110 : (scaledTotalHeight - 110 - studiesPanelsSize)
 		// TODO 考虑优化
 
 		// 由于chart wrapper高度由代码控制，rangeSlider的高度也应该在显示时被考虑进去
 		let rangeSliderOffSet = 0
 		if(CIQ.stxx?.layout?.rangeSlider) {
 			rangeSliderOffSet = 60
-			//document.querySelector(".stx_chart_controls").style.bottom = '-111px'		
 		}
 		if(CIQ.stxx && CIQ.stxx.fullScreen.fullScreenState){
 			requestAnimationFrame(() => {
@@ -342,20 +350,20 @@ if (CIQ.ChartEngine) {
 				chartWrapper.style.resize = 'none'
 			})
 		}else{
-			// 正常添加指標時總高度按照680 + number of indicator * n來算， resize時按照resize結果賦值
+			// 正常添加指標時總高度按照 chartPanelSize + toolbar + studies 来算（和旧版一致，不加 rangeSliderOffSet）
 			if(!CIQ.isResizing){
 				requestAnimationFrame(() => {
-					chartWrapper.style.height = (chartPanelSize + 110 + studiesPanelsSize + rangeSliderOffSet) + "px";	
-					chartContainer.style.height = (chartWrapper.clientHeight - 110 - rangeSliderOffSet) + "px";
+					chartWrapper.style.height = (chartPanelSize + 110 + studiesPanelsSize) + "px";
+					chartContainer.style.height = (chartWrapper.clientHeight - 110) + "px";
 				})
 			}else{
 				if(!chartWrapper.clientHeight) {
 					requestAnimationFrame(() => {
-						chartWrapper.style.height = (chartPanelSize + 110 + studiesPanelsSize + rangeSliderOffSet) + "px";	
+						chartWrapper.style.height = (chartPanelSize + 110 + studiesPanelsSize) + "px";
 					})
 				}
 				requestAnimationFrame(() => {
-					chartContainer.style.height = (chartWrapper.clientHeight - 110 - rangeSliderOffSet) + "px";
+					chartContainer.style.height = (chartWrapper.clientHeight - 110) + "px";
 				})
 			}
 		}
