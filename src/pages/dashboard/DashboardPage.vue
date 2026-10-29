@@ -17,6 +17,7 @@ import { getIndicatorTableMeta } from '@/entities/indicator/model/indicator.tabl
 import type { Indicator } from '@/entities/indicator/model/indicator.types'
 import IndicatorCardGrid from '@/pages/indicators/ui/IndicatorCardGrid.vue'
 import ReportCardGrid from '@/pages/reports/ui/ReportCardGrid.vue'
+import { hasMeaningfulIndicatorChange } from './dashboard-indicator-updates'
 
 const marketGroup = ref('sp1500')
 const groups = [{ value: 'sp1500', label: 'S&P 1500' }, { value: 'sp500', label: 'S&P 500' }, { value: 'ndx', label: 'NDX' }, { value: 'russell', label: 'Russell' }, { value: 'etf', label: 'ETF' }, { value: 'crp', label: 'Crypto' }]
@@ -271,14 +272,9 @@ const watchlistDirectionWidths = computed(() => {
     down: `${watchlistDownCount.value / total * 100}%`,
   }
 })
-const favoriteIndicatorsChangedSentiment = computed(() => favoriteIndicators.value.filter((indicator) => {
-  const rawValue = indicator.raw?.last_change
-  if (rawValue === null || rawValue === undefined || rawValue === '') return false
-  const parsed = typeof rawValue === 'number'
-    ? rawValue
-    : Number.parseFloat(String(rawValue).replaceAll(',', '').replace('%', '').trim())
-  return Number.isFinite(parsed) && parsed !== 0
-}).length)
+const favoriteIndicatorsChangedSentiment = computed(() => favoriteIndicators.value.filter((indicator) => (
+  hasMeaningfulIndicatorChange(indicator.raw?.last_change)
+)).length)
 const favoriteCardColumns = getIndicatorTableMeta('stock_complete_list').columns
 function openFavoriteIndicator(indicator: Indicator) {
   indicatorStore.rememberIndicatorSource(indicator.id, indicator.sourceList)
