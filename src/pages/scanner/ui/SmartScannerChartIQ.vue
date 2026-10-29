@@ -45,7 +45,6 @@ const emit = defineEmits<{
   ): void
 }>()
 
-const chartWrapper = ref<HTMLElement>()
 let chartEngine: any = null
 let lastAppliedSymbol = ''
 
@@ -130,7 +129,6 @@ function applyScannerLogic() {
       // Delay marker loading to ensure studies are rendered
       await new Promise(resolve => requestAnimationFrame(resolve))
       loadMarker()
-      addWatermark()
     } catch (error) {
       console.error('[SmartScannerChartIQ] chart ready error:', error)
     } finally {
@@ -426,24 +424,6 @@ function loadMarker() {
 }
 
 /**
- * Add the SentimenTrader watermark to the chart, matching the original Vue2 scanner chart.
- */
-function addWatermark() {
-  if (!chartWrapper.value) return
-
-  const existing = chartWrapper.value.querySelector('.scanner-chart-watermark')
-  if (existing) existing.remove()
-
-  const watermark = document.createElement('div')
-  watermark.className = 'scanner-chart-watermark'
-  watermark.innerHTML = `
-    <img class="watermark-logo" src="/avatar-sentimen-dark.png" alt="SentimenTrader" />
-    <div class="watermark-tagline">Analysis over Emotion</div>
-  `
-  chartWrapper.value.appendChild(watermark)
-}
-
-/**
  * Combine entry/exit trade arrays into a single marker dataset.
  */
 function concatenateEntryAndExit(): Array<Record<string, unknown>> {
@@ -565,11 +545,7 @@ onBeforeUnmount(() => {
     Loading chart...
   </div>
 
-  <div
-    v-else-if="props.detail"
-    ref="chartWrapper"
-    class="chart-wrapper w-full h-[520px] chartiq-scanner-chart"
-  >
+  <div v-else-if="props.detail" class="relative w-full">
     <ChartIQEngine
       :symbol="undefined"
       :restore="false"
@@ -592,46 +568,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.chartiq-scanner-chart {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  /* 与原版 .chart-wrapper 一致，避免隐藏状态的遮罩占位撑出容器 */
-  overflow: hidden;
-}
-
 .chartiq-scanner-chart :deep(.ciq-menu.ciq-studies) {
   visibility: hidden !important;
-}
-
-/* 原版 SentimenTrader 水印样式 */
-.scanner-chart-watermark {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  pointer-events: none;
-  opacity: 0.35;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-
-.scanner-chart-watermark .watermark-logo {
-  height: 28px;
-  width: auto;
-}
-
-.scanner-chart-watermark .watermark-tagline {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--app-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.ciq-night .scanner-chart-watermark .watermark-logo {
-  filter: brightness(0) invert(1);
 }
 </style>
