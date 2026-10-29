@@ -77,5 +77,7 @@ withDefaults(
 
 .dont-show-content {
   visibility: hidden;
+  position: absolute;
+  pointer-events: none;
 }
 </style>

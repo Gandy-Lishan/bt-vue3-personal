@@ -568,7 +568,5 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.chartiq-scanner-chart :deep(.ciq-menu.ciq-studies) {
-  visibility: hidden !important;
-}
+/* Height is fully controlled by the inner .chart-wrapper via resizeChart — no container height needed */
 </style>
