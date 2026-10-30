@@ -316,10 +316,11 @@ if (CIQ.ChartEngine) {
 			// height: 基准图表高度（不含 toolbar 110px 和 studies），null = 使用窗口高度
 			// mode: dynamic = study 外部追加（越高越高），fixed = study 内部分配（固定高度）
 			'/reports': { height: null, mode: 'fixed' },
-			'/my-stuff/indicators/new': { height: 680, mode: 'fixed' },
+			'/my-stuff/indicators/new': { height: 587, mode: 'fixed' },
 			'/my-stuff/indicators/new-v2': { height: 680, mode: 'fixed' },
 			'/my-stuff/indicators/edit': { height: 680, mode: 'fixed' },
 			'/scannerai/scannerai_chart': { height: 680, mode: 'fixed' },
+			'/cpm/results': { height: 307, mode: 'fixed' },
 		}
 
 		/** 默认配置：未在 PAGE_CHART_CONFIGS 中配置的页面使用此默认值 */
@@ -346,19 +347,17 @@ if (CIQ.ChartEngine) {
 			const { height: baseChartHeight, mode } = config
 
 			let chartPanelSize
+			let scaledTotalHeight
 
 			if (baseChartHeight === null) {
 				// /reports 等页面：使用窗口高度
 				const studiesPanelsSize = studiesLen * 100
 				chartPanelSize = window.innerHeight - 260 - studiesPanelsSize - 110
+				scaledTotalHeight = chartPanelSize + 110 + studiesPanelsSize
 			} else if (mode === 'fixed') {
 				// fixed 模式：容器固定高度，study 在内部通过 setPanelHeight 重新分配
-				// 不需要额外加 studiesPanelsSize 到总高度
-				const baseTotalHeight = baseChartHeight + 110
-				const oldWidth = 1130
-				const currentWidth = chartContainer.clientWidth || 1130
-				const scaledTotalHeight = Math.round(baseTotalHeight * (currentWidth / oldWidth))
-				chartPanelSize = scaledTotalHeight - 110
+				scaledTotalHeight = baseChartHeight + 110
+				chartPanelSize = baseChartHeight
 			} else {
 				// dynamic 模式（默认）：study 越多容器越高
 				const studiesHeight =
@@ -371,12 +370,11 @@ if (CIQ.ChartEngine) {
 						// : 80
 						: 100
 				const studiesPanelsSize = studiesLen * studiesHeight
-				const baseTotalHeight = baseChartHeight + 110 + studiesPanelsSize
-				const oldWidth = 1130
-				const currentWidth = chartContainer.clientWidth || 1130
-				const scaledTotalHeight = Math.round(baseTotalHeight * (currentWidth / oldWidth))
-				chartPanelSize = scaledTotalHeight - 110 - studiesPanelsSize
+				scaledTotalHeight = baseChartHeight + 110 + studiesPanelsSize
+				chartPanelSize = baseChartHeight
 			}
+			// 动态设置 wrapper 高度
+			chartWrapper.style.height = scaledTotalHeight + "px"
 		this.setPanelHeight(this.panels.chart, chartPanelSize);
 	})
 	CIQ.ChartEngine.prototype.dualSymbolCalculationErrorWatermark = function (

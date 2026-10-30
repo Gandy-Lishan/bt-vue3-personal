@@ -14,7 +14,6 @@ import {
   Save,
   Search,
   Target,
-  ZoomIn,
 } from '@lucide/vue'
 import {
   fetchCpmPatternBacktestJob,
@@ -46,6 +45,7 @@ import SearchSelect from '@/shared/ui/SearchSelect.vue'
 import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
 import CpmPatternPreviewChart from './CpmPatternPreviewChart.vue'
+import CpmPatternChartIQ from './CpmPatternChartIQ.vue'
 
 interface MarketEntry {
   symbol: string
@@ -257,25 +257,6 @@ const previewMatchRows = computed(() => {
   return result.matrixRows.length ? result.matrixRows : result.seriesRows.slice(0, 50)
 })
 const previewMatchColumns = computed(() => tableColumns(previewMatchRows.value))
-const previewMatchOverlays = computed(() => {
-  const rows = previewMatchResult.value?.matrixRows ?? []
-  const sorted = [...chartPoints.value].sort((left, right) => left.date.localeCompare(right.date))
-  const overlays: Array<{ start: number; end: number; label?: string }> = []
-  for (const row of rows) {
-    const start = valueFrom(row, ['Start Date', 'start_date', 'startDate', 'Start'])
-    const end = valueFrom(row, ['End Date', 'end_date', 'endDate', 'End'])
-    if (typeof start !== 'string' || typeof end !== 'string') continue
-    const startTs = sorted.find((point) => point.date >= start)?.timestamp
-    const endTs = [...sorted].reverse().find((point) => point.date <= end)?.timestamp
-    if (startTs === undefined || endTs === undefined || endTs < startTs) continue
-    const corrText = String(valueFrom(row, ['Correlation Percentage', 'correlation_percentage', 'Correlation', 'corr']) ?? '').replace('%', '').trim()
-    const corrValue = Number(corrText)
-    const label = corrText && Number.isFinite(corrValue) ? `${Math.round(corrValue <= 1 ? corrValue * 100 : corrValue)}%` : undefined
-    overlays.push({ start: startTs, end: endTs, label })
-    if (overlays.length >= 24) break
-  }
-  return overlays
-})
 const tradeRows = computed(() => buildTradeRows(resultData.value))
 const correlationRows = computed(() => buildCorrelationRows(resultData.value))
 const maxGainLossRows = computed(() => [...tradeRows.value].sort((left, right) => (parseCpmNumber(right['Max Gain']) ?? -Infinity) - (parseCpmNumber(left['Max Gain']) ?? -Infinity)))
@@ -389,14 +370,6 @@ function buildFallbackPatternPoints(startDate: string, endDate: string, bars: nu
 function updateBarsFromDates() {
   const bars = businessDaysBetween(form.startDate, form.endDate)
   form.barsNum = bars || form.barsNum
-}
-
-function fitSelection() {
-  form.startDate = defaultStartDate
-  form.endDate = defaultEndDate
-  form.barsNum = businessDaysBetween(defaultStartDate, defaultEndDate)
-  activeStep.value = 1
-  void refreshPatternPreview()
 }
 
 function useThisPattern() {
@@ -918,7 +891,7 @@ onBeforeUnmount(() => {
 
     <section ref="selectPatternElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
       <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div class="p-4">
+        <div class="flex flex-col p-4">
           <h3 class="text-xl font-black text-[var(--app-text)]">Select Pattern</h3>
           <div class="mt-3 grid max-w-md grid-cols-2 overflow-hidden rounded-md border border-[var(--app-primary-hover)] bg-[var(--app-surface)]">
             <button
@@ -950,7 +923,10 @@ onBeforeUnmount(() => {
                 @select="normalizeSymbol"
               />
             </label>
-            <label class="grid min-w-64 flex-[4_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+            <label
+              v-if="form.patternSource === 'Historical Pattern'"
+              class="grid min-w-64 flex-[4_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]"
+            >
               Date Range
               <span class="flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1">
                 <input v-model="form.startDate" type="date" class="h-9 min-w-28 flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" />
@@ -973,26 +949,17 @@ onBeforeUnmount(() => {
                 <option v-for="option in commonPatternOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
             </label>
-            <button
-              class="mt-5 inline-flex h-9 min-w-36 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-[var(--app-primary)] px-4 text-xs font-extrabold text-white transition hover:bg-[var(--app-primary-hover)]"
-              type="button"
-              @click="fitSelection"
-            >
-              <ZoomIn :size="14" />
-              Fit Selection
-            </button>
           </div>
 
-          <div class="relative mt-4 overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]">
-            <CpmPatternPreviewChart :points="chartPoints" value-mode="price" :loading="patternPreviewLoading" :height="310" :overlays="previewMatchOverlays" />
-            <div class="pointer-events-none absolute bottom-9 left-[10%] top-9 w-[88%] border-x-2 border-[var(--app-primary)] bg-[var(--app-primary-soft)]/70">
-              <span class="absolute -left-2 top-[28%] h-4 w-4 -translate-y-1/2 rounded-full bg-[var(--app-primary)] shadow" />
-              <span class="absolute -right-2 top-[20%] h-4 w-4 -translate-y-1/2 rounded-full bg-[var(--app-primary)] shadow" />
+          <div class="mt-4">
+            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">Normalized Pattern Preview</div>
+            <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
+              <CpmPatternPreviewChart :points="normalizedPreviewPoints" value-mode="normalized" :height="200" />
             </div>
           </div>
         </div>
 
-        <aside class="border-t border-[var(--app-border-muted)] p-4 xl:border-l xl:border-t-0">
+        <aside class="flex flex-col border-t border-[var(--app-border-muted)] p-4 xl:border-l xl:border-t-0">
           <h3 class="text-lg font-black text-[var(--app-text)]">Selected Pattern</h3>
           <dl class="mt-3 divide-y divide-[var(--app-border-muted)] text-sm">
             <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
@@ -1017,14 +984,7 @@ onBeforeUnmount(() => {
             </div>
           </dl>
 
-          <div class="mt-4">
-            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">Normalized Pattern Preview</div>
-            <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
-              <CpmPatternPreviewChart :points="normalizedPreviewPoints" value-mode="normalized" :height="118" />
-            </div>
-          </div>
-
-          <button class="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-[var(--app-primary)] px-4 text-sm font-extrabold text-white shadow-sm hover:bg-[var(--app-primary-hover)]" type="button" @click="useThisPattern">
+          <button class="mt-auto inline-flex h-10 w-full items-center justify-center rounded-md bg-[var(--app-primary)] px-4 text-sm font-extrabold text-white shadow-sm hover:bg-[var(--app-primary-hover)]" type="button" @click="useThisPattern">
             Use This Pattern
           </button>
         </aside>
@@ -1130,66 +1090,81 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section ref="resultsElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
-      <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h3 class="text-xl font-black text-[var(--app-text)]">Backtest Results</h3>
-          <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ resultSubtitle }}</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="!activeResultRows.length" @click="downloadResults">
-            <Download :size="14" />
-            Download
-          </button>
-          <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]" type="button" @click="printWorkspace">
-            <Camera :size="14" />
-            Screenshot
-          </button>
-        </div>
-      </div>
+    <section ref="resultsElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
+      <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div class="border-b border-[var(--app-border)] p-4 xl:border-b-0 xl:border-r xl:pr-3">
+          <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h3 class="text-xl font-black text-[var(--app-text)]">Backtest Results</h3>
+              <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ resultSubtitle }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="!activeResultRows.length" @click="downloadResults">
+                <Download :size="14" />
+                Download
+              </button>
+              <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]" type="button" @click="printWorkspace">
+                <Camera :size="14" />
+                Screenshot
+              </button>
+            </div>
+          </div>
 
-      <div class="grid gap-3 lg:grid-cols-3">
-        <div v-for="card in primaryResultCards" :key="card.label" class="flex min-h-[94px] items-center gap-4 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] px-4 py-3">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--app-primary-soft)] text-[var(--app-primary)]">
-            <component :is="card.icon" :size="22" />
-          </span>
-          <div>
-            <div class="text-sm font-semibold text-[var(--app-text-secondary)]">{{ card.label }}</div>
-            <div class="mt-1 text-3xl font-black leading-none" :class="metricToneClass(card.tone)">{{ card.value }}</div>
+          <div class="grid gap-3 lg:grid-cols-3">
+            <div v-for="card in primaryResultCards" :key="card.label" class="flex min-h-[94px] items-center gap-4 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] px-4 py-3">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--app-primary-soft)] text-[var(--app-primary)]">
+                <component :is="card.icon" :size="22" />
+              </span>
+              <div>
+                <div class="text-sm font-semibold text-[var(--app-text-secondary)]">{{ card.label }}</div>
+                <div class="mt-1 text-3xl font-black leading-none" :class="metricToneClass(card.tone)">{{ card.value }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 grid gap-0 overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] sm:grid-cols-2 lg:grid-cols-6">
+            <div v-for="stat in secondaryResultStats" :key="stat.label" class="border-b border-[var(--app-border-muted)] px-4 py-2 last:border-b-0 sm:border-r lg:border-b-0">
+              <div class="text-xs font-semibold text-[var(--app-text-muted)]">{{ stat.label }}</div>
+              <div class="mt-1 text-sm font-black" :class="metricToneClass(stat.tone)">{{ stat.value }}</div>
+            </div>
+          </div>
+
+          <div class="mt-4 overflow-hidden rounded-md border border-[var(--app-border-muted)]">
+            <div class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border-muted)] bg-[var(--app-surface)] px-2">
+              <button
+                v-for="tab in resultTabs"
+                :key="tab.id"
+                class="h-11 shrink-0 border-b-2 px-3 text-sm font-extrabold"
+                :class="activeResultTab === tab.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
+                type="button"
+                @click="activeResultTab = tab.id"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+            <div class="p-3">
+              <AppDataTable
+                v-if="activeResultColumns.length"
+                :columns="activeResultColumns"
+                :rows="activeResultRows"
+                :loading="detailLoading || backtestLoading"
+                empty-message="No rows returned for this result tab"
+              />
+              <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="mt-3 grid gap-0 overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] sm:grid-cols-2 lg:grid-cols-6">
-        <div v-for="stat in secondaryResultStats" :key="stat.label" class="border-b border-[var(--app-border-muted)] px-4 py-2 last:border-b-0 sm:border-r lg:border-b-0">
-          <div class="text-xs font-semibold text-[var(--app-text-muted)]">{{ stat.label }}</div>
-          <div class="mt-1 text-sm font-black" :class="metricToneClass(stat.tone)">{{ stat.value }}</div>
-        </div>
-      </div>
-
-      <div class="mt-4 overflow-hidden rounded-md border border-[var(--app-border-muted)]">
-        <div class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border-muted)] bg-[var(--app-surface)] px-2">
-          <button
-            v-for="tab in resultTabs"
-            :key="tab.id"
-            class="h-11 shrink-0 border-b-2 px-3 text-sm font-extrabold"
-            :class="activeResultTab === tab.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
-            type="button"
-            @click="activeResultTab = tab.id"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-        <div class="p-3">
-          <AppDataTable
-            v-if="activeResultColumns.length"
-            :columns="activeResultColumns"
-            :rows="activeResultRows"
-            :loading="detailLoading || backtestLoading"
-            empty-message="No rows returned for this result tab"
-          />
-          <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
-            {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+        <div class="p-4 xl:pl-3">
+          <h3 class="text-xl font-black text-[var(--app-text)]">Chart</h3>
+          <div class="mt-3 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]">
+            <CpmPatternChartIQ
+              :symbol="form.symbol"
+              :chart-data="backtestResult ? backtestResult.data : null"
+              :loading="backtestLoading || detailLoading"
+            />
           </div>
         </div>
       </div>

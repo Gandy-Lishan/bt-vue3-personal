@@ -1143,7 +1143,7 @@ onBeforeUnmount(() => {
 .chart-wrapper {
   position: relative;
   width: 100%;
-  height: 680px;
+  /* height: 680px; */
   resize: auto;
   overflow: hidden;
 }
