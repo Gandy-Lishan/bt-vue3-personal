@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRight,
@@ -39,7 +39,18 @@ import type {
   CpmPatternPreviewPoint,
   CpmPatternPreviewResult,
 } from '@/entities/cpm/model/cpm.types'
+import {
+  buildCpmLongTermReport,
+  buildCpmMaxGainLossReport,
+  buildCpmShortTermReport,
+} from '@/entities/cpm/model/cpm.timeframe'
+import type {
+  CpmChartQuoteSnapshot,
+  CpmMaxGainLossReport,
+  CpmTimeframeReport,
+} from '@/entities/cpm/model/cpm.timeframe'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
+import { timestampToTime } from '@/shared/utils/time'
 import AppDataTable from '@/shared/ui/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/shared/ui/app-data-table.types'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
@@ -116,11 +127,27 @@ const actionMessage = ref('')
 const previewJob = ref<CpmJobResponse | null>(null)
 const previewMatchResult = ref<CpmCorrelationResult | null>(null)
 const backtestResult = ref<CpmCorrelationResult | null>(null)
+/** ChartIQ 行情快照（dataSet/masterData），Vue2 TIM/MaxMin 计算的数据源 */
+const chartQuotes = ref<CpmChartQuoteSnapshot | null>(null)
 const currentUrl = ref('')
 let patternPreviewRequestId = 0
 
-const defaultEndDate = offsetIsoDate(-62)
-const defaultStartDate = offsetIsoDate(-153)
+/**
+ * Vue2 Form.vue setBacktestHistory(val)：end_date = 今天，start_date = 同一日往前 val 个月。
+ * mounted 时调用 setBacktestHistory(1)，所以默认选中「最近一个月」的 pattern（约 22 根日线），
+ * 而不是固定天数的区间。
+ */
+function defaultPatternRange(monthsBack: number) {
+  const endDate = timestampToTime(new Date().getTime())
+  const end = new Date(endDate)
+  const start = new Date(end)
+  start.setMonth(end.getMonth() - monthsBack)
+  return { startDate: timestampToTime(start.getTime()), endDate }
+}
+
+const initialPatternRange = defaultPatternRange(1)
+const defaultEndDate = initialPatternRange.endDate
+const defaultStartDate = initialPatternRange.startDate
 
 const form = reactive<PatternForm>({
   name: `SPX ${defaultEndDate}`,
@@ -187,6 +214,10 @@ const resultTabs: Array<{ id: ResultTab; label: string }> = [
   { id: 'maxGainLoss', label: 'Max Gain and Loss' },
   { id: 'correlation', label: 'Correlation Info' },
 ]
+/** Vue2 的 Short Term tab 只在 rowFrequency === 'Daily' 时显示 */
+const visibleResultTabs = computed(() =>
+  resultTabs.filter((tab) => tab.id !== 'shortTerm' || form.timeframe === 'Daily'),
+)
 const workflowTabs: Array<{ id: ActiveStep; label: string }> = [
   { id: 1, label: 'Select Pattern' },
   { id: 2, label: 'Match Settings' },
@@ -270,21 +301,118 @@ const previewChartResult = computed(() => {
 })
 const tradeRows = computed(() => buildTradeRows(resultData.value))
 const correlationRows = computed(() => buildCorrelationRows(resultData.value))
-const maxGainLossRows = computed(() => [...tradeRows.value].sort((left, right) => (parseCpmNumber(right['Max Gain']) ?? -Infinity) - (parseCpmNumber(left['Max Gain']) ?? -Infinity)))
-const longTermRows = computed(() => rowsFromUnknown(firstPresent(resultData.value, ['long_term', 'longTerm', 'multi_timeframe_long', 'long_term_results'])))
-const shortTermRows = computed(() => rowsFromUnknown(firstPresent(resultData.value, ['short_term', 'shortTerm', 'multi_timeframe_short', 'short_term_results'])))
+/** Vue2 results/index.vue TradeDateArray：每笔交易取 result['End Date'] */
+const tradeDates = computed(() => {
+  const result = resultSeries(resultData.value)
+  return arrayField(result, ['End Date', 'end_date', 'Trade Date']).map((value) => String(value))
+})
+
+/**
+ * Vue2 tim.vue / timShortTerm.vue / MaxMin.vue 的数据源是 CIQ.stxx.chart.dataSet/masterData，
+ * 图表加载完成后由 CpmPatternChartIQ 通过 chart-quotes 上报快照后在这里计算。
+ */
+const timeframeReports = computed<{
+  longTerm: CpmTimeframeReport | null
+  shortTerm: CpmTimeframeReport | null
+  maxGainLoss: CpmMaxGainLossReport | null
+}>(() => {
+  const snapshot = chartQuotes.value
+  const dates = tradeDates.value
+  if (!snapshot?.dataSet.length || !dates.length) {
+    return { longTerm: null, shortTerm: null, maxGainLoss: null }
+  }
+
+  const options = {
+    rowFrequency: form.timeframe,
+    direction: form.direction || 'Long',
+    tradeDates: dates,
+    chartDataSet: snapshot.dataSet,
+    chartMasterData: snapshot.masterData,
+  }
+
+  return {
+    longTerm: buildCpmLongTermReport(options),
+    // Vue2 只在 Daily 下渲染 Short Term
+    shortTerm: form.timeframe === 'Daily' ? buildCpmShortTermReport(options) : null,
+    maxGainLoss: buildCpmMaxGainLossReport(options),
+  }
+})
+const activeTimeframeReport = computed(() =>
+  activeResultTab.value === 'shortTerm' ? timeframeReports.value.shortTerm : timeframeReports.value.longTerm,
+)
+const maxGainLossReport = computed(() => timeframeReports.value.maxGainLoss)
+const maxGainLossRows = computed(() => maxGainLossReport.value?.rows ?? [])
+/** Vue2 MaxMin 表头只显示周期列，汇总行与表头行用不同样式 */
+const maxGainLossPeriodLabels = computed(() =>
+  (maxGainLossReport.value?.labels ?? []).filter(
+    (label) => label !== 'Dates of Signals' && label !== 'Max Gain' && label !== 'Max Loss',
+  ),
+)
+const maxGainLossMeanIndex = computed(() =>
+  maxGainLossRows.value.findIndex((row) => row['Dates of Signals'] === 'Mean'),
+)
+
+const timeframeStatsColumns = computed<AppDataTableColumn[]>(() => {
+  const periods = activeTimeframeReport.value?.periods ?? []
+  return [
+    { key: 'property', label: 'Property', minWidth: 120, align: 'center' },
+    ...periods.map((period) => ({
+      key: period,
+      label: period,
+      minWidth: 100,
+      align: 'center' as const,
+      format: formatTimeframeStat,
+      cellClass: negativeCellClass,
+    })),
+  ]
+})
+const timeframeHistoryColumns = computed<AppDataTableColumn[]>(() =>
+  (activeTimeframeReport.value?.historyLabels ?? []).map((label) => ({
+    key: label,
+    label: label === 'Entry Date' ? label : label.replace('[%]', 'Later [%]'),
+    minWidth: label === 'Entry Date' ? 120 : 100,
+    align: 'center' as const,
+    format: formatHistoryCell,
+    cellClass: negativeCellClass,
+  })),
+)
+
 const activeResultRows = computed(() => {
   if (activeResultTab.value === 'statistics') return tradeRows.value
-  if (activeResultTab.value === 'longTerm') return longTermRows.value
-  if (activeResultTab.value === 'shortTerm') return shortTermRows.value
-  if (activeResultTab.value === 'maxGainLoss') return maxGainLossRows.value
-  return correlationRows.value
+  if (activeResultTab.value === 'correlation') return correlationRows.value
+  return []
 })
-const activeResultColumns = computed(() => {
+const activeResultColumns = computed<AppDataTableColumn[]>(() => {
   if (activeResultTab.value === 'statistics') return tradeColumns
-  if (activeResultTab.value === 'maxGainLoss') return tradeColumns
-  return tableColumns(activeResultRows.value)
+  if (activeResultTab.value === 'correlation') return tableColumns(correlationRows.value)
+  return []
 })
+/** 下载按钮按当前 tab 导出对应表格 */
+const exportTable = computed<{ rows: Array<Record<string, unknown>>; columns: AppDataTableColumn[] }>(() => {
+  if (activeResultTab.value === 'statistics') return { rows: tradeRows.value, columns: tradeColumns }
+  if (activeResultTab.value === 'correlation') return { rows: correlationRows.value, columns: tableColumns(correlationRows.value) }
+  if (activeResultTab.value === 'maxGainLoss') {
+    return { rows: maxGainLossExportRows.value, columns: maxGainLossExportColumns.value }
+  }
+  return { rows: activeTimeframeReport.value?.historyRows ?? [], columns: timeframeHistoryColumns.value }
+})
+const maxGainLossExportRows = computed(() =>
+  maxGainLossRows.value.map((row) => {
+    const flat: Record<string, unknown> = { 'Dates of Signals': row['Dates of Signals'] }
+    maxGainLossPeriodLabels.value.forEach((label) => {
+      flat[`${label} Max Loss`] = nestedMaxMin(row, label, 'Max Loss')
+      flat[`${label} Max Gain`] = nestedMaxMin(row, label, 'Max Gain')
+    })
+    return flat
+  }),
+)
+const maxGainLossExportColumns = computed<AppDataTableColumn[]>(() => [
+  { key: 'Dates of Signals', label: 'Dates of Signals', minWidth: 150, align: 'center' },
+  ...maxGainLossPeriodLabels.value.flatMap((label) => [
+    { key: `${label} Max Loss`, label: `${label.replace('[%]', 'Later [%]')} Max Loss`, minWidth: 100, align: 'center' as const },
+    { key: `${label} Max Gain`, label: `${label.replace('[%]', 'Later [%]')} Max Gain`, minWidth: 100, align: 'center' as const },
+  ]),
+])
 
 const primaryResultCards = computed(() => [
   {
@@ -336,12 +464,6 @@ const tradeColumns: AppDataTableColumn[] = [
   { key: 'Correlation Percentage', label: 'Correlation Percentage', minWidth: 150, align: 'right', format: formatTablePercent },
 ]
 
-function offsetIsoDate(days: number) {
-  const date = new Date()
-  date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 10)
-}
-
 function businessDaysBetween(startDate: string, endDate: string) {
   const start = Date.parse(`${startDate}T00:00:00`)
   const end = Date.parse(`${endDate}T00:00:00`)
@@ -383,6 +505,11 @@ function updateBarsFromDates() {
   form.barsNum = bars || form.barsNum
 }
 
+/** 图表就绪/重载后用 CIQ.measureBarDistance 的实测值覆盖工作日估算 */
+function onBarDistance(bars: number) {
+  if (bars > 0) form.barsNum = bars
+}
+
 function useThisPattern() {
   activeStep.value = 2
   void nextTick(() => settingsElement.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
@@ -403,14 +530,26 @@ function setPatternSource(source: PatternForm['patternSource']) {
   }
 }
 
+/** Vue2 Form.vue generateCPMName: `SYMBOL  YYYY-M-D H:mm:ss`（不补零） */
+function generateCpmName() {
+  const date = new Date()
+  const stamp = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}  ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`
+  form.name = `${form.symbol || 'CPM'}  ${stamp}`
+}
+
 function duplicateSetup() {
   currentUrl.value = ''
   backtestResult.value = null
   activeStep.value = 1
-  form.name = `${form.symbol || 'CPM'} ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`
+  generateCpmName()
   actionMessage.value = 'Setup duplicated. Save it to create a new run.'
   void router.replace('/cpm/results')
 }
+
+onMounted(() => {
+  // Vue2 mounted 时生成默认 CPM 名称；从 url 载入已有 CPM 时会被 applyResultToForm 覆盖
+  generateCpmName()
+})
 
 function printWorkspace() {
   window.print()
@@ -528,6 +667,8 @@ async function runBacktest() {
 
   try {
     const payload = cpmPayload()
+    // Vue2 saveCPM：校验通过、发出请求前把进度置为 8，之后每轮轮询 +1
+    backtestProgress.value = 8
     const started = currentUrl.value
       ? await updateCpmPatternBacktest(currentUrl.value, payload, abortController.signal)
       : await startCpmPatternBacktest(payload, abortController.signal)
@@ -745,13 +886,6 @@ function valueFrom(data: Record<string, unknown>, keys: string[]) {
   return undefined
 }
 
-function firstPresent(data: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    if (data[key] !== undefined && data[key] !== null) return data[key]
-  }
-  return undefined
-}
-
 function recordFrom(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }
@@ -790,20 +924,21 @@ function arrayField(record: Record<string, unknown>, keys: string[]) {
 
 function buildTradeRows(data: Record<string, unknown>) {
   const result = resultSeries(data)
-  const startDates = arrayField(result, ['Start Date', 'start_date', 'Trade Date'])
+  // Vue2 results/index.vue: TradeDate 取的是 result['End Date'][i]，不是 Start Date
+  const tradeDates = arrayField(result, ['End Date', 'end_date', 'Trade Date'])
   const entryPrices = arrayField(result, ['Symbol Close', 'Entry Price', 'entry_price'])
-  const exitDates = arrayField(result, ['Exit Date', 'End Date', 'exit_date'])
+  const exitDates = arrayField(result, ['Exit Date', 'exit_date'])
   const exitPrices = arrayField(result, ['Exit Price', 'exit_price'])
   const maxGains = arrayField(result, ['Max Gain', 'max_gain'])
   const maxLosses = arrayField(result, ['Max Loss', 'max_loss'])
   const returns = arrayField(result, ['Each Return', 'Return', 'return'])
   const marketConditions = arrayField(result, ['Market Condition', 'market_condition'])
   const correlations = arrayField(result, ['Correlation Percentage', 'correlation_percentage', 'Correlation'])
-  const length = Math.max(startDates.length, exitDates.length, returns.length, correlations.length)
+  const length = Math.max(tradeDates.length, exitDates.length, returns.length, correlations.length)
 
   return Array.from({ length }, (_, index) => ({
     id: index + 1,
-    'Trade Date': startDates[index] ?? '-',
+    'Trade Date': tradeDates[index] ?? '-',
     'Entry Price': entryPrices[index] ?? '-',
     'Exit Date': exitDates[index] ?? '-',
     'Exit Price': exitPrices[index] ?? '-',
@@ -830,6 +965,47 @@ function buildCorrelationRows(data: Record<string, unknown>) {
     'Correlation Percentage': correlations[index] ?? '-',
     Return: returns[index] ?? '-',
   }))
+}
+
+/** Vue2 tim.vue 统计表单元格：数字 toFixed(1)，字符串原样，NaN 不显示 */
+function formatTimeframeStat(value: unknown) {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return Number.isNaN(value) ? '' : parseFloat(String(value)).toFixed(1)
+  return ''
+}
+
+/** Vue2 tim.vue displayData（后定义覆盖前定义的那个版本） */
+function formatHistoryCell(value: unknown) {
+  const numberRegex = /^-?\d+(\.\d+)?$/
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  const text = String(value ?? '')
+  if (numberRegex.test(text) && !isNaN(value as number)) return parseFloat(text).toFixed(1)
+  if (dateRegex.test(text)) return text
+  if (typeof value === 'string') return value
+  return ''
+}
+
+/** Vue2 MaxMin.vue displayData */
+function formatMaxMinCell(value: unknown) {
+  const numberRegex = /^-?\d+(\.\d+)?$/
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  const text = String(value ?? '')
+  if (numberRegex.test(text)) return parseFloat(text).toFixed(1)
+  if (dateRegex.test(text)) return text
+  if (typeof value === 'string') return value
+  return ''
+}
+
+/** Vue2 getCellStyle：负数红字 */
+function negativeCellClass(value: unknown) {
+  const parsed = parseCpmNumber(value)
+  return parsed !== null && parsed < 0 ? 'text-[var(--app-negative)]' : ''
+}
+
+function nestedMaxMin(row: Record<string, unknown>, label: string, field: 'Max Loss' | 'Max Gain') {
+  const cell = row[label]
+  if (!cell || typeof cell !== 'object') return undefined
+  return (cell as Record<string, unknown>)[field]
 }
 
 function tableColumns(rows: Array<Record<string, unknown>>): AppDataTableColumn[] {
@@ -903,13 +1079,32 @@ function toneFromValue(value: unknown): MetricCard['tone'] {
 }
 
 function downloadResults() {
-  const rows = activeResultRows.value as Array<Record<string, unknown>>
-  const columns = activeResultColumns.value
+  const { rows, columns } = exportTable.value
   if (!rows.length || !columns.length) return
   const headers = columns.map((column) => column.label)
   const body = rows.map((row) => columns.map((column) => row[column.key] ?? ''))
   downloadCsv(cpmCsvFilename(`${form.symbol || 'cpm'}-${activeResultTab.value}`, new Date().toISOString().slice(0, 10)), toCsv(headers, body))
 }
+
+function onChartQuotes(snapshot: CpmChartQuoteSnapshot) {
+  chartQuotes.value = snapshot
+}
+
+// 换了符号/周期或重新跑结果时，旧图表的快照不再有效（Vue2 clearResults 会清空 TIM/MaxMin）
+watch(
+  () => [form.symbol, form.timeframe, backtestResult.value],
+  () => {
+    chartQuotes.value = null
+  },
+)
+
+// Vue2 Short Term 只在 Daily 下显示；切到 Weekly/Monthly 时回到 Long Term
+watch(
+  () => form.timeframe,
+  (timeframe) => {
+    if (timeframe !== 'Daily' && activeResultTab.value === 'shortTerm') activeResultTab.value = 'longTerm'
+  },
+)
 
 watch(
   () => [form.startDate, form.endDate],
@@ -985,8 +1180,12 @@ onBeforeUnmount(() => {
     </section>
 
     <section ref="selectPatternElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
-      <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div class="flex flex-col p-4">
+      <!-- 与下方 Match & Backtest Settings 共用同一套 xl 三列网格（同 gap-x-8、同 p-4）：
+           左栏跨前两列，放标题、切换按钮和两行字段（行高随内容，label 紧贴输入框）；
+           右栏（第三列）从卡片顶部起放预览图和按钮，整列高度上下对齐。
+           窄屏时退回单列，预览排在字段之后。 -->
+      <div class="grid gap-y-3 p-4 xl:grid-cols-3 xl:gap-x-8">
+        <div class="min-w-0 xl:col-span-2">
           <h3 class="text-xl font-black text-[var(--app-text)]">Select Pattern</h3>
           <div class="mt-3 grid max-w-md grid-cols-2 overflow-hidden rounded-md border border-[var(--app-primary-hover)] bg-[var(--app-surface)]">
             <button
@@ -1007,8 +1206,9 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div class="mt-3 flex flex-wrap items-start gap-x-3 gap-y-2">
-            <label class="grid min-w-44 flex-[3_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+          <!-- 左栏内部两列等宽，正好复现外层网格的前两列，字段框与下方 Settings 逐列对齐 -->
+          <div class="mt-3 grid gap-x-8 gap-y-3 xl:grid-cols-2">
+            <label class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]">
               Symbol
               <SearchSelect
                 v-model="form.symbol"
@@ -1020,7 +1220,7 @@ onBeforeUnmount(() => {
             </label>
             <label
               v-if="form.patternSource === 'Historical Pattern'"
-              class="grid min-w-64 flex-[4_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]"
+              class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]"
             >
               Date Range
               <span class="flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1">
@@ -1029,55 +1229,37 @@ onBeforeUnmount(() => {
                 <input v-model="form.endDate" type="date" class="h-9 min-w-28 flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" />
               </span>
             </label>
-            <label class="grid min-w-32 flex-[2_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]">
-              Timeframe
-              <select v-model="form.timeframe" class="h-9 min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
-                <option v-for="option in timeframeOptions" :key="option" :value="option">{{ option }}</option>
-              </select>
-            </label>
             <label
-              v-if="form.patternSource === 'Common Pattern'"
-              class="grid min-w-0 flex-[3_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]"
+              v-else
+              class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]"
             >
               Common Pattern
               <select v-model="form.selectPattern" class="h-9 min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
                 <option v-for="option in commonPatternOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
             </label>
-          </div>
-
-          <div class="mt-4">
-            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">Normalized Pattern Preview</div>
-            <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
-              <CpmPatternPreviewChart :points="normalizedPreviewPoints" value-mode="normalized" :height="200" />
+            <label class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+              Timeframe
+              <select v-model="form.timeframe" class="h-9 min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
+                <option v-for="option in timeframeOptions" :key="option" :value="option">{{ option }}</option>
+              </select>
+            </label>
+            <div v-if="form.patternSource === 'Historical Pattern'" class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+              Number of Bars
+              <span class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-2.5 text-sm font-extrabold text-[var(--app-text)]">
+                {{ form.barsNum || '-' }}
+              </span>
             </div>
           </div>
         </div>
 
-        <aside class="flex flex-col border-t border-[var(--app-border-muted)] p-4 xl:border-l xl:border-t-0">
-          <h3 class="text-lg font-black text-[var(--app-text)]">Selected Pattern</h3>
-          <dl class="mt-3 divide-y divide-[var(--app-border-muted)] text-sm">
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Symbol</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.symbol || '-' }}</dd>
+        <aside class="flex flex-col gap-3 border-t border-[var(--app-border-muted)] pt-3 xl:col-start-3 xl:row-start-1 xl:border-t-0 xl:pt-0">
+          <div>
+            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">Normalized Pattern Preview</div>
+            <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
+              <CpmPatternPreviewChart :points="normalizedPreviewPoints" value-mode="normalized" :height="160" />
             </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Pattern Start Date</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.startDate || '-' }}</dd>
-            </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Pattern End Date</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.endDate || '-' }}</dd>
-            </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Number of Bars</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.barsNum || '-' }}</dd>
-            </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Timeframe</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.timeframe }}</dd>
-            </div>
-          </dl>
+          </div>
 
           <button class="mt-auto inline-flex h-10 w-full items-center justify-center rounded-md bg-[var(--app-primary)] px-4 text-sm font-extrabold text-white shadow-sm hover:bg-[var(--app-primary-hover)]" type="button" @click="useThisPattern">
             Use This Pattern
@@ -1193,7 +1375,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section ref="resultsElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
-      <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
         <div class="border-b border-[var(--app-border)] p-4 xl:border-b-0 xl:border-r xl:pr-3">
           <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -1201,7 +1383,7 @@ onBeforeUnmount(() => {
               <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ resultSubtitle }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="!activeResultRows.length" @click="downloadResults">
+              <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="!exportTable.rows.length" @click="downloadResults">
                 <Download :size="14" />
                 Download
               </button>
@@ -1212,7 +1394,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="grid gap-3 lg:grid-cols-3">
+          <div class="grid gap-3 lg:grid-rows-3">
             <div v-for="card in primaryResultCards" :key="card.label" class="flex min-h-[94px] items-center gap-4 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] px-4 py-3">
               <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--app-primary-soft)] text-[var(--app-primary)]">
                 <component :is="card.icon" :size="22" />
@@ -1230,11 +1412,32 @@ onBeforeUnmount(() => {
               <div class="mt-1 text-sm font-black" :class="metricToneClass(stat.tone)">{{ stat.value }}</div>
             </div>
           </div>
+        </div>
 
-          <div class="mt-4 overflow-hidden rounded-md border border-[var(--app-border-muted)]">
+        <div class="p-4 xl:pl-3">
+          <h3 class="text-xl font-black text-[var(--app-text)]">Chart</h3>
+          <!-- ChartIQ 自带边框，外层不再加 border，避免双重边框 -->
+          <div class="mt-3">
+            <CpmPatternChartIQ
+              :symbol="form.symbol"
+              :timeframe="form.timeframe"
+              :start-date="form.startDate"
+              :end-date="form.endDate"
+              :chart-data="backtestResult ? backtestResult.data : null"
+              :preview-result="previewChartResult"
+              :loading="backtestLoading || detailLoading || previewLoading"
+              @bar-distance="onBarDistance"
+              @chart-quotes="onChartQuotes"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-[var(--app-border)] p-4">
+        <div class="overflow-hidden rounded-md border border-[var(--app-border-muted)]">
             <div class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border-muted)] bg-[var(--app-surface)] px-2">
               <button
-                v-for="tab in resultTabs"
+                v-for="tab in visibleResultTabs"
                 :key="tab.id"
                 class="h-11 shrink-0 border-b-2 px-3 text-sm font-extrabold"
                 :class="activeResultTab === tab.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
@@ -1245,33 +1448,102 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <div class="p-3">
-              <AppDataTable
-                v-if="activeResultColumns.length"
-                :columns="activeResultColumns"
-                :rows="activeResultRows"
-                :loading="detailLoading || backtestLoading"
-                empty-message="No rows returned for this result tab"
-              />
-              <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
-                {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
-              </div>
+              <!-- Backtest Statistics / Correlation Info：原有逐笔表格 -->
+              <template v-if="activeResultTab === 'statistics' || activeResultTab === 'correlation'">
+                <AppDataTable
+                  v-if="activeResultColumns.length"
+                  :columns="activeResultColumns"
+                  :rows="activeResultRows"
+                  :loading="detailLoading || backtestLoading"
+                  empty-message="No rows returned for this result tab"
+                />
+                <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                  {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+                </div>
+              </template>
+
+              <!-- Multi-Timeframe Results (Long Term) / (Short Term)：Vue2 tim.vue 两张表 -->
+              <template v-else-if="activeResultTab === 'longTerm' || activeResultTab === 'shortTerm'">
+                <template v-if="activeTimeframeReport">
+                  <p class="mb-3 text-xs leading-5 text-[var(--app-text-secondary)]">
+                    The results below provide a multiple timeframe view of the backtest of the indicator and index that you have chosen.
+                    The 'observation period' selected for the backtest is not used for the results below. Instead, we provide a look at
+                    various time-frames from 1-Week to 1-Year of returns.
+                  </p>
+                  <AppDataTable
+                    :columns="timeframeStatsColumns"
+                    :rows="activeTimeframeReport.statsRows"
+                    :hide-header="true"
+                    empty-message="No timeframe statistics"
+                  />
+                  <div class="mt-3">
+                    <AppDataTable
+                      :columns="timeframeHistoryColumns"
+                      :rows="activeTimeframeReport.historyRows"
+                      empty-message="No timeframe history"
+                    />
+                  </div>
+                </template>
+                <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                  {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+                </div>
+              </template>
+
+              <!-- Max Gain and Loss：Vue2 MaxMin.vue 双层表头表格 -->
+              <template v-else-if="activeResultTab === 'maxGainLoss'">
+                <div v-if="maxGainLossRows.length" class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full border-collapse text-[0.8125rem] text-[var(--app-text)]">
+                      <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold text-[var(--app-text)]">
+                        <tr class="border-b border-[var(--app-border)]">
+                          <th rowspan="2" class="box-border px-3 py-2.5 text-center" style="min-width: 150px">
+                            Dates of {{ tradeDates.length }} Signals
+                          </th>
+                          <th
+                            v-for="label in maxGainLossPeriodLabels"
+                            :key="label"
+                            colspan="2"
+                            class="box-border border-l border-[var(--app-border)] px-3 py-2.5 text-center"
+                          >
+                            {{ label.replace('[%]', 'Later [%]') }}
+                          </th>
+                        </tr>
+                        <tr class="border-b border-[var(--app-border)]">
+                          <template v-for="label in maxGainLossPeriodLabels" :key="`${label}-header`">
+                            <th class="box-border border-l border-[var(--app-border)] px-2 py-2.5 text-center text-[var(--app-negative)]" style="min-width: 80px">Max Loss</th>
+                            <th class="box-border px-2 py-2.5 text-center" style="min-width: 80px">Max Gain</th>
+                          </template>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="(row, index) in maxGainLossRows"
+                          :key="String(row.id ?? index)"
+                          class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
+                          :class="index === maxGainLossMeanIndex ? 'border-t-2 border-t-[var(--app-border-strong)]' : ''"
+                        >
+                          <td class="box-border px-3 py-2.5 text-center font-semibold">{{ formatMaxMinCell(row['Dates of Signals']) }}</td>
+                          <template v-for="label in maxGainLossPeriodLabels" :key="`${label}-cell`">
+                            <td class="box-border border-l border-[var(--app-border-muted)] px-2 py-2.5 text-center font-semibold text-[var(--app-negative)]">
+                              {{ formatMaxMinCell(nestedMaxMin(row, label, 'Max Loss')) }}
+                            </td>
+                            <td class="box-border px-2 py-2.5 text-center font-semibold">
+                              {{ formatMaxMinCell(nestedMaxMin(row, label, 'Max Gain')) }}
+                            </td>
+                          </template>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                  {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+                </div>
+              </template>
             </div>
           </div>
         </div>
 
-        <div class="p-4 xl:pl-3">
-          <h3 class="text-xl font-black text-[var(--app-text)]">Chart</h3>
-          <div class="mt-3 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]">
-            <CpmPatternChartIQ
-              :symbol="form.symbol"
-              :timeframe="form.timeframe"
-              :chart-data="backtestResult ? backtestResult.data : null"
-              :preview-result="previewChartResult"
-              :loading="backtestLoading || detailLoading"
-            />
-          </div>
-        </div>
-      </div>
     </section>
   </div>
 </template>

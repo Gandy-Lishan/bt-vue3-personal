@@ -613,6 +613,12 @@ cq-toolbar {
   flex-grow: 1;
 }
 
+.chartSize {
+  -webkit-transform: scale(0.75);
+  -moz-transform: scale(0.75);
+  -ms-transform: scale(0.75);
+  transform: scale(0.75);
+}
 .break-lg .chartSize {
   -webkit-transform: scale(0.75);
   -moz-transform: scale(0.75);
