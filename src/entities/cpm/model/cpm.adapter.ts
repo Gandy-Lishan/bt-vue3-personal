@@ -27,6 +27,25 @@ function text(value: unknown, fallback = '') {
   return String(value)
 }
 
+/**
+ * 后端部分接口把 JSON 塞在字符串字段里（对应 Vue2 的 JSON.parse(res.data.data)），
+ * 对象原样返回，字符串尝试解析，解析失败或非对象返回 null。
+ */
+export function parseCpmJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim()
+  if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) return null
+
+  try {
+    const parsed = JSON.parse(trimmed.replace(/\bNaN\b/g, 'null'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
 export function parseCpmNumber(value: unknown): number | null {
   if (value === undefined || value === null || value === '') return null
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
@@ -113,9 +132,8 @@ function extractArray(value: unknown): Array<Record<string, unknown>> {
 
 export function normalizeCpmCorrelationResult(payload: unknown): CpmCorrelationResult {
   const record = payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {}
-  const data = record.data && typeof record.data === 'object' && !Array.isArray(record.data)
-    ? (record.data as Record<string, unknown>)
-    : record
+  // data 可能是对象，也可能是 JSON 字符串（preview_pattern 轮询完成时）
+  const data = parseCpmJsonRecord(record.data) ?? record
   const code = parseCpmNumber(record.code)
   const message = text(record.message || record.detail)
   const matrixRows = extractArray(data.corr_matrix ?? data.corr_info ?? data.data)

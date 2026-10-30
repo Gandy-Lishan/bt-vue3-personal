@@ -24,11 +24,16 @@ const props = withDefaults(
   defineProps<{
     symbol?: string
     chartData?: Record<string, unknown> | null
+    /** Preview 命中结果（Vue2 previewForm 成功后传给 displayCPMLayout 的 result） */
+    previewResult?: Record<string, unknown> | null
+    timeframe?: string
     loading?: boolean
   }>(),
   {
     symbol: 'SPX',
     chartData: null,
+    previewResult: null,
+    timeframe: 'Daily',
     loading: false,
   },
 )
@@ -40,27 +45,58 @@ const emit = defineEmits<{
 
 let chartEngine: any = null
 let isInitialized = false
+/** 每次图表实例初始化 +1，区分「同一批数据要不要在这个新图表上重画」 */
+let chartGeneration = 0
+let appliedGeneration = -1
+let appliedInput: unknown = null
 
 /**
  * Called when ChartIQEngine finishes initialization.
+ * 不在这里画 CPM：Vue2 Chart.vue 是在 onChartReady（首次 symbol 加载完成）里画的。
+ * 两个时机都画会导致 marker / 矩形重复叠加。
  */
 function onChartInitialized(data: { chartEngine: any; uiContext: any; config: Record<string, unknown> }) {
   chartEngine = data.chartEngine
   isInitialized = true
-  applyCPMLogic()
+  chartGeneration += 1
+  hideComponents()
 }
 
 /**
  * Apply CPM chart behavior — mirrors Vue2 Chart.vue onChartReady().
  */
 function applyCPMLogic() {
-  if (!chartEngine || !CIQ.stxx) return
+  if (!chartEngine || !CIQ.stxx || !isInitialized) return
+  // 图表容器正在显示 loading（ChartIQEngine 被 v-if 卸载），画在旧实例上没有意义
+  if (props.loading) return
 
   hideComponents()
 
+  const preview = props.previewResult
   const chartData = props.chartData
-  if (chartData && chartData.name) {
+  const input = preview ?? chartData ?? null
+
+  // onChartReady 与数据 watch 会先后触发同一批数据：同一图表实例只应用一次，
+  // 否则每应用一次都会再 loadChart + 再画一套 marker（视觉上就是重叠）
+  if (appliedGeneration === chartGeneration && appliedInput === input) return
+  appliedGeneration = chartGeneration
+  appliedInput = input
+
+  if (preview) {
+    // Preview 命中区间：与 Vue2 previewForm 成功后 displayCPMLayout(CPMObj) 一致
+    clearMarkers()
+    CIQ.displayCPMLayout?.(
+      { symbol: props.symbol, timeframe: props.timeframe, result: preview },
+      () => {
+        emit('calculateBarDistance')
+        if (typeof CIQ.hideCover === 'function') CIQ.hideCover()
+        if (typeof CIQ.nprogress?.done === 'function') CIQ.nprogress.done()
+      },
+    )
+  } else if (chartData && chartData.name) {
     // Edit/backtest mode: draw MA line and display CPM layout
+    // displayCPMLayout 内部只重载行情，不清旧 marker/矩形，必须先清
+    clearMarkers()
     if (chartData.ma_condition && Number(chartData.ma_condition) > 0) {
       CIQ.drawCPMMA?.(chartData.ma)
     }
@@ -73,9 +109,17 @@ function applyCPMLogic() {
     })
   } else {
     // New mode: just hide chrome and show the chart
+    clearMarkers()
     emit('calculateBarDistance')
     if (typeof CIQ.hideCover === 'function') CIQ.hideCover()
     if (typeof CIQ.nprogress?.done === 'function') CIQ.nprogress.done()
+  }
+}
+
+/** 清除上一次绘制的 CPM 事件标记（Vue2: CIQ.Marker.removeByLabel(CIQ.stxx, 'events')） */
+function clearMarkers() {
+  if (CIQ.stxx && typeof CIQ.Marker?.removeByLabel === 'function') {
+    CIQ.Marker.removeByLabel(CIQ.stxx, 'events')
   }
 }
 
@@ -106,15 +150,23 @@ function hideComponents() {
 
 /**
  * Re-apply when chartData changes (e.g. after backtest completes).
+ * 只在对象引用变化时触发即可：数据是整体替换的，深监听会在轮询中间态重复重绘。
  */
 watch(
   () => props.chartData,
   () => {
-    if (isInitialized) {
-      applyCPMLogic()
-    }
+    applyCPMLogic()
   },
-  { deep: true },
+)
+
+/**
+ * Re-apply when preview match result changes (preview run / cleared).
+ */
+watch(
+  () => props.previewResult,
+  () => {
+    applyCPMLogic()
+  },
 )
 
 /**

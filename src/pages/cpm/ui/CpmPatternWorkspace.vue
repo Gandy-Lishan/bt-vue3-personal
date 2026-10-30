@@ -29,6 +29,7 @@ import {
   formatCpmNumber,
   formatCpmPercent,
   normalizeCpmCorrelationResult,
+  parseCpmJsonRecord,
   parseCpmNumber,
 } from '@/entities/cpm/model/cpm.adapter'
 import type {
@@ -108,6 +109,8 @@ const patternPreviewLoading = ref(false)
 const previewLoading = ref(false)
 const backtestLoading = ref(false)
 const detailLoading = ref(false)
+const backtestProgress = ref(0)
+const backtestTips = ref('')
 const formError = ref('')
 const actionMessage = ref('')
 const previewJob = ref<CpmJobResponse | null>(null)
@@ -246,7 +249,6 @@ function formatSummaryDate(value: string) {
   const parsed = new Date(`${value}T00:00:00`)
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
-const selectedPayloadPattern = computed(() => form.patternSource === 'Historical Pattern' ? 'customize_pattern' : form.selectPattern)
 const chartPoints = computed(() => patternPreview.value?.points.length ? patternPreview.value.points : fallbackPatternPoints.value)
 const normalizedPreviewPoints = computed(() => chartPoints.value.slice(-Math.max(6, Math.min(chartPoints.value.length, form.barsNum || 63))))
 const fallbackPatternPoints = computed(() => buildFallbackPatternPoints(form.startDate, form.endDate, form.barsNum || 63))
@@ -254,9 +256,18 @@ const resultData = computed(() => backtestResult.value?.data ?? {})
 const previewMatchRows = computed(() => {
   const result = previewMatchResult.value
   if (!result) return []
-  return result.matrixRows.length ? result.matrixRows : result.seriesRows.slice(0, 50)
+  if (result.matrixRows.length) return result.matrixRows
+  if (result.seriesRows.length) return result.seriesRows.slice(0, 50)
+  return rowsFromUnknown(result.data).slice(0, 50)
 })
 const previewMatchColumns = computed(() => tableColumns(previewMatchRows.value))
+/** 只有 preview 轮询成功且解析出命中列（数组字段）后，才画到 ChartIQ 上 */
+const previewChartResult = computed(() => {
+  if (previewJob.value?.code !== 200) return null
+  const data = previewMatchResult.value?.data
+  if (!data || !Object.values(data).some((value) => Array.isArray(value))) return null
+  return data
+})
 const tradeRows = computed(() => buildTradeRows(resultData.value))
 const correlationRows = computed(() => buildCorrelationRows(resultData.value))
 const maxGainLossRows = computed(() => [...tradeRows.value].sort((left, right) => (parseCpmNumber(right['Max Gain']) ?? -Infinity) - (parseCpmNumber(left['Max Gain']) ?? -Infinity)))
@@ -446,23 +457,27 @@ function validateForm() {
 }
 
 function cpmPayload(): CpmCorrelationPayload {
-  return {
+  // 与 Vue2 Form.vue 保持一致：
+  // - year 不作为独立字段提交，Specific Years 时用 lookback_years 覆盖 lookback_period
+  // - Historical Pattern（customize_pattern）不发送 system_pattern
+  const payload: CpmCorrelationPayload = {
     name: form.name.trim(),
     symbol: form.symbol.trim().toUpperCase(),
     timeframe: form.timeframe,
     start_date: form.startDate,
     end_date: form.endDate,
-    lookback_period: form.lookbackPeriod,
-    year: form.lookbackYears,
+    lookback_period: form.lookbackPeriod === 'Years' ? form.lookbackYears : form.lookbackPeriod,
     corr_per: form.corrPer,
     tim: form.tim,
-    exclude_overlap: form.excludeOverlap,
+    // Vue2 提交的是 1/0，后端按整数解析
+    exclude_overlap: form.excludeOverlap ? 1 : 0,
     direction: form.direction,
     bars_num: form.barsNum,
     ma_condition: form.condition,
     ma: form.period,
-    system_pattern: selectedPayloadPattern.value,
   }
+  if (form.patternSource === 'Common Pattern') payload.system_pattern = form.selectPattern
+  return payload
 }
 
 async function previewMatches() {
@@ -483,6 +498,11 @@ async function previewMatches() {
       const finished = await pollJob(started.url, fetchCpmPatternMatchPreview)
       previewJob.value = finished
       previewMatchResult.value = normalizeCpmCorrelationResult(finished.raw)
+    } else {
+      // Vue2 行为：未拿到轮询 url 时，code != 201 视为 preview 失败
+      const terminal = terminalMessage(started, PREVIEW_ERROR_MESSAGES)
+      if (terminal) throw new Error(terminal)
+      if (started.code !== 200) throw new Error(started.message || 'Pattern preview failed.')
     }
 
     actionMessage.value = previewJob.value?.message || 'Preview finished.'
@@ -500,6 +520,11 @@ async function runBacktest() {
   detailLoading.value = true
   actionMessage.value = ''
   activeStep.value = 3
+  // backtest 结果会替代 preview 命中标记
+  previewJob.value = null
+  previewMatchResult.value = null
+  backtestProgress.value = 5
+  backtestTips.value = 'Tips: Saving your pattern matching parameters...'
 
   try {
     const payload = cpmPayload()
@@ -511,10 +536,16 @@ async function runBacktest() {
     if (url) {
       currentUrl.value = url
       await router.replace({ path: '/cpm/results', query: { url } })
+      backtestTips.value = 'Tips: The pattern backtest is in progress, which may take some time. Please be patient...'
       const finished = await pollBacktest(url)
       if (finished) backtestResult.value = finished
       actionMessage.value = 'Backtest finished.'
     } else {
+      const terminal = terminalMessage(started, BACKTEST_ERROR_MESSAGES)
+      if (terminal) throw new Error(terminal)
+      if (started.code !== null && started.code !== 200 && started.code !== 203) {
+        throw new Error(started.message || 'Backtest failed.')
+      }
       backtestResult.value = normalizeCpmCorrelationResult(started.raw)
       actionMessage.value = started.message || 'Backtest request finished.'
     }
@@ -523,34 +554,72 @@ async function runBacktest() {
   } finally {
     backtestLoading.value = false
     detailLoading.value = false
+    backtestProgress.value = 0
+    backtestTips.value = ''
   }
 }
 
+/** 与 Vue2 Form.vue 对齐的终止错误码 */
+const PREVIEW_ERROR_MESSAGES: Record<number, string> = {
+  400: 'Pattern preview failed.',
+  401: 'Calculate error.',
+  403: 'Save failed, please try again.',
+  404: 'Save failed, please try again.',
+  406: 'This name is already taken. Please pick another.',
+  407: 'No correlation pattern match meeting the criteria found.',
+}
+const BACKTEST_ERROR_MESSAGES: Record<number, string> = {
+  401: 'Calculate error.',
+  403: 'Save failed, please try again.',
+  404: 'Save failed, please try again.',
+  407: 'No correlation pattern match meeting the criteria found.',
+}
+/** Vue2 为无限轮询；这里保持同样的 1.5s 节奏，用 10 分钟上限兜底避免页面卡死 */
+const POLL_MAX_ATTEMPTS = 400
+
+function terminalMessage(job: CpmJobResponse, messages: Record<number, string>) {
+  if (job.code === null) return ''
+  if (job.code === 406) return `Sorry, ${form.name.trim() || 'this name'} is taken. Please pick another.`
+  return messages[job.code] ?? ''
+}
+
 async function pollJob(url: string, getter: (url: string, signal?: AbortSignal) => Promise<CpmJobResponse>) {
-  let latest: CpmJobResponse | null = null
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt += 1) {
     await delay(attempt === 0 ? 800 : 1500)
-    latest = await getter(url, abortController.signal)
-    if (isJobFailed(latest)) throw new Error(latest.message || 'CPM job failed.')
-    if (isJobComplete(latest)) return latest
+    if (abortController.signal.aborted) throw new Error('Preview cancelled.')
+    const job = await getter(url, abortController.signal)
+    if (isJobFailed(job)) throw new Error(job.message || 'CPM preview failed.')
+    if (isJobComplete(job)) return job
+
+    const terminal = terminalMessage(job, PREVIEW_ERROR_MESSAGES)
+    if (terminal) throw new Error(terminal)
   }
-  if (latest) return latest
-  throw new Error('CPM job timed out.')
+  throw new Error('CPM preview timed out. Please try again later.')
 }
 
 async function pollBacktest(url: string) {
   let latest: CpmCorrelationResult | null = null
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt += 1) {
+    // Vue2: 每次轮询 percentage += 1，最多到 99
+    if (backtestProgress.value < 99) backtestProgress.value += 1
     await delay(attempt === 0 ? 800 : 1500)
+    if (abortController.signal.aborted) return latest
     const job = await fetchCpmPatternBacktestJob(url, abortController.signal)
     if (isJobFailed(job)) throw new Error(job.message || 'CPM backtest failed.')
 
+    const terminal = terminalMessage(job, BACKTEST_ERROR_MESSAGES)
+    if (terminal) throw new Error(terminal)
+
     const result = normalizeCpmCorrelationResult(job.raw)
     latest = result
-    backtestResult.value = result
-    applyResultToForm(result)
 
-    if (isBacktestComplete(result, job)) return result
+    if (isBacktestComplete(result, job)) {
+      // 与 Vue2 一致：只把最终结果交给页面/图表。轮询中间态每 1.5s 就换一次对象，
+      // 之前每次都会触发图表重绘并叠加 marker。
+      backtestResult.value = result
+      applyResultToForm(result)
+      return result
+    }
   }
   return latest
 }
@@ -568,7 +637,10 @@ function isJobFailed(job: CpmJobResponse) {
 function isBacktestComplete(result: CpmCorrelationResult, job: CpmJobResponse) {
   const status = String(result.data.status ?? job.status ?? '').trim().toLowerCase()
   if (['fail', 'failed', 'error'].includes(status)) throw new Error(result.message || job.message || 'CPM backtest failed.')
-  return result.code === 200 || isJobComplete(job) || ['finish', 'finished', 'success'].includes(status)
+  // 与 Vue2 一致：后端返回 status 时必须等到 finish 才算完成
+  if (['finish', 'finished', 'success'].includes(status)) return true
+  if (status) return false
+  return result.code === 200 || isJobComplete(job)
 }
 
 function delay(ms: number) {
@@ -599,16 +671,38 @@ function applyResultToForm(result: CpmCorrelationResult) {
   assignString('direction', data, ['direction'])
   assignString('startDate', data, ['start_date', 'startDate'])
   assignString('endDate', data, ['end_date', 'endDate'])
-  assignString('lookbackPeriod', data, ['lookback_period', 'lookbackPeriod'])
-  assignString('selectPattern', data, ['system_pattern', 'systemPattern'])
   assignNumber('corrPer', data, ['corr_per', 'corrPer', 'minimum_correlation'])
   assignNumber('tim', data, ['tim', 'time_in_market'])
-  assignNumber('period', data, ['ma', 'period'])
   assignNumber('barsNum', data, ['bars_num', 'barsNum'])
 
+  // 与 Vue2 displayData 对齐：exclude_overlap 后端返回 1/0
+  const excludeOverlap = parseCpmNumber(valueFrom(data, ['exclude_overlap', 'excludeOverlap']))
+  if (excludeOverlap !== null) form.excludeOverlap = excludeOverlap === 1
+
+  // lookback_period 命中预设选项时直接用，否则视为自定义年数（Vue2 的 Custom）
+  const lookbackRaw = valueFrom(data, ['lookback_period', 'lookbackPeriod'])
+  if (lookbackRaw !== undefined) {
+    const lookback = String(lookbackRaw)
+    const preset = lookbackOptions.some((option) => option.value === lookback)
+    form.lookbackPeriod = preset ? lookback : 'Years'
+    const years = parseCpmNumber(lookback)
+    if (years !== null) form.lookbackYears = years
+  }
+
+  // system_pattern 为空 = 用户自选历史区间（Vue2 的 customize_pattern）
+  const patternRaw = valueFrom(data, ['system_pattern', 'systemPattern'])
+  if (patternRaw === undefined) {
+    form.patternSource = 'Historical Pattern'
+    form.selectPattern = 'customize_pattern'
+  } else {
+    form.patternSource = 'Common Pattern'
+    form.selectPattern = String(patternRaw)
+  }
+
+  // ma_condition / ma 为空时回落到默认值（Vue2 默认 None / 200）
   const condition = valueFrom(data, ['ma_condition', 'condition'])
-  if (condition !== undefined && condition !== null && condition !== '') form.condition = String(condition)
-  form.patternSource = form.selectPattern === 'customize_pattern' ? 'Historical Pattern' : 'Common Pattern'
+  form.condition = condition === undefined ? '0' : String(condition)
+  form.period = parseCpmNumber(valueFrom(data, ['ma', 'period'])) ?? 200
 }
 
 function assignString(key: keyof PatternForm, data: Record<string, unknown>, keys: string[]) {
@@ -682,7 +776,8 @@ function rowsFromUnknown(value: unknown): Array<Record<string, unknown>> {
 }
 
 function resultSeries(data: Record<string, unknown>) {
-  return recordFrom(data.result)
+  // 与 Vue2 一致：result 可能是 JSON 字符串
+  return parseCpmJsonRecord(data.result) ?? recordFrom(data.result)
 }
 
 function arrayField(record: Record<string, unknown>, keys: string[]) {
@@ -1078,6 +1173,13 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div v-if="backtestLoading" class="mt-4">
+        <div class="h-3 w-full overflow-hidden rounded-full bg-[var(--app-surface-soft)]">
+          <div class="h-full rounded-full bg-[var(--app-primary)] transition-all duration-300" :style="{ width: `${backtestProgress}%` }" />
+        </div>
+        <p v-if="backtestTips" class="mt-2 text-xs font-semibold text-[var(--app-text-muted)]">{{ backtestTips }}</p>
+      </div>
+
       <p v-if="formError" class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{{ formError }}</p>
       <p v-else-if="actionMessage" class="mt-3 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-primary-soft)] px-3 py-2 text-sm font-semibold text-[var(--app-text-secondary)]">{{ actionMessage }}</p>
 
@@ -1162,7 +1264,9 @@ onBeforeUnmount(() => {
           <div class="mt-3 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]">
             <CpmPatternChartIQ
               :symbol="form.symbol"
+              :timeframe="form.timeframe"
               :chart-data="backtestResult ? backtestResult.data : null"
+              :preview-result="previewChartResult"
               :loading="backtestLoading || detailLoading"
             />
           </div>
