@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRight,
@@ -14,7 +14,6 @@ import {
   Save,
   Search,
   Target,
-  ZoomIn,
 } from '@lucide/vue'
 import {
   fetchCpmPatternBacktestJob,
@@ -30,6 +29,7 @@ import {
   formatCpmNumber,
   formatCpmPercent,
   normalizeCpmCorrelationResult,
+  parseCpmJsonRecord,
   parseCpmNumber,
 } from '@/entities/cpm/model/cpm.adapter'
 import type {
@@ -39,13 +39,41 @@ import type {
   CpmPatternPreviewPoint,
   CpmPatternPreviewResult,
 } from '@/entities/cpm/model/cpm.types'
+import {
+  buildCpmLongTermReport,
+  buildCpmMaxGainLossReport,
+  buildCpmShortTermReport,
+} from '@/entities/cpm/model/cpm.timeframe'
+import type {
+  CpmChartQuoteSnapshot,
+  CpmMaxGainLossReport,
+  CpmTimeframeReport,
+} from '@/entities/cpm/model/cpm.timeframe'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
+import { timestampToTime } from '@/shared/utils/time'
 import AppDataTable from '@/shared/ui/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/shared/ui/app-data-table.types'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
 import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
+import ascendingChannelImage from '@/assets/patterns/ascending_channel_svg.svg'
+import ascendingChannelThumbnail from '@/assets/patterns/ascending_channel.png'
+import descendingChannelImage from '@/assets/patterns/descending_channel_svg.svg'
+import descendingChannelThumbnail from '@/assets/patterns/descending_channel.png'
+import doubleBottomImage from '@/assets/patterns/double_bottom_svg.svg'
+import doubleBottomThumbnail from '@/assets/patterns/double_bottom.png'
+import doubleTopImage from '@/assets/patterns/double_top_svg.svg'
+import doubleTopThumbnail from '@/assets/patterns/double_top.png'
+import headAndShoulderBottomImage from '@/assets/patterns/head_and_shoulder_bottom_svg.svg'
+import headAndShoulderBottomThumbnail from '@/assets/patterns/head_and_shoulder_bottom.png'
+import headAndShoulderTopImage from '@/assets/patterns/head_and_shoulder_top_svg.svg'
+import headAndShoulderTopThumbnail from '@/assets/patterns/head_and_shoulder_top.png'
+import roundingBottomImage from '@/assets/patterns/rounding_bottom_svg.svg'
+import roundingBottomThumbnail from '@/assets/patterns/rounding_bottom.png'
+import tripleTapImage from '@/assets/patterns/triple_tap_svg.svg'
+import tripleTapThumbnail from '@/assets/patterns/triple_tap.png'
 import CpmPatternPreviewChart from './CpmPatternPreviewChart.vue'
+import CpmPatternChartIQ from './CpmPatternChartIQ.vue'
 
 interface MarketEntry {
   symbol: string
@@ -103,21 +131,40 @@ const activeResultTab = ref<ResultTab>('statistics')
 const selectPatternElement = ref<HTMLElement | null>(null)
 const settingsElement = ref<HTMLElement | null>(null)
 const resultsElement = ref<HTMLElement | null>(null)
+const commonPatternMenu = ref<HTMLDetailsElement | null>(null)
 const patternPreview = ref<CpmPatternPreviewResult | null>(null)
 const patternPreviewLoading = ref(false)
 const previewLoading = ref(false)
 const backtestLoading = ref(false)
 const detailLoading = ref(false)
+const backtestProgress = ref(0)
+const backtestTips = ref('')
 const formError = ref('')
 const actionMessage = ref('')
 const previewJob = ref<CpmJobResponse | null>(null)
 const previewMatchResult = ref<CpmCorrelationResult | null>(null)
 const backtestResult = ref<CpmCorrelationResult | null>(null)
+/** ChartIQ 行情快照（dataSet/masterData），Vue2 TIM/MaxMin 计算的数据源 */
+const chartQuotes = ref<CpmChartQuoteSnapshot | null>(null)
 const currentUrl = ref('')
 let patternPreviewRequestId = 0
 
-const defaultEndDate = offsetIsoDate(-62)
-const defaultStartDate = offsetIsoDate(-153)
+/**
+ * Vue2 Form.vue setBacktestHistory(val)：end_date = 今天，start_date = 同一日往前 val 个月。
+ * mounted 时调用 setBacktestHistory(1)，所以默认选中「最近一个月」的 pattern（约 22 根日线），
+ * 而不是固定天数的区间。
+ */
+function defaultPatternRange(monthsBack: number) {
+  const endDate = timestampToTime(new Date().getTime())
+  const end = new Date(endDate)
+  const start = new Date(end)
+  start.setMonth(end.getMonth() - monthsBack)
+  return { startDate: timestampToTime(start.getTime()), endDate }
+}
+
+const initialPatternRange = defaultPatternRange(1)
+const defaultEndDate = initialPatternRange.endDate
+const defaultStartDate = initialPatternRange.startDate
 
 const form = reactive<PatternForm>({
   name: `SPX ${defaultEndDate}`,
@@ -145,15 +192,15 @@ const conditionOptions = [
 ]
 
 const patternOptions = [
-  { value: 'customize_pattern', label: 'Customize Pattern' },
-  { value: 'triple_tap', label: 'Triple Tap' },
-  { value: 'rounding_bottom', label: 'Rounding Bottom' },
-  { value: 'descending_channel', label: 'Descending Channel' },
-  { value: 'ascending_channel', label: 'Ascending Channel' },
-  { value: 'head_and_shoulder_bottom', label: 'Head and Shoulders Bottom' },
-  { value: 'head_and_shoulder_top', label: 'Head and Shoulders Top' },
-  { value: 'double_bottom', label: 'Double Bottom' },
-  { value: 'double_top', label: 'Double Top' },
+  { value: 'customize_pattern', label: 'Customize Pattern', image: '', thumbnail: '' },
+  { value: 'triple_tap', label: 'Triple Tap', image: tripleTapImage, thumbnail: tripleTapThumbnail },
+  { value: 'rounding_bottom', label: 'Rounding Bottom', image: roundingBottomImage, thumbnail: roundingBottomThumbnail },
+  { value: 'descending_channel', label: 'Descending Channel', image: descendingChannelImage, thumbnail: descendingChannelThumbnail },
+  { value: 'ascending_channel', label: 'Ascending Channel', image: ascendingChannelImage, thumbnail: ascendingChannelThumbnail },
+  { value: 'head_and_shoulder_bottom', label: 'Head and Shoulders Bottom', image: headAndShoulderBottomImage, thumbnail: headAndShoulderBottomThumbnail },
+  { value: 'head_and_shoulder_top', label: 'Head and Shoulders Top', image: headAndShoulderTopImage, thumbnail: headAndShoulderTopThumbnail },
+  { value: 'double_bottom', label: 'Double Bottom', image: doubleBottomImage, thumbnail: doubleBottomThumbnail },
+  { value: 'double_top', label: 'Double Top', image: doubleTopImage, thumbnail: doubleTopThumbnail },
 ]
 
 const timeframeOptions = ['Daily', 'Weekly', 'Monthly']
@@ -184,6 +231,10 @@ const resultTabs: Array<{ id: ResultTab; label: string }> = [
   { id: 'maxGainLoss', label: 'Max Gain and Loss' },
   { id: 'correlation', label: 'Correlation Info' },
 ]
+/** Vue2 的 Short Term tab 只在 rowFrequency === 'Daily' 时显示 */
+const visibleResultTabs = computed(() =>
+  resultTabs.filter((tab) => tab.id !== 'shortTerm' || form.timeframe === 'Daily'),
+)
 const workflowTabs: Array<{ id: ActiveStep; label: string }> = [
   { id: 1, label: 'Select Pattern' },
   { id: 2, label: 'Match Settings' },
@@ -191,6 +242,8 @@ const workflowTabs: Array<{ id: ActiveStep; label: string }> = [
 ]
 
 const commonPatternOptions = computed(() => patternOptions.filter((item) => item.value !== 'customize_pattern'))
+const selectedCommonPattern = computed(() => commonPatternOptions.value.find((item) => item.value === form.selectPattern))
+const patternPreviewTitle = computed(() => form.patternSource === 'Common Pattern' ? 'Common Pattern Preview' : 'Normalized Pattern Preview')
 
 const marketEntries: MarketEntry[] = [
   ...(stocksData as StockEntry[]).map((entry) => ({
@@ -246,7 +299,6 @@ function formatSummaryDate(value: string) {
   const parsed = new Date(`${value}T00:00:00`)
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
-const selectedPayloadPattern = computed(() => form.patternSource === 'Historical Pattern' ? 'customize_pattern' : form.selectPattern)
 const chartPoints = computed(() => patternPreview.value?.points.length ? patternPreview.value.points : fallbackPatternPoints.value)
 const normalizedPreviewPoints = computed(() => chartPoints.value.slice(-Math.max(6, Math.min(chartPoints.value.length, form.barsNum || 63))))
 const fallbackPatternPoints = computed(() => buildFallbackPatternPoints(form.startDate, form.endDate, form.barsNum || 63))
@@ -254,45 +306,132 @@ const resultData = computed(() => backtestResult.value?.data ?? {})
 const previewMatchRows = computed(() => {
   const result = previewMatchResult.value
   if (!result) return []
-  return result.matrixRows.length ? result.matrixRows : result.seriesRows.slice(0, 50)
+  if (result.matrixRows.length) return result.matrixRows
+  if (result.seriesRows.length) return result.seriesRows.slice(0, 50)
+  return rowsFromUnknown(result.data).slice(0, 50)
 })
 const previewMatchColumns = computed(() => tableColumns(previewMatchRows.value))
-const previewMatchOverlays = computed(() => {
-  const rows = previewMatchResult.value?.matrixRows ?? []
-  const sorted = [...chartPoints.value].sort((left, right) => left.date.localeCompare(right.date))
-  const overlays: Array<{ start: number; end: number; label?: string }> = []
-  for (const row of rows) {
-    const start = valueFrom(row, ['Start Date', 'start_date', 'startDate', 'Start'])
-    const end = valueFrom(row, ['End Date', 'end_date', 'endDate', 'End'])
-    if (typeof start !== 'string' || typeof end !== 'string') continue
-    const startTs = sorted.find((point) => point.date >= start)?.timestamp
-    const endTs = [...sorted].reverse().find((point) => point.date <= end)?.timestamp
-    if (startTs === undefined || endTs === undefined || endTs < startTs) continue
-    const corrText = String(valueFrom(row, ['Correlation Percentage', 'correlation_percentage', 'Correlation', 'corr']) ?? '').replace('%', '').trim()
-    const corrValue = Number(corrText)
-    const label = corrText && Number.isFinite(corrValue) ? `${Math.round(corrValue <= 1 ? corrValue * 100 : corrValue)}%` : undefined
-    overlays.push({ start: startTs, end: endTs, label })
-    if (overlays.length >= 24) break
-  }
-  return overlays
+/** 只有 preview 轮询成功且解析出命中列（数组字段）后，才画到 ChartIQ 上 */
+const previewChartResult = computed(() => {
+  if (previewJob.value?.code !== 200) return null
+  const data = previewMatchResult.value?.data
+  if (!data || !Object.values(data).some((value) => Array.isArray(value))) return null
+  return data
 })
 const tradeRows = computed(() => buildTradeRows(resultData.value))
 const correlationRows = computed(() => buildCorrelationRows(resultData.value))
-const maxGainLossRows = computed(() => [...tradeRows.value].sort((left, right) => (parseCpmNumber(right['Max Gain']) ?? -Infinity) - (parseCpmNumber(left['Max Gain']) ?? -Infinity)))
-const longTermRows = computed(() => rowsFromUnknown(firstPresent(resultData.value, ['long_term', 'longTerm', 'multi_timeframe_long', 'long_term_results'])))
-const shortTermRows = computed(() => rowsFromUnknown(firstPresent(resultData.value, ['short_term', 'shortTerm', 'multi_timeframe_short', 'short_term_results'])))
+/** Vue2 results/index.vue TradeDateArray：每笔交易取 result['End Date'] */
+const tradeDates = computed(() => {
+  const result = resultSeries(resultData.value)
+  return arrayField(result, ['End Date', 'end_date', 'Trade Date']).map((value) => String(value))
+})
+
+/**
+ * Vue2 tim.vue / timShortTerm.vue / MaxMin.vue 的数据源是 CIQ.stxx.chart.dataSet/masterData，
+ * 图表加载完成后由 CpmPatternChartIQ 通过 chart-quotes 上报快照后在这里计算。
+ */
+const timeframeReports = computed<{
+  longTerm: CpmTimeframeReport | null
+  shortTerm: CpmTimeframeReport | null
+  maxGainLoss: CpmMaxGainLossReport | null
+}>(() => {
+  const snapshot = chartQuotes.value
+  const dates = tradeDates.value
+  if (!snapshot?.dataSet.length || !dates.length) {
+    return { longTerm: null, shortTerm: null, maxGainLoss: null }
+  }
+
+  const options = {
+    rowFrequency: form.timeframe,
+    direction: form.direction || 'Long',
+    tradeDates: dates,
+    chartDataSet: snapshot.dataSet,
+    chartMasterData: snapshot.masterData,
+  }
+
+  return {
+    longTerm: buildCpmLongTermReport(options),
+    // Vue2 只在 Daily 下渲染 Short Term
+    shortTerm: form.timeframe === 'Daily' ? buildCpmShortTermReport(options) : null,
+    maxGainLoss: buildCpmMaxGainLossReport(options),
+  }
+})
+const activeTimeframeReport = computed(() =>
+  activeResultTab.value === 'shortTerm' ? timeframeReports.value.shortTerm : timeframeReports.value.longTerm,
+)
+const maxGainLossReport = computed(() => timeframeReports.value.maxGainLoss)
+const maxGainLossRows = computed(() => maxGainLossReport.value?.rows ?? [])
+/** Vue2 MaxMin 表头只显示周期列，汇总行与表头行用不同样式 */
+const maxGainLossPeriodLabels = computed(() =>
+  (maxGainLossReport.value?.labels ?? []).filter(
+    (label) => label !== 'Dates of Signals' && label !== 'Max Gain' && label !== 'Max Loss',
+  ),
+)
+const maxGainLossMeanIndex = computed(() =>
+  maxGainLossRows.value.findIndex((row) => row['Dates of Signals'] === 'Mean'),
+)
+
+const timeframeStatsColumns = computed<AppDataTableColumn[]>(() => {
+  const periods = activeTimeframeReport.value?.periods ?? []
+  return [
+    { key: 'property', label: 'Property', minWidth: 120, align: 'center' },
+    ...periods.map((period) => ({
+      key: period,
+      label: period,
+      minWidth: 100,
+      align: 'center' as const,
+      format: formatTimeframeStat,
+      cellClass: negativeCellClass,
+    })),
+  ]
+})
+const timeframeHistoryColumns = computed<AppDataTableColumn[]>(() =>
+  (activeTimeframeReport.value?.historyLabels ?? []).map((label) => ({
+    key: label,
+    label: label === 'Entry Date' ? label : label.replace('[%]', 'Later [%]'),
+    minWidth: label === 'Entry Date' ? 120 : 100,
+    align: 'center' as const,
+    format: formatHistoryCell,
+    cellClass: negativeCellClass,
+  })),
+)
+
 const activeResultRows = computed(() => {
   if (activeResultTab.value === 'statistics') return tradeRows.value
-  if (activeResultTab.value === 'longTerm') return longTermRows.value
-  if (activeResultTab.value === 'shortTerm') return shortTermRows.value
-  if (activeResultTab.value === 'maxGainLoss') return maxGainLossRows.value
-  return correlationRows.value
+  if (activeResultTab.value === 'correlation') return correlationRows.value
+  return []
 })
-const activeResultColumns = computed(() => {
+const activeResultColumns = computed<AppDataTableColumn[]>(() => {
   if (activeResultTab.value === 'statistics') return tradeColumns
-  if (activeResultTab.value === 'maxGainLoss') return tradeColumns
-  return tableColumns(activeResultRows.value)
+  if (activeResultTab.value === 'correlation') return tableColumns(correlationRows.value)
+  return []
 })
+/** 下载按钮按当前 tab 导出对应表格 */
+const exportTable = computed<{ rows: Array<Record<string, unknown>>; columns: AppDataTableColumn[] }>(() => {
+  if (activeResultTab.value === 'statistics') return { rows: tradeRows.value, columns: tradeColumns }
+  if (activeResultTab.value === 'correlation') return { rows: correlationRows.value, columns: tableColumns(correlationRows.value) }
+  if (activeResultTab.value === 'maxGainLoss') {
+    return { rows: maxGainLossExportRows.value, columns: maxGainLossExportColumns.value }
+  }
+  return { rows: activeTimeframeReport.value?.historyRows ?? [], columns: timeframeHistoryColumns.value }
+})
+const maxGainLossExportRows = computed(() =>
+  maxGainLossRows.value.map((row) => {
+    const flat: Record<string, unknown> = { 'Dates of Signals': row['Dates of Signals'] }
+    maxGainLossPeriodLabels.value.forEach((label) => {
+      flat[`${label} Max Loss`] = nestedMaxMin(row, label, 'Max Loss')
+      flat[`${label} Max Gain`] = nestedMaxMin(row, label, 'Max Gain')
+    })
+    return flat
+  }),
+)
+const maxGainLossExportColumns = computed<AppDataTableColumn[]>(() => [
+  { key: 'Dates of Signals', label: 'Dates of Signals', minWidth: 150, align: 'center' },
+  ...maxGainLossPeriodLabels.value.flatMap((label) => [
+    { key: `${label} Max Loss`, label: `${label.replace('[%]', 'Later [%]')} Max Loss`, minWidth: 100, align: 'center' as const },
+    { key: `${label} Max Gain`, label: `${label.replace('[%]', 'Later [%]')} Max Gain`, minWidth: 100, align: 'center' as const },
+  ]),
+])
 
 const primaryResultCards = computed(() => [
   {
@@ -344,12 +483,6 @@ const tradeColumns: AppDataTableColumn[] = [
   { key: 'Correlation Percentage', label: 'Correlation Percentage', minWidth: 150, align: 'right', format: formatTablePercent },
 ]
 
-function offsetIsoDate(days: number) {
-  const date = new Date()
-  date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 10)
-}
-
 function businessDaysBetween(startDate: string, endDate: string) {
   const start = Date.parse(`${startDate}T00:00:00`)
   const end = Date.parse(`${endDate}T00:00:00`)
@@ -391,12 +524,9 @@ function updateBarsFromDates() {
   form.barsNum = bars || form.barsNum
 }
 
-function fitSelection() {
-  form.startDate = defaultStartDate
-  form.endDate = defaultEndDate
-  form.barsNum = businessDaysBetween(defaultStartDate, defaultEndDate)
-  activeStep.value = 1
-  void refreshPatternPreview()
+/** 图表就绪/重载后用 CIQ.measureBarDistance 的实测值覆盖工作日估算 */
+function onBarDistance(bars: number) {
+  if (bars > 0) form.barsNum = bars
 }
 
 function useThisPattern() {
@@ -419,14 +549,31 @@ function setPatternSource(source: PatternForm['patternSource']) {
   }
 }
 
+function selectCommonPattern(value: string) {
+  form.selectPattern = value
+  if (commonPatternMenu.value) commonPatternMenu.value.open = false
+}
+
+/** Vue2 Form.vue generateCPMName: `SYMBOL  YYYY-M-D H:mm:ss`（不补零） */
+function generateCpmName() {
+  const date = new Date()
+  const stamp = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}  ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`
+  form.name = `${form.symbol || 'CPM'}  ${stamp}`
+}
+
 function duplicateSetup() {
   currentUrl.value = ''
   backtestResult.value = null
   activeStep.value = 1
-  form.name = `${form.symbol || 'CPM'} ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`
+  generateCpmName()
   actionMessage.value = 'Setup duplicated. Save it to create a new run.'
   void router.replace('/cpm/results')
 }
+
+onMounted(() => {
+  // Vue2 mounted 时生成默认 CPM 名称；从 url 载入已有 CPM 时会被 applyResultToForm 覆盖
+  generateCpmName()
+})
 
 function printWorkspace() {
   window.print()
@@ -473,23 +620,27 @@ function validateForm() {
 }
 
 function cpmPayload(): CpmCorrelationPayload {
-  return {
+  // 与 Vue2 Form.vue 保持一致：
+  // - year 不作为独立字段提交，Specific Years 时用 lookback_years 覆盖 lookback_period
+  // - Historical Pattern（customize_pattern）不发送 system_pattern
+  const payload: CpmCorrelationPayload = {
     name: form.name.trim(),
     symbol: form.symbol.trim().toUpperCase(),
     timeframe: form.timeframe,
     start_date: form.startDate,
     end_date: form.endDate,
-    lookback_period: form.lookbackPeriod,
-    year: form.lookbackYears,
+    lookback_period: form.lookbackPeriod === 'Years' ? form.lookbackYears : form.lookbackPeriod,
     corr_per: form.corrPer,
     tim: form.tim,
-    exclude_overlap: form.excludeOverlap,
+    // Vue2 提交的是 1/0，后端按整数解析
+    exclude_overlap: form.excludeOverlap ? 1 : 0,
     direction: form.direction,
     bars_num: form.barsNum,
     ma_condition: form.condition,
     ma: form.period,
-    system_pattern: selectedPayloadPattern.value,
   }
+  if (form.patternSource === 'Common Pattern') payload.system_pattern = form.selectPattern
+  return payload
 }
 
 async function previewMatches() {
@@ -510,6 +661,11 @@ async function previewMatches() {
       const finished = await pollJob(started.url, fetchCpmPatternMatchPreview)
       previewJob.value = finished
       previewMatchResult.value = normalizeCpmCorrelationResult(finished.raw)
+    } else {
+      // Vue2 行为：未拿到轮询 url 时，code != 201 视为 preview 失败
+      const terminal = terminalMessage(started, PREVIEW_ERROR_MESSAGES)
+      if (terminal) throw new Error(terminal)
+      if (started.code !== 200) throw new Error(started.message || 'Pattern preview failed.')
     }
 
     actionMessage.value = previewJob.value?.message || 'Preview finished.'
@@ -527,9 +683,16 @@ async function runBacktest() {
   detailLoading.value = true
   actionMessage.value = ''
   activeStep.value = 3
+  // backtest 结果会替代 preview 命中标记
+  previewJob.value = null
+  previewMatchResult.value = null
+  backtestProgress.value = 5
+  backtestTips.value = 'Tips: Saving your pattern matching parameters...'
 
   try {
     const payload = cpmPayload()
+    // Vue2 saveCPM：校验通过、发出请求前把进度置为 8，之后每轮轮询 +1
+    backtestProgress.value = 8
     const started = currentUrl.value
       ? await updateCpmPatternBacktest(currentUrl.value, payload, abortController.signal)
       : await startCpmPatternBacktest(payload, abortController.signal)
@@ -538,10 +701,16 @@ async function runBacktest() {
     if (url) {
       currentUrl.value = url
       await router.replace({ path: '/cpm/results', query: { url } })
+      backtestTips.value = 'Tips: The pattern backtest is in progress, which may take some time. Please be patient...'
       const finished = await pollBacktest(url)
       if (finished) backtestResult.value = finished
       actionMessage.value = 'Backtest finished.'
     } else {
+      const terminal = terminalMessage(started, BACKTEST_ERROR_MESSAGES)
+      if (terminal) throw new Error(terminal)
+      if (started.code !== null && started.code !== 200 && started.code !== 203) {
+        throw new Error(started.message || 'Backtest failed.')
+      }
       backtestResult.value = normalizeCpmCorrelationResult(started.raw)
       actionMessage.value = started.message || 'Backtest request finished.'
     }
@@ -550,34 +719,72 @@ async function runBacktest() {
   } finally {
     backtestLoading.value = false
     detailLoading.value = false
+    backtestProgress.value = 0
+    backtestTips.value = ''
   }
 }
 
+/** 与 Vue2 Form.vue 对齐的终止错误码 */
+const PREVIEW_ERROR_MESSAGES: Record<number, string> = {
+  400: 'Pattern preview failed.',
+  401: 'Calculate error.',
+  403: 'Save failed, please try again.',
+  404: 'Save failed, please try again.',
+  406: 'This name is already taken. Please pick another.',
+  407: 'No correlation pattern match meeting the criteria found.',
+}
+const BACKTEST_ERROR_MESSAGES: Record<number, string> = {
+  401: 'Calculate error.',
+  403: 'Save failed, please try again.',
+  404: 'Save failed, please try again.',
+  407: 'No correlation pattern match meeting the criteria found.',
+}
+/** Vue2 为无限轮询；这里保持同样的 1.5s 节奏，用 10 分钟上限兜底避免页面卡死 */
+const POLL_MAX_ATTEMPTS = 400
+
+function terminalMessage(job: CpmJobResponse, messages: Record<number, string>) {
+  if (job.code === null) return ''
+  if (job.code === 406) return `Sorry, ${form.name.trim() || 'this name'} is taken. Please pick another.`
+  return messages[job.code] ?? ''
+}
+
 async function pollJob(url: string, getter: (url: string, signal?: AbortSignal) => Promise<CpmJobResponse>) {
-  let latest: CpmJobResponse | null = null
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt += 1) {
     await delay(attempt === 0 ? 800 : 1500)
-    latest = await getter(url, abortController.signal)
-    if (isJobFailed(latest)) throw new Error(latest.message || 'CPM job failed.')
-    if (isJobComplete(latest)) return latest
+    if (abortController.signal.aborted) throw new Error('Preview cancelled.')
+    const job = await getter(url, abortController.signal)
+    if (isJobFailed(job)) throw new Error(job.message || 'CPM preview failed.')
+    if (isJobComplete(job)) return job
+
+    const terminal = terminalMessage(job, PREVIEW_ERROR_MESSAGES)
+    if (terminal) throw new Error(terminal)
   }
-  if (latest) return latest
-  throw new Error('CPM job timed out.')
+  throw new Error('CPM preview timed out. Please try again later.')
 }
 
 async function pollBacktest(url: string) {
   let latest: CpmCorrelationResult | null = null
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt += 1) {
+    // Vue2: 每次轮询 percentage += 1，最多到 99
+    if (backtestProgress.value < 99) backtestProgress.value += 1
     await delay(attempt === 0 ? 800 : 1500)
+    if (abortController.signal.aborted) return latest
     const job = await fetchCpmPatternBacktestJob(url, abortController.signal)
     if (isJobFailed(job)) throw new Error(job.message || 'CPM backtest failed.')
 
+    const terminal = terminalMessage(job, BACKTEST_ERROR_MESSAGES)
+    if (terminal) throw new Error(terminal)
+
     const result = normalizeCpmCorrelationResult(job.raw)
     latest = result
-    backtestResult.value = result
-    applyResultToForm(result)
 
-    if (isBacktestComplete(result, job)) return result
+    if (isBacktestComplete(result, job)) {
+      // 与 Vue2 一致：只把最终结果交给页面/图表。轮询中间态每 1.5s 就换一次对象，
+      // 之前每次都会触发图表重绘并叠加 marker。
+      backtestResult.value = result
+      applyResultToForm(result)
+      return result
+    }
   }
   return latest
 }
@@ -595,7 +802,10 @@ function isJobFailed(job: CpmJobResponse) {
 function isBacktestComplete(result: CpmCorrelationResult, job: CpmJobResponse) {
   const status = String(result.data.status ?? job.status ?? '').trim().toLowerCase()
   if (['fail', 'failed', 'error'].includes(status)) throw new Error(result.message || job.message || 'CPM backtest failed.')
-  return result.code === 200 || isJobComplete(job) || ['finish', 'finished', 'success'].includes(status)
+  // 与 Vue2 一致：后端返回 status 时必须等到 finish 才算完成
+  if (['finish', 'finished', 'success'].includes(status)) return true
+  if (status) return false
+  return result.code === 200 || isJobComplete(job)
 }
 
 function delay(ms: number) {
@@ -626,16 +836,38 @@ function applyResultToForm(result: CpmCorrelationResult) {
   assignString('direction', data, ['direction'])
   assignString('startDate', data, ['start_date', 'startDate'])
   assignString('endDate', data, ['end_date', 'endDate'])
-  assignString('lookbackPeriod', data, ['lookback_period', 'lookbackPeriod'])
-  assignString('selectPattern', data, ['system_pattern', 'systemPattern'])
   assignNumber('corrPer', data, ['corr_per', 'corrPer', 'minimum_correlation'])
   assignNumber('tim', data, ['tim', 'time_in_market'])
-  assignNumber('period', data, ['ma', 'period'])
   assignNumber('barsNum', data, ['bars_num', 'barsNum'])
 
+  // 与 Vue2 displayData 对齐：exclude_overlap 后端返回 1/0
+  const excludeOverlap = parseCpmNumber(valueFrom(data, ['exclude_overlap', 'excludeOverlap']))
+  if (excludeOverlap !== null) form.excludeOverlap = excludeOverlap === 1
+
+  // lookback_period 命中预设选项时直接用，否则视为自定义年数（Vue2 的 Custom）
+  const lookbackRaw = valueFrom(data, ['lookback_period', 'lookbackPeriod'])
+  if (lookbackRaw !== undefined) {
+    const lookback = String(lookbackRaw)
+    const preset = lookbackOptions.some((option) => option.value === lookback)
+    form.lookbackPeriod = preset ? lookback : 'Years'
+    const years = parseCpmNumber(lookback)
+    if (years !== null) form.lookbackYears = years
+  }
+
+  // system_pattern 为空 = 用户自选历史区间（Vue2 的 customize_pattern）
+  const patternRaw = valueFrom(data, ['system_pattern', 'systemPattern'])
+  if (patternRaw === undefined) {
+    form.patternSource = 'Historical Pattern'
+    form.selectPattern = 'customize_pattern'
+  } else {
+    form.patternSource = 'Common Pattern'
+    form.selectPattern = String(patternRaw)
+  }
+
+  // ma_condition / ma 为空时回落到默认值（Vue2 默认 None / 200）
   const condition = valueFrom(data, ['ma_condition', 'condition'])
-  if (condition !== undefined && condition !== null && condition !== '') form.condition = String(condition)
-  form.patternSource = form.selectPattern === 'customize_pattern' ? 'Historical Pattern' : 'Common Pattern'
+  form.condition = condition === undefined ? '0' : String(condition)
+  form.period = parseCpmNumber(valueFrom(data, ['ma', 'period'])) ?? 200
 }
 
 function assignString(key: keyof PatternForm, data: Record<string, unknown>, keys: string[]) {
@@ -678,13 +910,6 @@ function valueFrom(data: Record<string, unknown>, keys: string[]) {
   return undefined
 }
 
-function firstPresent(data: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    if (data[key] !== undefined && data[key] !== null) return data[key]
-  }
-  return undefined
-}
-
 function recordFrom(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }
@@ -709,7 +934,8 @@ function rowsFromUnknown(value: unknown): Array<Record<string, unknown>> {
 }
 
 function resultSeries(data: Record<string, unknown>) {
-  return recordFrom(data.result)
+  // 与 Vue2 一致：result 可能是 JSON 字符串
+  return parseCpmJsonRecord(data.result) ?? recordFrom(data.result)
 }
 
 function arrayField(record: Record<string, unknown>, keys: string[]) {
@@ -722,20 +948,21 @@ function arrayField(record: Record<string, unknown>, keys: string[]) {
 
 function buildTradeRows(data: Record<string, unknown>) {
   const result = resultSeries(data)
-  const startDates = arrayField(result, ['Start Date', 'start_date', 'Trade Date'])
+  // Vue2 results/index.vue: TradeDate 取的是 result['End Date'][i]，不是 Start Date
+  const tradeDates = arrayField(result, ['End Date', 'end_date', 'Trade Date'])
   const entryPrices = arrayField(result, ['Symbol Close', 'Entry Price', 'entry_price'])
-  const exitDates = arrayField(result, ['Exit Date', 'End Date', 'exit_date'])
+  const exitDates = arrayField(result, ['Exit Date', 'exit_date'])
   const exitPrices = arrayField(result, ['Exit Price', 'exit_price'])
   const maxGains = arrayField(result, ['Max Gain', 'max_gain'])
   const maxLosses = arrayField(result, ['Max Loss', 'max_loss'])
   const returns = arrayField(result, ['Each Return', 'Return', 'return'])
   const marketConditions = arrayField(result, ['Market Condition', 'market_condition'])
   const correlations = arrayField(result, ['Correlation Percentage', 'correlation_percentage', 'Correlation'])
-  const length = Math.max(startDates.length, exitDates.length, returns.length, correlations.length)
+  const length = Math.max(tradeDates.length, exitDates.length, returns.length, correlations.length)
 
   return Array.from({ length }, (_, index) => ({
     id: index + 1,
-    'Trade Date': startDates[index] ?? '-',
+    'Trade Date': tradeDates[index] ?? '-',
     'Entry Price': entryPrices[index] ?? '-',
     'Exit Date': exitDates[index] ?? '-',
     'Exit Price': exitPrices[index] ?? '-',
@@ -762,6 +989,47 @@ function buildCorrelationRows(data: Record<string, unknown>) {
     'Correlation Percentage': correlations[index] ?? '-',
     Return: returns[index] ?? '-',
   }))
+}
+
+/** Vue2 tim.vue 统计表单元格：数字 toFixed(1)，字符串原样，NaN 不显示 */
+function formatTimeframeStat(value: unknown) {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return Number.isNaN(value) ? '' : parseFloat(String(value)).toFixed(1)
+  return ''
+}
+
+/** Vue2 tim.vue displayData（后定义覆盖前定义的那个版本） */
+function formatHistoryCell(value: unknown) {
+  const numberRegex = /^-?\d+(\.\d+)?$/
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  const text = String(value ?? '')
+  if (numberRegex.test(text) && !isNaN(value as number)) return parseFloat(text).toFixed(1)
+  if (dateRegex.test(text)) return text
+  if (typeof value === 'string') return value
+  return ''
+}
+
+/** Vue2 MaxMin.vue displayData */
+function formatMaxMinCell(value: unknown) {
+  const numberRegex = /^-?\d+(\.\d+)?$/
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  const text = String(value ?? '')
+  if (numberRegex.test(text)) return parseFloat(text).toFixed(1)
+  if (dateRegex.test(text)) return text
+  if (typeof value === 'string') return value
+  return ''
+}
+
+/** Vue2 getCellStyle：负数红字 */
+function negativeCellClass(value: unknown) {
+  const parsed = parseCpmNumber(value)
+  return parsed !== null && parsed < 0 ? 'text-[var(--app-negative)]' : ''
+}
+
+function nestedMaxMin(row: Record<string, unknown>, label: string, field: 'Max Loss' | 'Max Gain') {
+  const cell = row[label]
+  if (!cell || typeof cell !== 'object') return undefined
+  return (cell as Record<string, unknown>)[field]
 }
 
 function tableColumns(rows: Array<Record<string, unknown>>): AppDataTableColumn[] {
@@ -835,13 +1103,32 @@ function toneFromValue(value: unknown): MetricCard['tone'] {
 }
 
 function downloadResults() {
-  const rows = activeResultRows.value as Array<Record<string, unknown>>
-  const columns = activeResultColumns.value
+  const { rows, columns } = exportTable.value
   if (!rows.length || !columns.length) return
   const headers = columns.map((column) => column.label)
   const body = rows.map((row) => columns.map((column) => row[column.key] ?? ''))
   downloadCsv(cpmCsvFilename(`${form.symbol || 'cpm'}-${activeResultTab.value}`, new Date().toISOString().slice(0, 10)), toCsv(headers, body))
 }
+
+function onChartQuotes(snapshot: CpmChartQuoteSnapshot) {
+  chartQuotes.value = snapshot
+}
+
+// 换了符号/周期或重新跑结果时，旧图表的快照不再有效（Vue2 clearResults 会清空 TIM/MaxMin）
+watch(
+  () => [form.symbol, form.timeframe, backtestResult.value],
+  () => {
+    chartQuotes.value = null
+  },
+)
+
+// Vue2 Short Term 只在 Daily 下显示；切到 Weekly/Monthly 时回到 Long Term
+watch(
+  () => form.timeframe,
+  (timeframe) => {
+    if (timeframe !== 'Daily' && activeResultTab.value === 'shortTerm') activeResultTab.value = 'longTerm'
+  },
+)
 
 watch(
   () => [form.startDate, form.endDate],
@@ -917,8 +1204,12 @@ onBeforeUnmount(() => {
     </section>
 
     <section ref="selectPatternElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
-      <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div class="p-4">
+      <!-- 与下方 Match & Backtest Settings 共用同一套 xl 三列网格（同 gap-x-8、同 p-4）：
+           左栏跨前两列，放标题、切换按钮和两行字段（行高随内容，label 紧贴输入框）；
+           右栏（第三列）从卡片顶部起放预览图和按钮，整列高度上下对齐。
+           窄屏时退回单列，预览排在字段之后。 -->
+      <div class="grid gap-y-3 p-4 xl:grid-cols-3 xl:gap-x-8">
+        <div class="min-w-0 xl:col-span-2">
           <h3 class="text-xl font-black text-[var(--app-text)]">Select Pattern</h3>
           <div class="mt-3 grid max-w-md grid-cols-2 overflow-hidden rounded-md border border-[var(--app-primary-hover)] bg-[var(--app-surface)]">
             <button
@@ -939,8 +1230,9 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div class="mt-3 flex flex-wrap items-start gap-x-3 gap-y-2">
-            <label class="grid min-w-44 flex-[3_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+          <!-- 左栏内部两列等宽，正好复现外层网格的前两列，字段框与下方 Settings 逐列对齐 -->
+          <div class="mt-3 grid gap-x-8 gap-y-3 xl:grid-cols-2">
+            <label class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]">
               Symbol
               <SearchSelect
                 v-model="form.symbol"
@@ -950,7 +1242,10 @@ onBeforeUnmount(() => {
                 @select="normalizeSymbol"
               />
             </label>
-            <label class="grid min-w-64 flex-[4_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+            <label
+              v-if="form.patternSource === 'Historical Pattern'"
+              class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]"
+            >
               Date Range
               <span class="flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1">
                 <input v-model="form.startDate" type="date" class="h-9 min-w-28 flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" />
@@ -958,73 +1253,63 @@ onBeforeUnmount(() => {
                 <input v-model="form.endDate" type="date" class="h-9 min-w-28 flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" />
               </span>
             </label>
-            <label class="grid min-w-32 flex-[2_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+            <div
+              v-else
+              class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]"
+            >
+              Common Pattern
+              <details ref="commonPatternMenu" class="group relative min-w-0 text-sm font-semibold text-[var(--app-text)]">
+                <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 outline-none hover:border-[var(--app-primary)] focus-visible:border-[var(--app-primary)] [&::-webkit-details-marker]:hidden">
+                  <span>{{ selectedCommonPattern?.label ?? 'Select pattern' }}</span>
+                  <span class="ml-2 text-[10px] text-[var(--app-text-muted)] transition group-open:rotate-180">▼</span>
+                </summary>
+                <div class="absolute left-0 top-[calc(100%+0.25rem)] z-30 w-full min-w-56 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1 shadow-xl">
+                  <button
+                    v-for="option in commonPatternOptions"
+                    :key="option.value"
+                    class="group/option relative flex w-full items-center rounded px-2.5 py-2 text-left text-sm font-semibold text-[var(--app-text)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)] focus:bg-[var(--app-primary-soft)] focus:text-[var(--app-primary)] focus:outline-none"
+                    :class="option.value === form.selectPattern ? 'bg-[var(--app-surface-soft)]' : ''"
+                    type="button"
+                    @click="selectCommonPattern(option.value)"
+                  >
+                    {{ option.label }}
+                    <span class="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 hidden w-64 -translate-y-1/2 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-3 shadow-xl group-hover/option:block group-focus/option:block">
+                      <img :src="option.thumbnail" :alt="`${option.label} thumbnail`" class="h-36 w-full object-contain" />
+                    </span>
+                  </button>
+                </div>
+              </details>
+            </div>
+            <label class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]">
               Timeframe
               <select v-model="form.timeframe" class="h-9 min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
                 <option v-for="option in timeframeOptions" :key="option" :value="option">{{ option }}</option>
               </select>
             </label>
-            <label
-              v-if="form.patternSource === 'Common Pattern'"
-              class="grid min-w-0 flex-[3_1_0%] gap-1 text-xs font-bold text-[var(--app-text-muted)]"
-            >
-              Common Pattern
-              <select v-model="form.selectPattern" class="h-9 min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
-                <option v-for="option in commonPatternOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-              </select>
-            </label>
-            <button
-              class="mt-5 inline-flex h-9 min-w-36 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-[var(--app-primary)] px-4 text-xs font-extrabold text-white transition hover:bg-[var(--app-primary-hover)]"
-              type="button"
-              @click="fitSelection"
-            >
-              <ZoomIn :size="14" />
-              Fit Selection
-            </button>
-          </div>
-
-          <div class="relative mt-4 overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)]">
-            <CpmPatternPreviewChart :points="chartPoints" value-mode="price" :loading="patternPreviewLoading" :height="310" :overlays="previewMatchOverlays" />
-            <div class="pointer-events-none absolute bottom-9 left-[10%] top-9 w-[88%] border-x-2 border-[var(--app-primary)] bg-[var(--app-primary-soft)]/70">
-              <span class="absolute -left-2 top-[28%] h-4 w-4 -translate-y-1/2 rounded-full bg-[var(--app-primary)] shadow" />
-              <span class="absolute -right-2 top-[20%] h-4 w-4 -translate-y-1/2 rounded-full bg-[var(--app-primary)] shadow" />
+            <div v-if="form.patternSource === 'Historical Pattern'" class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]">
+              Number of Bars
+              <span class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-2.5 text-sm font-extrabold text-[var(--app-text)]">
+                {{ form.barsNum || '-' }}
+              </span>
             </div>
           </div>
         </div>
 
-        <aside class="border-t border-[var(--app-border-muted)] p-4 xl:border-l xl:border-t-0">
-          <h3 class="text-lg font-black text-[var(--app-text)]">Selected Pattern</h3>
-          <dl class="mt-3 divide-y divide-[var(--app-border-muted)] text-sm">
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Symbol</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.symbol || '-' }}</dd>
-            </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Pattern Start Date</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.startDate || '-' }}</dd>
-            </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Pattern End Date</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.endDate || '-' }}</dd>
-            </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Number of Bars</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.barsNum || '-' }}</dd>
-            </div>
-            <div class="grid grid-cols-[1fr_auto] gap-3 py-2">
-              <dt class="font-normal text-[var(--app-text-muted)]">Timeframe</dt>
-              <dd class="font-extrabold text-[var(--app-text)]">{{ form.timeframe }}</dd>
-            </div>
-          </dl>
-
-          <div class="mt-4">
-            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">Normalized Pattern Preview</div>
-            <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
-              <CpmPatternPreviewChart :points="normalizedPreviewPoints" value-mode="normalized" :height="118" />
+        <aside class="flex flex-col gap-3 border-t border-[var(--app-border-muted)] pt-3 xl:col-start-3 xl:row-start-1 xl:border-t-0 xl:pt-0">
+          <div>
+            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">{{ patternPreviewTitle }}</div>
+            <div class="flex h-[220px] items-center justify-center rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
+              <img
+                v-if="form.patternSource === 'Common Pattern' && selectedCommonPattern"
+                :src="selectedCommonPattern.image"
+                :alt="`${selectedCommonPattern.label} pattern`"
+                class="max-h-[204px] w-full object-contain"
+              />
+              <CpmPatternPreviewChart v-else class="w-full" :points="normalizedPreviewPoints" value-mode="normalized" :height="160" />
             </div>
           </div>
 
-          <button class="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-[var(--app-primary)] px-4 text-sm font-extrabold text-white shadow-sm hover:bg-[var(--app-primary-hover)]" type="button" @click="useThisPattern">
+          <button class="mt-auto inline-flex h-10 w-full items-center justify-center rounded-md bg-[var(--app-primary)] px-4 text-sm font-extrabold text-white shadow-sm hover:bg-[var(--app-primary-hover)]" type="button" @click="useThisPattern">
             Use This Pattern
           </button>
         </aside>
@@ -1118,6 +1403,13 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div v-if="backtestLoading" class="mt-4">
+        <div class="h-3 w-full overflow-hidden rounded-full bg-[var(--app-surface-soft)]">
+          <div class="h-full rounded-full bg-[var(--app-primary)] transition-all duration-300" :style="{ width: `${backtestProgress}%` }" />
+        </div>
+        <p v-if="backtestTips" class="mt-2 text-xs font-semibold text-[var(--app-text-muted)]">{{ backtestTips }}</p>
+      </div>
+
       <p v-if="formError" class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{{ formError }}</p>
       <p v-else-if="actionMessage" class="mt-3 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-primary-soft)] px-3 py-2 text-sm font-semibold text-[var(--app-text-secondary)]">{{ actionMessage }}</p>
 
@@ -1130,69 +1422,176 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section ref="resultsElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
-      <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h3 class="text-xl font-black text-[var(--app-text)]">Backtest Results</h3>
-          <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ resultSubtitle }}</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="!activeResultRows.length" @click="downloadResults">
-            <Download :size="14" />
-            Download
-          </button>
-          <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]" type="button" @click="printWorkspace">
-            <Camera :size="14" />
-            Screenshot
-          </button>
-        </div>
-      </div>
+    <section ref="resultsElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
+      <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+        <div class="border-b border-[var(--app-border)] p-4 xl:border-b-0 xl:border-r xl:pr-3">
+          <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h3 class="text-xl font-black text-[var(--app-text)]">Backtest Results</h3>
+              <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ resultSubtitle }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="!exportTable.rows.length" @click="downloadResults">
+                <Download :size="14" />
+                Download
+              </button>
+              <button class="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--app-border)] px-2.5 text-xs font-extrabold text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]" type="button" @click="printWorkspace">
+                <Camera :size="14" />
+                Screenshot
+              </button>
+            </div>
+          </div>
 
-      <div class="grid gap-3 lg:grid-cols-3">
-        <div v-for="card in primaryResultCards" :key="card.label" class="flex min-h-[94px] items-center gap-4 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] px-4 py-3">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--app-primary-soft)] text-[var(--app-primary)]">
-            <component :is="card.icon" :size="22" />
-          </span>
-          <div>
-            <div class="text-sm font-semibold text-[var(--app-text-secondary)]">{{ card.label }}</div>
-            <div class="mt-1 text-3xl font-black leading-none" :class="metricToneClass(card.tone)">{{ card.value }}</div>
+          <div class="grid gap-3 lg:grid-rows-3">
+            <div v-for="card in primaryResultCards" :key="card.label" class="flex min-h-[94px] items-center gap-4 rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] px-4 py-3">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--app-primary-soft)] text-[var(--app-primary)]">
+                <component :is="card.icon" :size="22" />
+              </span>
+              <div>
+                <div class="text-sm font-semibold text-[var(--app-text-secondary)]">{{ card.label }}</div>
+                <div class="mt-1 text-3xl font-black leading-none" :class="metricToneClass(card.tone)">{{ card.value }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 grid gap-0 overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] sm:grid-cols-2 lg:grid-cols-6">
+            <div v-for="stat in secondaryResultStats" :key="stat.label" class="border-b border-[var(--app-border-muted)] px-4 py-2 last:border-b-0 sm:border-r lg:border-b-0">
+              <div class="text-xs font-semibold text-[var(--app-text-muted)]">{{ stat.label }}</div>
+              <div class="mt-1 text-sm font-black" :class="metricToneClass(stat.tone)">{{ stat.value }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 xl:pl-3">
+          <h3 class="text-xl font-black text-[var(--app-text)]">Chart</h3>
+          <!-- ChartIQ 自带边框，外层不再加 border，避免双重边框 -->
+          <div class="mt-3">
+            <CpmPatternChartIQ
+              :symbol="form.symbol"
+              :timeframe="form.timeframe"
+              :start-date="form.startDate"
+              :end-date="form.endDate"
+              :chart-data="backtestResult ? backtestResult.data : null"
+              :preview-result="previewChartResult"
+              :loading="backtestLoading || detailLoading || previewLoading"
+              @bar-distance="onBarDistance"
+              @chart-quotes="onChartQuotes"
+            />
           </div>
         </div>
       </div>
 
-      <div class="mt-3 grid gap-0 overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)] sm:grid-cols-2 lg:grid-cols-6">
-        <div v-for="stat in secondaryResultStats" :key="stat.label" class="border-b border-[var(--app-border-muted)] px-4 py-2 last:border-b-0 sm:border-r lg:border-b-0">
-          <div class="text-xs font-semibold text-[var(--app-text-muted)]">{{ stat.label }}</div>
-          <div class="mt-1 text-sm font-black" :class="metricToneClass(stat.tone)">{{ stat.value }}</div>
-        </div>
-      </div>
+      <div class="border-t border-[var(--app-border)] p-4">
+        <div class="overflow-hidden rounded-md border border-[var(--app-border-muted)]">
+            <div class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border-muted)] bg-[var(--app-surface)] px-2">
+              <button
+                v-for="tab in visibleResultTabs"
+                :key="tab.id"
+                class="h-11 shrink-0 border-b-2 px-3 text-sm font-extrabold"
+                :class="activeResultTab === tab.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
+                type="button"
+                @click="activeResultTab = tab.id"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+            <div class="p-3">
+              <!-- Backtest Statistics / Correlation Info：原有逐笔表格 -->
+              <template v-if="activeResultTab === 'statistics' || activeResultTab === 'correlation'">
+                <AppDataTable
+                  v-if="activeResultColumns.length"
+                  :columns="activeResultColumns"
+                  :rows="activeResultRows"
+                  :loading="detailLoading || backtestLoading"
+                  empty-message="No rows returned for this result tab"
+                />
+                <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                  {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+                </div>
+              </template>
 
-      <div class="mt-4 overflow-hidden rounded-md border border-[var(--app-border-muted)]">
-        <div class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border-muted)] bg-[var(--app-surface)] px-2">
-          <button
-            v-for="tab in resultTabs"
-            :key="tab.id"
-            class="h-11 shrink-0 border-b-2 px-3 text-sm font-extrabold"
-            :class="activeResultTab === tab.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
-            type="button"
-            @click="activeResultTab = tab.id"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-        <div class="p-3">
-          <AppDataTable
-            v-if="activeResultColumns.length"
-            :columns="activeResultColumns"
-            :rows="activeResultRows"
-            :loading="detailLoading || backtestLoading"
-            empty-message="No rows returned for this result tab"
-          />
-          <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
-            {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+              <!-- Multi-Timeframe Results (Long Term) / (Short Term)：Vue2 tim.vue 两张表 -->
+              <template v-else-if="activeResultTab === 'longTerm' || activeResultTab === 'shortTerm'">
+                <template v-if="activeTimeframeReport">
+                  <p class="mb-3 text-xs leading-5 text-[var(--app-text-secondary)]">
+                    The results below provide a multiple timeframe view of the backtest of the indicator and index that you have chosen.
+                    The 'observation period' selected for the backtest is not used for the results below. Instead, we provide a look at
+                    various time-frames from 1-Week to 1-Year of returns.
+                  </p>
+                  <AppDataTable
+                    :columns="timeframeStatsColumns"
+                    :rows="activeTimeframeReport.statsRows"
+                    :hide-header="true"
+                    empty-message="No timeframe statistics"
+                  />
+                  <div class="mt-3">
+                    <AppDataTable
+                      :columns="timeframeHistoryColumns"
+                      :rows="activeTimeframeReport.historyRows"
+                      empty-message="No timeframe history"
+                    />
+                  </div>
+                </template>
+                <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                  {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+                </div>
+              </template>
+
+              <!-- Max Gain and Loss：Vue2 MaxMin.vue 双层表头表格 -->
+              <template v-else-if="activeResultTab === 'maxGainLoss'">
+                <div v-if="maxGainLossRows.length" class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full border-collapse text-[0.8125rem] text-[var(--app-text)]">
+                      <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold text-[var(--app-text)]">
+                        <tr class="border-b border-[var(--app-border)]">
+                          <th rowspan="2" class="box-border px-3 py-2.5 text-center" style="min-width: 150px">
+                            Dates of {{ tradeDates.length }} Signals
+                          </th>
+                          <th
+                            v-for="label in maxGainLossPeriodLabels"
+                            :key="label"
+                            colspan="2"
+                            class="box-border border-l border-[var(--app-border)] px-3 py-2.5 text-center"
+                          >
+                            {{ label.replace('[%]', 'Later [%]') }}
+                          </th>
+                        </tr>
+                        <tr class="border-b border-[var(--app-border)]">
+                          <template v-for="label in maxGainLossPeriodLabels" :key="`${label}-header`">
+                            <th class="box-border border-l border-[var(--app-border)] px-2 py-2.5 text-center text-[var(--app-negative)]" style="min-width: 80px">Max Loss</th>
+                            <th class="box-border px-2 py-2.5 text-center" style="min-width: 80px">Max Gain</th>
+                          </template>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="(row, index) in maxGainLossRows"
+                          :key="String(row.id ?? index)"
+                          class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
+                          :class="index === maxGainLossMeanIndex ? 'border-t-2 border-t-[var(--app-border-strong)]' : ''"
+                        >
+                          <td class="box-border px-3 py-2.5 text-center font-semibold">{{ formatMaxMinCell(row['Dates of Signals']) }}</td>
+                          <template v-for="label in maxGainLossPeriodLabels" :key="`${label}-cell`">
+                            <td class="box-border border-l border-[var(--app-border-muted)] px-2 py-2.5 text-center font-semibold text-[var(--app-negative)]">
+                              {{ formatMaxMinCell(nestedMaxMin(row, label, 'Max Loss')) }}
+                            </td>
+                            <td class="box-border px-2 py-2.5 text-center font-semibold">
+                              {{ formatMaxMinCell(nestedMaxMin(row, label, 'Max Gain')) }}
+                            </td>
+                          </template>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div v-else class="h-48 rounded-md border border-dashed border-[var(--app-border-strong)] bg-[var(--app-surface)] px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">
+                  {{ detailLoading || backtestLoading ? 'Loading result...' : 'No rows returned for this result tab' }}
+                </div>
+              </template>
+            </div>
           </div>
         </div>
-      </div>
+
     </section>
   </div>
 </template>

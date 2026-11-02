@@ -944,7 +944,7 @@ onBeforeUnmount(() => {
  * ═══════════════════════════════════════════════════════════════════ */
 .builder-shell { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:12px; align-items:start; }
 .builder-card { margin-bottom:12px; border:1px solid var(--app-border); border-radius:8px; background:var(--app-surface); padding:14px; }
-.chart-column { position:sticky; top:16px; align-self:start; }
+.chart-column { position:sticky; top:10px; align-self:start; display:grid; gap:10px; }
 .chart-container { overflow:hidden; min-height:680px; }
 .chart-container :deep(.stx_chart_controls) { position:absolute; display:block; left:109px !important; bottom:-36px !important; }
 .progress-track { display:flex; align-items:center; margin:12px 6px; }
@@ -982,7 +982,7 @@ onBeforeUnmount(() => {
 .builder-input { display:block; width:100%; max-width:100%; height:36px; border:1px solid var(--app-border); border-radius:6px; background:var(--app-surface); padding:0 10px; color:var(--app-text); font-size:.8125rem; font-weight:700; outline:none; transition:border-color 160ms ease,box-shadow 160ms ease; box-sizing:border-box; }
 .builder-input:focus { border-color:var(--app-primary); box-shadow:0 0 0 3px var(--app-primary-shadow); }
 .builder-input:disabled { background:var(--app-surface-muted); opacity:0.65; }
-.builder-label { color:var(--app-text-muted); font-size:.75rem; font-weight:700; line-height:1; }
+.builder-shell label { color:var(--app-text-muted); font-size:.75rem; font-weight:700; line-height:1; }
 
 .secondary-button, .primary-button { display:inline-flex; height:38px; align-items:center; justify-content:center; gap:7px; border:1px solid var(--app-border); border-radius:6px; padding:0 16px; color:var(--app-primary); font-size:.8rem; font-weight:850; cursor:pointer; transition:background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
 .secondary-button:hover:not(:disabled) { background:var(--app-primary-soft); border-color:var(--app-primary); }

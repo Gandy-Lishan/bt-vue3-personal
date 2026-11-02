@@ -304,70 +304,77 @@ if (CIQ.ChartEngine) {
 		this.savePanels();
 	};
 
-	/**
-	 * 不可避免要改变容器的高度考虑到高度随新的指标加入会增加
-	 * 而不是setPanelHeight中之前设定的固定高度前提下分配剩余空间
-	 */
-	CIQ.ChartEngine.prototype.prepend("resizeChart", function () {
-		let chartWrapper = document.querySelector(".chart-wrapper");
-		let chartContainer = document.querySelector(".chartContainer");
-		if(!chartWrapper) return
-
-		const studiesLen = Object.keys(this.panels).filter(i=>i!='chart').length
-		const studiesHeight = 			
-			studiesLen <= 0
-			? 0
-			:studiesLen <= 1
-			? 100
-			: studiesLen <= 2
-				? 100
-				// : 80
-				: 100
-		const studiesPanelsSize = studiesLen * studiesHeight
-		// 旧版实测绘图区域：
-		//   0 study：1130×790 → 比例 1.43
-		//   2 study：1130×990 → 比例 1.14
-		// 旧版公式：总高度 = 680 + 110 + studiesPanelsSize（rangeSliderOffSet 实际为 0）
-		// 新版需要按宽度比例缩放总高度，保持视觉比例一致
-		const baseTotalHeight = 680 + 110 + studiesPanelsSize  // 旧版基准总高度
-		const oldWidth = 1130
-		const currentWidth = chartContainer.clientWidth || 1130
-		// 按宽度比例缩放总高度
-		const scaledTotalHeight = Math.round(baseTotalHeight * (currentWidth / oldWidth))
-		// /reports 页面使用窗口高度
-		let chartPanelSize = window.location.pathname=='/reports' ? window.innerHeight - 260 - studiesPanelsSize - 110 : (scaledTotalHeight - 110 - studiesPanelsSize)
-		// TODO 考虑优化
-
-		// 由于chart wrapper高度由代码控制，rangeSlider的高度也应该在显示时被考虑进去
-		let rangeSliderOffSet = 0
-		if(CIQ.stxx?.layout?.rangeSlider) {
-			rangeSliderOffSet = 60
+		/**
+		 * 图表高度模式：
+		 * - dynamic（默认）：study 越多容器越高，每个 study 固定 ~100px，适合需要加载大量指标的页面
+		 * - fixed：容器固定高度，study 在内部重新分配空间，观感稳定
+		 *
+		 * 每个页面可单独配置模式，默认 dynamic
+		 */
+		const PAGE_CHART_CONFIGS = {
+			// 格式: { height: number|null, mode: "dynamic"|"fixed" }
+			// height: 基准图表高度（不含 toolbar 110px 和 studies），null = 使用窗口高度
+			// mode: dynamic = study 外部追加（越高越高），fixed = study 内部分配（固定高度）
+			'/reports': { height: null, mode: 'fixed' },
+			'/my-stuff/indicators/new': { height: 587, mode: 'fixed' },
+			'/my-stuff/indicators/new-v2': { height: 680, mode: 'fixed' },
+			'/my-stuff/indicators/edit': { height: 680, mode: 'fixed' },
+			'/scannerai/scannerai_chart': { height: 680, mode: 'fixed' },
+			'/cpm/results': { height: 307, mode: 'fixed' },
 		}
-		if(CIQ.stxx && CIQ.stxx.fullScreen.fullScreenState){
-			requestAnimationFrame(() => {
-				chartWrapper.style.height = '100%'
-				chartContainer.style.height = (chartWrapper.clientHeight - 110 - rangeSliderOffSet) + "px";
-				chartWrapper.style.resize = 'none'
-			})
-		}else{
-			// 正常添加指標時總高度按照 chartPanelSize + toolbar + studies 来算（和旧版一致，不加 rangeSliderOffSet）
-			if(!CIQ.isResizing){
-				requestAnimationFrame(() => {
-					chartWrapper.style.height = (chartPanelSize + 110 + studiesPanelsSize) + "px";
-					chartContainer.style.height = (chartWrapper.clientHeight - 110) + "px";
-				})
-			}else{
-				if(!chartWrapper.clientHeight) {
-					requestAnimationFrame(() => {
-						chartWrapper.style.height = (chartPanelSize + 110 + studiesPanelsSize) + "px";
-					})
-				}
-				requestAnimationFrame(() => {
-					chartContainer.style.height = (chartWrapper.clientHeight - 110) + "px";
-				})
+
+		/** 默认配置：未在 PAGE_CHART_CONFIGS 中配置的页面使用此默认值 */
+		const DEFAULT_CHART_CONFIG = { height: 680, mode: 'fixed' }
+
+		/** 获取当前页面的图表配置 */
+		function getPageChartConfig() {
+			const currentPath = window.location.pathname
+			const pageConfig = PAGE_CHART_CONFIGS[currentPath]
+			if (!pageConfig) return DEFAULT_CHART_CONFIG
+			return { ...DEFAULT_CHART_CONFIG, ...pageConfig }
+		}
+
+		CIQ.ChartEngine.prototype.prepend("resizeChart", function () {
+
+			let chartWrapper = document.querySelector(".chart-wrapper");
+			let chartContainer = document.querySelector(".chartContainer");
+			if(!chartWrapper) return
+
+			const studiesLen = Object.keys(this.panels).filter(i=>i!='chart').length
+
+			// 获取当前页面配置
+			const config = getPageChartConfig()
+			const { height: baseChartHeight, mode } = config
+
+			let chartPanelSize
+			let scaledTotalHeight
+
+			if (baseChartHeight === null) {
+				// /reports 等页面：使用窗口高度
+				const studiesPanelsSize = studiesLen * 100
+				chartPanelSize = window.innerHeight - 260 - studiesPanelsSize - 110
+				scaledTotalHeight = chartPanelSize + 110 + studiesPanelsSize
+			} else if (mode === 'fixed') {
+				// fixed 模式：容器固定高度，study 在内部通过 setPanelHeight 重新分配
+				scaledTotalHeight = baseChartHeight + 110
+				chartPanelSize = baseChartHeight
+			} else {
+				// dynamic 模式（默认）：study 越多容器越高
+				const studiesHeight =
+					studiesLen <= 0
+					? 0
+					:studiesLen <= 1
+					? 100
+					: studiesLen <= 2
+						? 100
+						// : 80
+						: 100
+				const studiesPanelsSize = studiesLen * studiesHeight
+				scaledTotalHeight = baseChartHeight + 110 + studiesPanelsSize
+				chartPanelSize = baseChartHeight
 			}
-		}
-
+			// 动态设置 wrapper 高度
+			chartWrapper.style.height = scaledTotalHeight + "px"
 		this.setPanelHeight(this.panels.chart, chartPanelSize);
 	})
 	CIQ.ChartEngine.prototype.dualSymbolCalculationErrorWatermark = function (

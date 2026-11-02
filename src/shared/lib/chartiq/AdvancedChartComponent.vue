@@ -58,6 +58,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'chart-initialized': [data: { chartEngine: unknown; uiContext: unknown; config: Record<string, unknown> }]
+  /** 外部 symbol prop 变化并完成一次 changeSymbol 后触发（附加事件，不影响其他页面） */
+  'symbol-loaded': [symbol: string]
 }>()
 
 const route = useRoute()
@@ -443,10 +445,10 @@ watch(
     if (!newSymbol || newSymbol === oldSymbol) return
     const uiContext = uiContextRef.value as any
     if (uiContext?.changeSymbol) {
-      uiContext.changeSymbol({ symbol: newSymbol })
+      uiContext.changeSymbol({ symbol: newSymbol }, () => emit('symbol-loaded', String(newSymbol)))
     } else if (CIQ.stxx) {
       // Fallback if the uiContext isn't available yet
-      CIQ.stxx.loadChart({ symbol: newSymbol })
+      CIQ.stxx.loadChart({ symbol: newSymbol }, () => emit('symbol-loaded', String(newSymbol)))
     }
   },
 )
@@ -1143,7 +1145,7 @@ onBeforeUnmount(() => {
 .chart-wrapper {
   position: relative;
   width: 100%;
-  height: 680px;
+  /* height: 680px; */
   resize: auto;
   overflow: hidden;
 }

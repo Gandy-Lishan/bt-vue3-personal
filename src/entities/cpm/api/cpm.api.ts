@@ -72,7 +72,11 @@ function normalizeCpmJobResponse(payload: unknown): CpmJobResponse {
   const record = recordFromPayload(payload)
   const data = recordFromPayload(record.data)
   const code = Number(record.code ?? data.code)
-  const url = String(record.url ?? data.url ?? '')
+  // preview_pattern 的 POST 返回 { code: 201, data: "<轮询 url>" }，URL 藏在字符串型 data 里
+  const stringData = typeof record.data === 'string' ? record.data.trim() : ''
+  const dataIsJson = stringData.startsWith('{') || stringData.startsWith('[')
+  const urlFromStringData = stringData && !dataIsJson ? stringData : ''
+  const url = String(record.url || data.url || urlFromStringData)
   const status = String(record.status ?? data.status ?? '')
   const message = String(record.message ?? record.detail ?? data.message ?? data.detail ?? '')
 

@@ -1,0 +1,29 @@
+<svg width="740" height="319" viewBox="0 0 740 319" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M29.2422 271.957L67.5993 247.975L105.956 210.668L144.313 229.321L182.671 242.645L221.028 194.679L259.385 168.032L297.742 189.35L336.099 194.679L374.456 162.702L412.813 125.396L451.17 106.743L489.527 152.043L527.884 157.373L566.241 141.384L604.599 104.078L642.956 58.7769L681.313 64.1064L719.67 45.4531V277.287H29.2422V271.957Z" fill="url(#paint0_linear_16609_2147)"/>
+<path d="M29.2422 271.957L67.5993 247.975L105.956 210.668L144.313 229.321L182.671 242.645L221.028 194.679L259.385 168.032L297.742 189.35L336.099 194.679L374.456 162.702L412.813 125.396L451.17 106.743L489.527 152.043L527.884 157.373L566.241 141.384L604.599 104.078L642.956 58.7769L681.313 64.1064L719.67 45.4531" stroke="#2563EB" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="29.2422" cy="271.957" r="3" fill="#2563EB"/>
+<circle cx="67.6016" cy="247.977" r="3" fill="#2563EB"/>
+<circle cx="105.953" cy="210.668" r="3" fill="#2563EB"/>
+<circle cx="144.312" cy="229.32" r="3" fill="#2563EB"/>
+<circle cx="182.672" cy="242.645" r="3" fill="#2563EB"/>
+<circle cx="221.031" cy="194.68" r="3" fill="#2563EB"/>
+<circle cx="259.383" cy="168.031" r="3" fill="#2563EB"/>
+<circle cx="297.742" cy="189.352" r="3" fill="#2563EB"/>
+<circle cx="336.102" cy="194.68" r="3" fill="#2563EB"/>
+<circle cx="374.453" cy="162.703" r="3" fill="#2563EB"/>
+<circle cx="412.812" cy="125.398" r="3" fill="#2563EB"/>
+<circle cx="451.172" cy="106.742" r="3" fill="#2563EB"/>
+<circle cx="489.523" cy="152.043" r="3" fill="#2563EB"/>
+<circle cx="527.883" cy="157.375" r="3" fill="#2563EB"/>
+<circle cx="566.242" cy="141.383" r="3" fill="#2563EB"/>
+<circle cx="604.602" cy="104.078" r="3" fill="#2563EB"/>
+<circle cx="642.953" cy="58.7773" r="3" fill="#2563EB"/>
+<circle cx="681.312" cy="64.1055" r="3" fill="#2563EB"/>
+<circle cx="719.672" cy="45.4531" r="3" fill="#2563EB"/>
+<defs>
+<linearGradient id="paint0_linear_16609_2147" x1="400.024" y1="123.599" x2="402.814" y2="268.821" gradientUnits="userSpaceOnUse">
+<stop offset="0.248599" stop-color="#64A2FF" stop-opacity="0.12"/>
+<stop offset="1" stop-color="#64A2FF" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>

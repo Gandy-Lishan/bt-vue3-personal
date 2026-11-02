@@ -34,27 +34,18 @@ import type {
 } from '@/entities/cpm/model/cpm.types'
 import type { IndicatorTableColumnKind } from '@/entities/indicator/model/indicator.table'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
-import { useTheme } from '@/shared/theme/theme'
 import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
 import type { ListExplorerViewMode } from '@/shared/ui/list-page.types'
 import { useSortedPagedRows } from '@/pages/indicators/composables/useSortedPagedRows'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
-import ascendingChannelImage from '@/assets/patterns/ascending_channel.png'
-import ascendingChannelImageDark from '@/assets/patterns/ascending_channel_dark.png'
-import descendingChannelImage from '@/assets/patterns/descending_channel.png'
-import descendingChannelImageDark from '@/assets/patterns/descending_channel_dark.png'
-import doubleBottomImage from '@/assets/patterns/double_bottom.png'
-import doubleBottomImageDark from '@/assets/patterns/double_bottom_dark.png'
-import doubleTopImage from '@/assets/patterns/double_top.png'
-import doubleTopImageDark from '@/assets/patterns/double_top_dark.png'
-import headAndShoulderBottomImage from '@/assets/patterns/head_and_shoulder_bottom.png'
-import headAndShoulderBottomImageDark from '@/assets/patterns/head_and_shoulder_bottom_dark.png'
-import headAndShoulderTopImage from '@/assets/patterns/head_and_shoulder_top.png'
-import headAndShoulderTopImageDark from '@/assets/patterns/head_and_shoulder_top_dark.png'
-import roundingBottomImage from '@/assets/patterns/rounding_bottom.png'
-import roundingBottomImageDark from '@/assets/patterns/rounding_bottom_dark.png'
-import tripleTapImage from '@/assets/patterns/triple_tap.png'
-import tripleTapImageDark from '@/assets/patterns/triple_tap_dark.png'
+import ascendingChannelImage from '@/assets/patterns/ascending_channel_svg.svg'
+import descendingChannelImage from '@/assets/patterns/descending_channel_svg.svg'
+import doubleBottomImage from '@/assets/patterns/double_bottom_svg.svg'
+import doubleTopImage from '@/assets/patterns/double_top_svg.svg'
+import headAndShoulderBottomImage from '@/assets/patterns/head_and_shoulder_bottom_svg.svg'
+import headAndShoulderTopImage from '@/assets/patterns/head_and_shoulder_top_svg.svg'
+import roundingBottomImage from '@/assets/patterns/rounding_bottom_svg.svg'
+import tripleTapImage from '@/assets/patterns/triple_tap_svg.svg'
 import CpmBacktestCardGrid from './ui/CpmBacktestCardGrid.vue'
 import CpmBacktestTable from './ui/CpmBacktestTable.vue'
 import CpmPatternWorkspace from './ui/CpmPatternWorkspace.vue'
@@ -73,12 +64,10 @@ type SystemPatternOption = {
   value: string
   label: string
   image: string
-  imageDark: string
 }
 
 const route = useRoute()
 const router = useRouter()
-const { isDarkTheme } = useTheme()
 const rows = ref<CpmBacktestRow[]>([])
 const apiTotal = ref(0)
 const loading = ref(false)
@@ -145,14 +134,14 @@ const resultsConfig: SectionConfig = {
 }
 
 const systemPatternOptions: SystemPatternOption[] = [
-  { value: 'triple_tap', label: 'Triple Tap', image: tripleTapImage, imageDark: tripleTapImageDark },
-  { value: 'rounding_bottom', label: 'Rounding Bottom', image: roundingBottomImage, imageDark: roundingBottomImageDark },
-  { value: 'descending_channel', label: 'Descending Channel', image: descendingChannelImage, imageDark: descendingChannelImageDark },
-  { value: 'ascending_channel', label: 'Ascending Channel', image: ascendingChannelImage, imageDark: ascendingChannelImageDark },
-  { value: 'head_and_shoulder_bottom', label: 'Head and Shoulders Bottom', image: headAndShoulderBottomImage, imageDark: headAndShoulderBottomImageDark },
-  { value: 'head_and_shoulder_top', label: 'Head and Shoulders Top', image: headAndShoulderTopImage, imageDark: headAndShoulderTopImageDark },
-  { value: 'double_bottom', label: 'Double Bottom', image: doubleBottomImage, imageDark: doubleBottomImageDark },
-  { value: 'double_top', label: 'Double Top', image: doubleTopImage, imageDark: doubleTopImageDark },
+  { value: 'triple_tap', label: 'Triple Tap', image: tripleTapImage },
+  { value: 'rounding_bottom', label: 'Rounding Bottom', image: roundingBottomImage },
+  { value: 'descending_channel', label: 'Descending Channel', image: descendingChannelImage },
+  { value: 'ascending_channel', label: 'Ascending Channel', image: ascendingChannelImage },
+  { value: 'head_and_shoulder_bottom', label: 'Head and Shoulders Bottom', image: headAndShoulderBottomImage },
+  { value: 'head_and_shoulder_top', label: 'Head and Shoulders Top', image: headAndShoulderTopImage },
+  { value: 'double_bottom', label: 'Double Bottom', image: doubleBottomImage },
+  { value: 'double_top', label: 'Double Top', image: doubleTopImage },
 ]
 
 const activeSection = computed<CpmSectionKey>(() => {
@@ -208,10 +197,10 @@ const previewIsCommonPattern = computed(() => Boolean(previewSystemPatternOption
 const previewPatternImage = computed(() => {
   const option = previewSystemPatternOption.value
   if (!option) return ''
-  return isDarkTheme.value ? option.imageDark : option.image
+  return option.image
 })
 const cardPatternImages = computed(() =>
-  Object.fromEntries(systemPatternOptions.map((option) => [option.value, isDarkTheme.value ? option.imageDark : option.image])),
+  Object.fromEntries(systemPatternOptions.map((option) => [option.value, option.image])),
 )
 const cardPatternLabels = computed(() =>
   Object.fromEntries(systemPatternOptions.map((option) => [option.value, option.label])),
