@@ -6,6 +6,8 @@ const props = defineProps<{
   pageCount: number
   total: number
   itemLabel: string
+  /** 窄容器（分栏列表列）使用单列布局，避免三栏最小宽度溢出 */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -88,7 +90,7 @@ function goToRequestedPage() {
 </script>
 
 <template>
-  <nav class="indicator-pagination" aria-label="Pagination">
+  <nav class="indicator-pagination" :class="{ 'indicator-pagination--compact': props.compact }" aria-label="Pagination">
     <form class="indicator-pagination__jump" @submit.prevent="goToRequestedPage">
       <span>Go to</span>
       <input
@@ -226,5 +228,17 @@ function goToRequestedPage() {
     justify-self: start;
     flex-wrap: wrap;
   }
+}
+
+/* 分栏列表列比 1024px 断点窄，但视口仍是大屏，需要容器级 opt-in */
+.indicator-pagination--compact {
+  grid-template-columns: 1fr;
+}
+
+.indicator-pagination--compact .indicator-pagination__jump,
+.indicator-pagination--compact .indicator-pagination__pages,
+.indicator-pagination--compact .indicator-pagination__status {
+  justify-self: start;
+  flex-wrap: wrap;
 }
 </style>

@@ -10,15 +10,20 @@ const props = withDefaults(defineProps<{
   loading?: boolean
   sortKey?: ActiveStudySortKey | ''
   sortDirection?: IndicatorSortDirection
+  /** 分栏窄列使用的紧凑列宽 */
+  dense?: boolean
 }>(), {
   loading: false,
   sortKey: '',
   sortDirection: 'asc',
+  dense: false,
 })
 
 defineEmits<{ sort: [key: ActiveStudySortKey] }>()
 
-const columns: Array<{ key: ActiveStudySortKey; label: string; minWidth: number; align?: 'center' }> = [
+type ActiveStudyColumn = { key: ActiveStudySortKey; label: string; minWidth: number; align?: 'center' }
+
+const defaultColumns: ActiveStudyColumn[] = [
   { key: 'date', label: 'Date', minWidth: 130 },
   { key: 'title', label: 'Study Title', minWidth: 420 },
   { key: 'market', label: 'Market', minWidth: 140 },
@@ -26,7 +31,18 @@ const columns: Array<{ key: ActiveStudySortKey; label: string; minWidth: number;
   { key: 'timeframe', label: 'Timeframe', minWidth: 150 },
 ]
 
-const tableColspan = computed(() => columns.length)
+const denseColumns: ActiveStudyColumn[] = [
+  { key: 'date', label: 'Date', minWidth: 88 },
+  { key: 'title', label: 'Study Title', minWidth: 150 },
+  { key: 'market', label: 'Market', minWidth: 72 },
+  { key: 'forecast', label: 'Forecast', minWidth: 48, align: 'center' },
+  { key: 'timeframe', label: 'Timeframe', minWidth: 96 },
+]
+
+const columns = computed(() => (props.dense ? denseColumns : defaultColumns))
+const cellPadding = computed(() => (props.dense ? 'px-1.5' : 'px-3'))
+
+const tableColspan = computed(() => columns.value.length)
 
 function sortIcon(key: ActiveStudySortKey) {
   if (props.sortKey !== key) return ArrowUpDown
@@ -58,8 +74,8 @@ function forecastClass(forecast: string) {
               v-for="column in columns"
               :key="column.key"
               scope="col"
-              class="box-border px-3 py-2.5"
-              :class="column.align === 'center' ? 'text-center' : 'text-left'"
+              class="box-border py-2.5"
+              :class="[cellPadding, column.align === 'center' ? 'text-center' : 'text-left']"
               :style="{ minWidth: `calc(${column.minWidth}px * var(--fixed-ui-scale, 1))` }"
               :aria-sort="props.sortKey === column.key ? (props.sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
             >
@@ -95,22 +111,22 @@ function forecastClass(forecast: string) {
             :key="row.id"
             class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
           >
-            <td class="whitespace-nowrap px-3 py-3 font-semibold text-[var(--app-text-secondary)]">{{ row.date || '—' }}</td>
-            <td class="px-3 py-3">
+            <td class="whitespace-nowrap py-3 font-semibold text-[var(--app-text-secondary)]" :class="cellPadding">{{ row.date || '—' }}</td>
+            <td class="break-words py-3" :class="cellPadding">
               <a
                 v-if="row.href"
                 :href="row.href"
-                class="group inline-flex items-center gap-1.5 font-extrabold text-[var(--app-primary)] hover:underline"
+                class="group inline-flex max-w-full items-center gap-1.5 font-extrabold text-[var(--app-primary)] hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 {{ row.title }}
-                <ArrowRight :size="14" class="opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+                <ArrowRight :size="14" class="shrink-0 opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
               </a>
               <span v-else class="font-extrabold">{{ row.title }}</span>
             </td>
-            <td class="px-3 py-3 font-semibold uppercase">{{ row.market }}</td>
-            <td class="px-3 py-3 text-center">
+            <td class="py-3 font-semibold uppercase" :class="cellPadding">{{ row.market }}</td>
+            <td class="py-3 text-center" :class="cellPadding">
               <span
                 class="inline-flex items-center justify-center"
                 :class="forecastClass(row.forecast)"
@@ -119,7 +135,7 @@ function forecastClass(forecast: string) {
                 <component :is="forecastIcon(row.forecast)" :size="17" aria-hidden="true" />
               </span>
             </td>
-            <td class="whitespace-nowrap px-3 py-3 font-semibold">{{ activeStudyTimeframeLabel(row.timeframe) || '—' }}</td>
+            <td class="whitespace-nowrap py-3 font-semibold" :class="cellPadding">{{ activeStudyTimeframeLabel(row.timeframe) || '—' }}</td>
           </tr>
         </tbody>
       </table>

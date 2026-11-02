@@ -1,6 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { installRouterPermissionGuard } from '@/shared/auth/permission'
 
+/**
+ * 【照搬旧版 router/permission.js initiateList('ActiveStudies')】
+ * 进入该路由时预取 forecast 品种列表，供 cq-reports-lookup 的 SYMBOLS 页签使用。
+ * 预取失败不应阻断页面：lookup 仍可打开（列表为空，刷新后重试）。
+ */
+async function preloadActiveStudiesForecast() {
+  const { useChartIQStore } = await import('@/entities/chartiq/model/chartiq.store')
+  const chartIQStore = useChartIQStore()
+  if (!chartIQStore.symbollistForecast.length) {
+    await chartIQStore.get_symbollist_forecast().catch((error: unknown) => {
+      console.warn('[router] preload symbollistForecast failed', error)
+    })
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -43,18 +58,8 @@ const router = createRouter({
       path: '/MR/active_studies',
       name: 'active-studies',
       component: () => import('@/pages/reports/ActiveStudiesPage.vue'),
-      // 【照搬旧版 router/permission.js initiateList('ActiveStudies')】
-      // 旧版进入该路由时预取 forecast 品种列表，供 cq-reports-lookup 的 SYMBOLS 页签使用
-      async beforeEnter() {
-        const { useChartIQStore } = await import('@/entities/chartiq/model/chartiq.store')
-        const chartIQStore = useChartIQStore()
-        if (!chartIQStore.symbollistForecast.length) {
-          // 预取失败不应阻断页面：lookup 仍可打开（列表为空，刷新后重试）
-          await chartIQStore.get_symbollist_forecast().catch((error: unknown) => {
-            console.warn('[router] preload symbollistForecast failed', error)
-          })
-        }
-      },
+      props: { layout: 'list-left' },
+      beforeEnter: preloadActiveStudiesForecast,
     },
     {
       path: '/MR/minutes',

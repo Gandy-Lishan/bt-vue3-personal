@@ -10,6 +10,13 @@ import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
 import ActiveStudiesTable from './ui/ActiveStudiesTable.vue'
 import ActiveStudiesChartIQ from './ui/ActiveStudiesChartIQ.vue'
 
+const props = withDefaults(defineProps<{
+  /** stacked：现有上下堆叠；chart-left / list-left：两条分栏对比路由 */
+  layout?: 'stacked' | 'chart-left' | 'list-left'
+}>(), { layout: 'stacked' })
+
+const isStacked = computed(() => props.layout === 'stacked')
+
 const PAGE_SIZE = 25
 const emptySummary: ActiveStudySummary = {
   shortTermBullish: 0,
@@ -121,7 +128,7 @@ onBeforeUnmount(() => requestController?.abort())
       </span>
     </template>
 
-    <template #hero>
+    <template v-if="isStacked" #hero>
       <div class="border-b border-[var(--app-border)] px-4 py-4">
         <ActiveStudiesChartIQ />
       </div>
@@ -153,17 +160,59 @@ onBeforeUnmount(() => requestController?.abort())
       <p class="mt-1 text-sm text-[var(--app-text-muted)]">{{ loadError }}</p>
       <button class="mt-4 rounded-md bg-[var(--app-primary)] px-4 py-2 text-sm font-bold text-white" type="button" @click="loadActiveStudies">Try again</button>
     </div>
+    <template v-else-if="isStacked">
+      <div class="px-4 py-4">
+        <ActiveStudiesTable
+          :rows="table.pagedRows.value"
+          :loading="loading"
+          :sort-key="table.sortKey.value as ActiveStudySortKey | ''"
+          :sort-direction="table.sortDirection.value"
+          @sort="handleSort"
+        />
+      </div>
+    </template>
+
     <div v-else class="px-4 py-4">
-      <ActiveStudiesTable
-        :rows="table.pagedRows.value"
-        :loading="loading"
-        :sort-key="table.sortKey.value as ActiveStudySortKey | ''"
-        :sort-direction="table.sortDirection.value"
-        @sort="handleSort"
-      />
+      <div
+        class="grid grid-cols-1 gap-4 xl:items-start"
+        :class="layout === 'chart-left'
+          ? 'xl:grid-cols-[minmax(650px,55fr)_minmax(0,45fr)]'
+          : 'xl:grid-cols-[minmax(0,45fr)_minmax(650px,55fr)]'"
+      >
+        <!-- DOM 顺序始终是图表在前，list-left 只靠 order 换位，两条分栏路由之间切换不会重挂图表 -->
+        <div
+          class="active-studies-chart-pane min-w-0"
+          :class="layout === 'chart-left'
+            ? 'xl:order-1'
+            : 'xl:order-2 xl:sticky xl:top-2 xl:self-start'"
+        >
+          <ActiveStudiesChartIQ />
+        </div>
+
+        <div class="min-w-0" :class="layout === 'list-left' ? 'xl:order-1' : 'xl:order-2'">
+          <ActiveStudiesTable
+            dense
+            :rows="table.pagedRows.value"
+            :loading="loading"
+            :sort-key="table.sortKey.value as ActiveStudySortKey | ''"
+            :sort-direction="table.sortDirection.value"
+            @sort="handleSort"
+          />
+          <div v-if="!loading" class="mt-3 border-t border-[var(--app-border)] pt-3">
+            <IndicatorPagination
+              compact
+              :page="table.page.value"
+              :page-count="table.pageCount.value"
+              :total="table.sortedRows.value.length"
+              item-label="studies"
+              @change="table.setPage"
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
-    <template v-if="!loadError && !loading" #footer>
+    <template v-if="isStacked && !loadError && !loading" #footer>
       <IndicatorPagination
         :page="table.page.value"
         :page-count="table.pageCount.value"
@@ -203,4 +252,46 @@ onBeforeUnmount(() => requestController?.abort())
     </template>
   </ListExplorerPage>
 </template>
+
+<style scoped>
+/* 分栏后图表列只有 ~650px，ChartIQ 顶部工具栏（三个 193px 的 ReportsFilter + lookup）会溢出，
+   在分栏容器内压缩工具栏：缩小下拉、隐藏 Chart Preferences 齿轮和次要的 +N chip。 */
+@media (min-width: 1280px) {
+  .active-studies-chart-pane :deep(.ciq-menu-section) {
+    display: none;
+  }
+
+  .active-studies-chart-pane :deep(.reports-filter) {
+    padding-left: 6px;
+  }
+
+  .active-studies-chart-pane :deep(.reports-filter .reports-filter__select) {
+    width: 120px;
+  }
+
+  .active-studies-chart-pane :deep(.reports-filter__tags) {
+    max-width: 88px;
+    overflow: hidden;
+  }
+
+  .active-studies-chart-pane :deep(.reports-filter__tag) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* chip 变窄后关闭按钮会被 flex 压缩成椭圆，固定宽度保持圆形 × */
+  .active-studies-chart-pane :deep(.reports-filter__tag-close) {
+    flex: none;
+  }
+
+  .active-studies-chart-pane :deep(.reports-filter__tag-text) {
+    min-width: 0;
+  }
+
+  /* 窄列里第二个 chip（+N 计数）会被裁掉一半，直接隐藏 */
+  .active-studies-chart-pane :deep(.reports-filter__tag + .reports-filter__tag) {
+    display: none;
+  }
+}
+</style>
 
