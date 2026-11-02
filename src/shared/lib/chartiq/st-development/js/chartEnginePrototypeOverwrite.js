@@ -320,7 +320,7 @@ if (CIQ.ChartEngine) {
 			'/my-stuff/indicators/new-v2': { height: 680, mode: 'fixed' },
 			'/my-stuff/indicators/edit': { height: 680, mode: 'fixed' },
 			'/scannerai/scannerai_chart': { height: 680, mode: 'fixed' },
-			'/cpm/results': { height: 307, mode: 'fixed' },
+			'/cpm/results': { height: 370, mode: 'fixed' },
 		}
 
 		/** 默认配置：未在 PAGE_CHART_CONFIGS 中配置的页面使用此默认值 */

@@ -1374,7 +1374,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section ref="resultsElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
+    <section ref="resultsElement" class="mt-3 overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
       <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
         <div class="border-b border-[var(--app-border)] p-4 xl:border-b-0 xl:border-r xl:pr-3">
           <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1414,23 +1414,17 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="p-4 xl:pl-3">
-          <h3 class="text-xl font-black text-[var(--app-text)]">Chart</h3>
-          <!-- ChartIQ 自带边框，外层不再加 border，避免双重边框 -->
-          <div class="mt-3">
-            <CpmPatternChartIQ
-              :symbol="form.symbol"
-              :timeframe="form.timeframe"
-              :start-date="form.startDate"
-              :end-date="form.endDate"
-              :chart-data="backtestResult ? backtestResult.data : null"
-              :preview-result="previewChartResult"
-              :loading="backtestLoading || detailLoading || previewLoading"
-              @bar-distance="onBarDistance"
-              @chart-quotes="onChartQuotes"
-            />
-          </div>
-        </div>
+        <CpmPatternChartIQ
+          :symbol="form.symbol"
+          :timeframe="form.timeframe"
+          :start-date="form.startDate"
+          :end-date="form.endDate"
+          :chart-data="backtestResult ? backtestResult.data : null"
+          :preview-result="previewChartResult"
+          :loading="backtestLoading || detailLoading || previewLoading"
+          @bar-distance="onBarDistance"
+          @chart-quotes="onChartQuotes"
+        />
       </div>
 
       <div class="border-t border-[var(--app-border)] p-4">

@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
 <template>
   <!-- 图表始终挂载，加载中只显示同一个遮罩（不再用占位块替换），
        避免出现两套覆盖范围/触发条件不同的加载层，也避免 backtest 结束后图表重建闪烁 -->
-  <div class="relative w-full">
+  <div class="cpm-chartiq relative w-full">
     <ChartIQEngine
       :symbol="props.symbol"
       :restore="false"
@@ -315,5 +315,11 @@ onBeforeUnmount(() => {
    遮罩会溢出到下方结果表格上、看起来像多了一层，这里限制为图表容器本身的高度 */
 .progress-container {
   min-height: 0 !important;
+}
+
+/* CPM 结果卡片已经提供外边框，ChartIQ 自带的 cq-context 边框会与卡片边框重叠成双层，这里去掉 */
+.cpm-chartiq :deep(cq-context) {
+  border: 0;
+  border-radius: 0;
 }
 </style>
