@@ -8,6 +8,7 @@ import { useSortedPagedRows } from '@/pages/indicators/composables/useSortedPage
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
 import ListExplorerPage from '@/shared/ui/ListExplorerPage.vue'
 import ActiveStudiesTable from './ui/ActiveStudiesTable.vue'
+import ActiveStudiesChartIQ from './ui/ActiveStudiesChartIQ.vue'
 
 const PAGE_SIZE = 25
 const emptySummary: ActiveStudySummary = {
@@ -118,6 +119,12 @@ onBeforeUnmount(() => requestController?.abort())
         <span class="font-extrabold text-[var(--app-positive)]">↑ {{ item.bullish }}</span>
         <span class="font-extrabold text-[var(--app-negative)]">↓ {{ item.bearish }}</span>
       </span>
+    </template>
+
+    <template #hero>
+      <div class="border-b border-[var(--app-border)] px-4 py-4">
+        <ActiveStudiesChartIQ />
+      </div>
     </template>
 
     <template #filters>

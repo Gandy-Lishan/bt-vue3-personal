@@ -22,6 +22,7 @@ defineProps<{
       </div>
     </header>
 
+    <slot name="hero" />
     <slot name="tabs" />
     <slot name="filters" />
     <slot name="notice" />

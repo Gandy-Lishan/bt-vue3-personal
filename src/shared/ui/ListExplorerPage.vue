@@ -79,6 +79,9 @@ const isMobileFiltersOpen = ref(false)
           <template v-if="$slots.summary" #summary>
             <slot name="summary" />
           </template>
+          <template v-if="$slots.hero" #hero>
+            <slot name="hero" />
+          </template>
           <template v-if="$slots.tabs" #tabs>
             <slot name="tabs" />
           </template>

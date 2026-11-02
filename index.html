@@ -9,6 +9,12 @@
     <meta name="theme-color" content="#006cff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#030915" media="(prefers-color-scheme: dark)" />
     <link href="https://js.recurly.com/v4/recurly.css" rel="stylesheet">
+    <!-- ChartIQ 样式依赖这组字体（原版通过 ST-chartiq.css 顶部 @import 加载，
+         Vite/Tailwind 处理 CSS 时会丢弃外部 URL @import，这里用 link 保留） -->
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:400,700,500,100,300,400italic|Roboto+Condensed:400,700,300|PT+Sans+Narrow:400,700"
+      rel="stylesheet"
+    >
     <script src="https://js.recurly.com/v4/recurly.js"></script>
     <title>backtestedge-ui-vue3</title>
   </head>
