@@ -339,6 +339,10 @@ onBeforeUnmount(() => controller?.abort())
   <main class="dashboard-page">
     <div class="dashboard-shell">
       <section class="content">
+        <header class="dashboard-view-notice">
+          <div><strong>My Dashboard</strong><span>Your personalized signals, lists and saved research.</span></div>
+          <RouterLink to="/">Switch to Classic Dashboard</RouterLink>
+        </header>
         <header class="page-heading">
           <div><h1>Your dashboard</h1><p>Your signals, watchlists and market tools at a glance.</p></div>
           <div class="heading-actions"><span v-if="dashboardDate">Data current as of {{ date(dashboardDate) }}</span><button type="button" :disabled="loading" @click="load"><RefreshCw :size="16" />{{ loading ? 'Loading…' : 'Refresh' }}</button></div>
@@ -481,6 +485,12 @@ onBeforeUnmount(() => controller?.abort())
 }
 
 .content { min-width: 0; }
+.dashboard-view-notice { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; border:1px solid var(--app-border); border-radius:8px; background:var(--app-primary-soft); padding:.75rem 1rem; }
+.dashboard-view-notice div { display:flex; min-width:0; align-items:center; gap:.65rem; }
+.dashboard-view-notice strong { color:var(--app-text); }
+.dashboard-view-notice span { color:var(--app-text-muted); font-size:.8rem; }
+.dashboard-view-notice a { display:inline-flex; min-height:2.25rem; flex:none; align-items:center; justify-content:center; border:1px solid var(--app-primary); border-radius:6px; background:var(--app-surface); padding:.4rem .75rem; color:var(--app-primary); font-size:.78rem; font-weight:700; text-decoration:none; }
+@media (max-width: 640px) { .dashboard-view-notice, .dashboard-view-notice div { align-items:flex-start; flex-direction:column; } .dashboard-view-notice a { width:100%; } }
 .page-heading {
   display: flex;
   align-items: flex-end;
@@ -528,7 +538,7 @@ onBeforeUnmount(() => controller?.abort())
 .panel footer .primary { border-color: var(--app-primary); background: var(--app-primary); color: white; }
 .panel footer .primary:hover { background: var(--app-primary-hover); }
 .dashboard-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin-bottom:1rem; }
-.stat-card { display:grid; min-width:0; min-height:7.7rem; grid-template-columns:3rem minmax(0,1fr) auto; align-items:start; gap:.85rem; border:1px solid var(--app-border); border-radius:9px; background:var(--app-surface); padding:1rem; color:var(--app-text); text-decoration:none; box-shadow:0 1px 3px color-mix(in srgb,var(--app-text) 5%,transparent); transition:border-color .16s,transform .16s,box-shadow .16s; }
+.stat-card { display:grid; min-width:0; min-height:7.7rem; grid-template-columns:3rem minmax(0,1fr) auto; align-items:center; gap:.85rem; border:1px solid var(--app-border); border-radius:9px; background:var(--app-surface); padding:1rem; color:var(--app-text); text-decoration:none; box-shadow:0 1px 3px color-mix(in srgb,var(--app-text) 5%,transparent); transition:border-color .16s,transform .16s,box-shadow .16s; }
 .stat-card:hover { border-color:color-mix(in srgb,var(--app-primary) 45%,var(--app-border)); transform:translateY(-1px); box-shadow:0 5px 14px color-mix(in srgb,var(--app-text) 8%,transparent); }
 .stat-card>.stat-card__icon { display:flex; width:3rem; height:3rem; align-items:center; justify-content:center; border-radius:8px; background:var(--app-primary-soft); color:var(--app-primary); }
 .stat-card--indicators>.stat-card__icon { background:color-mix(in srgb,var(--app-favorite) 14%,var(--app-surface)); color:var(--app-favorite); }
