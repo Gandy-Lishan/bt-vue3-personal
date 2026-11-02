@@ -147,6 +147,48 @@ const router = createRouter({
       component: () => import('@/pages/indicators/IndicatorsPage.vue'),
     },
     {
+      path: '/indicators/excess-pessimism',
+      name: 'indicators-excess-pessimism',
+      component: () => import('@/pages/indicators/IndicatorExtremesPage.vue'),
+      props: { tone: 'pessimism' },
+    },
+    {
+      path: '/indicators/excess-optimism',
+      name: 'indicators-excess-optimism',
+      component: () => import('@/pages/indicators/IndicatorExtremesPage.vue'),
+      props: { tone: 'optimism' },
+    },
+    {
+      path: '/indicators/market-sentiment-overview',
+      name: 'market-sentiment-overview',
+      component: () => import('@/pages/indicators/MarketSentimentOverviewPage.vue'),
+    },
+    {
+      path: '/indicators/highlighted',
+      name: 'highlighted-indicators',
+      component: () => import('@/pages/indicators/HighlightedIndicatorsPage.vue'),
+    },
+    {
+      path: '/indicators/optix-heatmap',
+      name: 'optix-heatmap',
+      component: () => import('@/pages/indicators/OptixHeatmapPage.vue'),
+    },
+    {
+      path: '/indicators/phase-table',
+      name: 'phase-table',
+      component: () => import('@/pages/indicators/PhaseTablePage.vue'),
+    },
+    {
+      path: '/indicators/rank-charts',
+      name: 'rank-charts',
+      component: () => import('@/pages/indicators/RankChartsPage.vue'),
+    },
+    {
+      path: '/indicators/chart-summary',
+      name: 'chart-summary',
+      component: () => import('@/pages/indicators/ChartSummaryPage.vue'),
+    },
+    {
       path: '/market-screen',
       name: 'market-screen',
       component: () => import('@/pages/market-screen/MarketScreenPage.vue'),
