@@ -72,14 +72,14 @@ function directionClass(value: string) {
             <td :colspan="tableColspan" class="h-64 px-4 py-12 text-center text-sm text-[var(--app-text-muted)]">No archived studies found</td>
           </tr>
           <tr v-for="row in props.rows" v-else :key="row.id" class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]">
-            <td class="whitespace-nowrap px-3 py-3 font-semibold text-[var(--app-text-secondary)]">{{ row.date || '—' }}</td>
+            <td class="whitespace-nowrap px-3 py-3 text-[var(--app-text-secondary)]">{{ row.date || '—' }}</td>
             <td class="px-3 py-3">
-              <a v-if="row.href" :href="row.href" class="group inline-flex items-center gap-1.5 font-extrabold text-[var(--app-primary)] hover:underline" target="_blank" rel="noopener noreferrer">
+              <a v-if="row.href" :href="row.href" class="group inline-flex items-center gap-1.5 font-semibold text-[var(--app-primary)] hover:underline" target="_blank" rel="noopener noreferrer">
                 {{ row.title }} <ArrowRight :size="14" class="opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
               </a>
-              <span v-else class="font-extrabold">{{ row.title }}</span>
+              <span v-else class="font-semibold text-[var(--app-text)]">{{ row.title }}</span>
             </td>
-            <td class="px-3 py-3 text-center font-semibold uppercase">{{ row.market }}</td>
+            <td class="px-3 py-3 text-center uppercase">{{ row.market }}</td>
             <td v-for="field in ['forecast', 'outcome'] as const" :key="field" class="px-3 py-3 text-center">
               <span
                 class="inline-flex items-center justify-center"
@@ -94,7 +94,7 @@ function directionClass(value: string) {
                 <Star v-for="star in 5" :key="star" :size="15" :class="star <= row.rating ? 'text-amber-500' : 'text-[var(--app-border-strong)]'" :fill="star <= row.rating ? 'currentColor' : 'none'" />
               </span>
             </td>
-            <td class="whitespace-nowrap px-3 py-3 text-center font-semibold">{{ activeStudyTimeframeLabel(row.timeframe) || '—' }}</td>
+            <td class="whitespace-nowrap px-3 py-3 text-center">{{ activeStudyTimeframeLabel(row.timeframe) || '—' }}</td>
           </tr>
         </tbody>
       </table>
