@@ -59,10 +59,11 @@ describe('indicator date columns', () => {
 
   it('shows the backend value verbatim in every indicator list', () => {
     // Every list on the Indicators page — Stock Market, NASDAQ 100, the seasonality and
-    // COT tables alike — shows dates exactly as the API returns them.
+    // COT tables alike — shows dates exactly as the API returns them (rawDateOnly may
+    // trim a time suffix, but never rewrites the calendar date).
     const unformatted = allSources.flatMap((source) =>
       getIndicatorTableMeta(source)
-        .columns.filter((column) => column.kind === 'date' && !column.rawDate)
+        .columns.filter((column) => column.kind === 'date' && !column.rawDate && !column.rawDateOnly)
         .map((column) => `${source}/${column.key}`),
     )
 
