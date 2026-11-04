@@ -91,6 +91,7 @@ export interface CpmPatternPreviewRequest {
   symbol: string
   startDate: string
   endDate: string
+  bars?: number
 }
 
 export interface CpmPatternPreviewBatchRequest extends CpmPatternPreviewRequest {

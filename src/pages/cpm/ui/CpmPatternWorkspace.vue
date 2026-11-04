@@ -36,7 +36,6 @@ import type {
   CpmCorrelationPayload,
   CpmCorrelationResult,
   CpmJobResponse,
-  CpmPatternPreviewPoint,
   CpmPatternPreviewResult,
 } from '@/entities/cpm/model/cpm.types'
 import {
@@ -299,9 +298,8 @@ function formatSummaryDate(value: string) {
   const parsed = new Date(`${value}T00:00:00`)
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
-const chartPoints = computed(() => patternPreview.value?.points.length ? patternPreview.value.points : fallbackPatternPoints.value)
+const chartPoints = computed(() => patternPreview.value?.points ?? [])
 const normalizedPreviewPoints = computed(() => chartPoints.value.slice(-Math.max(6, Math.min(chartPoints.value.length, form.barsNum || 63))))
-const fallbackPatternPoints = computed(() => buildFallbackPatternPoints(form.startDate, form.endDate, form.barsNum || 63))
 const resultData = computed(() => backtestResult.value?.data ?? {})
 const previewMatchRows = computed(() => {
   const result = previewMatchResult.value
@@ -498,27 +496,6 @@ function businessDaysBetween(startDate: string, endDate: string) {
   return count
 }
 
-function buildFallbackPatternPoints(startDate: string, endDate: string, bars: number): CpmPatternPreviewPoint[] {
-  const count = Math.max(8, Math.min(160, bars || 63))
-  const start = Date.parse(`${startDate || defaultStartDate}T00:00:00`)
-  const end = Date.parse(`${endDate || defaultEndDate}T00:00:00`)
-  const startTs = Number.isFinite(start) ? start : Date.now() - count * 86_400_000
-  const endTs = Number.isFinite(end) && end > startTs ? end : startTs + count * 86_400_000
-  const step = count > 1 ? (endTs - startTs) / (count - 1) : 86_400_000
-  const firstValue = 100
-
-  return Array.from({ length: count }, (_, index) => {
-    const wave = Math.sin(index / 5) * 2.6 + Math.cos(index / 11) * 3.2 + index * 0.18
-    const value = firstValue + wave
-    return {
-      date: new Date(startTs + step * index).toISOString().slice(0, 10),
-      timestamp: startTs + step * index,
-      close: Number((value * 72).toFixed(2)),
-      normalizedReturn: ((value / firstValue) - 1) * 100,
-    }
-  })
-}
-
 function updateBarsFromDates() {
   const bars = businessDaysBetween(form.startDate, form.endDate)
   form.barsNum = bars || form.barsNum
@@ -588,6 +565,7 @@ async function refreshPatternPreview() {
   if (!symbol || !form.startDate || !form.endDate) return
 
   const requestId = ++patternPreviewRequestId
+  patternPreview.value = null
   patternPreviewLoading.value = true
   try {
     const result = await fetchCpmPatternPreview(
@@ -595,6 +573,7 @@ async function refreshPatternPreview() {
         symbol,
         startDate: form.startDate,
         endDate: form.endDate,
+        bars: form.barsNum,
       },
       abortController.signal,
     )
@@ -1138,7 +1117,7 @@ watch(
 )
 
 watch(
-  () => [form.symbol, form.startDate, form.endDate],
+  () => [form.symbol, form.startDate, form.endDate, form.barsNum],
   () => {
     void refreshPatternPreview()
   },
@@ -1189,18 +1168,20 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="flex min-w-0 overflow-x-auto border-t border-[var(--app-border)] px-4">
-        <button
-          v-for="step in workflowTabs"
-          :key="step.id"
-          class="h-11 shrink-0 border-b-2 px-4 text-sm font-extrabold"
-          :class="activeStep === step.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
-          type="button"
-          @click="goToStep(step.id)"
-        >
-          {{ step.label }}
-        </button>
-      </div>
+      <nav class="progress-track" aria-label="CPM setup progress">
+        <template v-for="step in workflowTabs" :key="step.id">
+          <div v-if="step.id !== 1" class="progress-line" :class="activeStep >= step.id && 'progress-line--active'" aria-hidden="true" />
+          <button
+            class="progress-step"
+            :class="[activeStep > step.id && 'progress-step--complete', activeStep === step.id && 'progress-step--selected']"
+            type="button"
+            :aria-current="activeStep === step.id ? 'step' : undefined"
+            @click="goToStep(step.id)"
+          >
+            <span>{{ step.id }}</span><strong>{{ step.label }}</strong>
+          </button>
+        </template>
+      </nav>
     </section>
 
     <section ref="selectPatternElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
@@ -1595,3 +1576,17 @@ onBeforeUnmount(() => {
     </section>
   </div>
 </template>
+
+<style scoped>
+.progress-track { display: flex; align-items: center; padding: 12px 16px; border-top: 1px solid var(--app-border); }
+.progress-step { display: flex; flex: none; align-items: center; gap: 8px; border-radius: 6px; padding: 3px 5px; color: var(--app-text-muted); font-size: .76rem; transition: background-color .15s ease, color .15s ease; }
+.progress-step:hover { background: var(--app-surface-soft); color: var(--app-text); }
+.progress-step span { display: flex; width: 27px; height: 27px; align-items: center; justify-content: center; border-radius: 9999px; background: var(--app-surface-muted); font-weight: 900; }
+.progress-step--complete { color: var(--app-primary); }
+.progress-step--complete span { background: var(--app-primary); color: white; }
+.progress-step--selected { color: var(--app-text); }
+.progress-step--selected span { background: var(--app-primary); color: white; }
+.progress-line { height: 1px; flex: 1; margin: 0 11px; background: var(--app-border-strong); }
+.progress-line--active { background: var(--app-primary); }
+@media (max-width: 700px) { .progress-step strong { display: none; } }
+</style>
