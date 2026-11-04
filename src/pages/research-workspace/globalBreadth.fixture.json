@@ -1,0 +1,457 @@
+[
+  {
+    "id": 0,
+    "group": "Trend",
+    "label": "% Above 10-Day Moving Average",
+    "values": [
+      28.89,
+      43.48,
+      13.64,
+      21.43,
+      50,
+      16.67
+    ]
+  },
+  {
+    "id": 1,
+    "group": "Trend",
+    "label": "% Above 50-Day Moving Average",
+    "values": [
+      22.22,
+      34.78,
+      9.09,
+      14.29,
+      31.25,
+      16.67
+    ]
+  },
+  {
+    "id": 2,
+    "group": "Trend",
+    "label": "% Above 100-Day Moving Average",
+    "values": [
+      31.11,
+      47.83,
+      13.64,
+      14.29,
+      43.75,
+      16.67
+    ]
+  },
+  {
+    "id": 3,
+    "group": "Trend",
+    "label": "% Above 200-Day Moving Average",
+    "values": [
+      55.56,
+      82.61,
+      27.27,
+      42.86,
+      81.25,
+      16.67
+    ]
+  },
+  {
+    "id": 4,
+    "group": "Trend",
+    "label": "% More Than 5% Above Their 200-Day Moving Average",
+    "values": [
+      17.78,
+      21.74,
+      13.64,
+      7.14,
+      18.75,
+      16.67
+    ]
+  },
+  {
+    "id": 5,
+    "group": "Trend",
+    "label": "% With A Rising 10-Day Moving Average",
+    "values": [
+      44.44,
+      43.48,
+      45.46,
+      28.57,
+      43.75,
+      33.33
+    ]
+  },
+  {
+    "id": 6,
+    "group": "Trend",
+    "label": "% With A Rising 50-Day Moving Average",
+    "values": [
+      22.22,
+      26.09,
+      18.18,
+      21.43,
+      31.25,
+      16.67
+    ]
+  },
+  {
+    "id": 7,
+    "group": "Trend",
+    "label": "% With A Rising 100-Day Moving Average",
+    "values": [
+      60,
+      78.26,
+      40.91,
+      42.86,
+      75,
+      66.67
+    ]
+  },
+  {
+    "id": 8,
+    "group": "Trend",
+    "label": "% With A Rising 200-Day Moving Average",
+    "values": [
+      68.89,
+      86.96,
+      50,
+      50,
+      87.5,
+      83.33
+    ]
+  },
+  {
+    "id": 9,
+    "group": "Trend",
+    "label": "% With 50-Day Moving Average Above 200-Day Moving Average",
+    "values": [
+      71.11,
+      91.3,
+      50,
+      57.14,
+      93.75,
+      50
+    ]
+  },
+  {
+    "id": 10,
+    "group": "Highs & lows",
+    "label": "% Closing At A 21-Day High",
+    "values": [
+      4.44,
+      8.7,
+      0,
+      0,
+      12.5,
+      0
+    ]
+  },
+  {
+    "id": 11,
+    "group": "Highs & lows",
+    "label": "% Closing At A 63-Day High",
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "id": 12,
+    "group": "Highs & lows",
+    "label": "% Closing At A 126-Day High",
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "id": 13,
+    "group": "Highs & lows",
+    "label": "% Closing At A 252-Day High",
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "id": 14,
+    "group": "Highs & lows",
+    "label": "% Closing At A 21-Day Low",
+    "values": [
+      15.56,
+      8.7,
+      22.73,
+      21.43,
+      6.25,
+      33.33
+    ]
+  },
+  {
+    "id": 15,
+    "group": "Highs & lows",
+    "label": "% Closing At A 63-Day Low",
+    "values": [
+      8.89,
+      4.35,
+      13.64,
+      14.29,
+      0,
+      16.67
+    ]
+  },
+  {
+    "id": 16,
+    "group": "Highs & lows",
+    "label": "% Closing At A 126-Day Low",
+    "values": [
+      6.67,
+      0,
+      13.64,
+      7.14,
+      0,
+      16.67
+    ]
+  },
+  {
+    "id": 17,
+    "group": "Highs & lows",
+    "label": "% Closing At A 252-Day Low",
+    "values": [
+      2.22,
+      0,
+      4.54,
+      0,
+      0,
+      16.67
+    ]
+  },
+  {
+    "id": 18,
+    "group": "Highs & lows",
+    "label": "% Within 5% Of A 252-Day High",
+    "values": [
+      24.44,
+      43.48,
+      4.54,
+      14.29,
+      37.5,
+      0
+    ]
+  },
+  {
+    "id": 19,
+    "group": "Highs & lows",
+    "label": "% Within 5% Of A 252-Day Low",
+    "values": [
+      17.78,
+      4.35,
+      31.82,
+      28.57,
+      6.25,
+      33.33
+    ]
+  },
+  {
+    "id": 20,
+    "group": "Drawdown & recovery",
+    "label": "% Down 10% Or More From A Rolling 252-Day High",
+    "values": [
+      40,
+      26.09,
+      54.54,
+      50,
+      25,
+      50
+    ]
+  },
+  {
+    "id": 21,
+    "group": "Drawdown & recovery",
+    "label": "% Down 20% Or More From A Rolling 252-Day High",
+    "values": [
+      13.33,
+      0,
+      27.27,
+      21.43,
+      0,
+      50
+    ]
+  },
+  {
+    "id": 22,
+    "group": "Relative strength",
+    "label": "% Outperforming The U.S. Over A Rolling 21-Day Period",
+    "values": [
+      31.82,
+      45.46,
+      18.18,
+      14.29,
+      43.75,
+      33.33
+    ]
+  },
+  {
+    "id": 23,
+    "group": "Relative strength",
+    "label": "% Outperforming The U.S. Over A Rolling 63-Day Period",
+    "values": [
+      11.36,
+      13.64,
+      9.09,
+      7.14,
+      18.75,
+      0
+    ]
+  },
+  {
+    "id": 24,
+    "group": "Relative strength",
+    "label": "% Outperforming The U.S. Over A Rolling 126-Day Period",
+    "values": [
+      36.36,
+      50,
+      22.73,
+      21.43,
+      50,
+      33.33
+    ]
+  },
+  {
+    "id": 25,
+    "group": "Relative strength",
+    "label": "% Outperforming The U.S. Over A Rolling 252-Day Period",
+    "values": [
+      52.27,
+      59.09,
+      45.46,
+      35.71,
+      68.75,
+      50
+    ]
+  },
+  {
+    "id": 26,
+    "group": "Drawdown & recovery",
+    "label": "% Up 10% Or More From A 252-Day Low",
+    "values": [
+      73.33,
+      91.3,
+      54.54,
+      57.14,
+      93.75,
+      50
+    ]
+  },
+  {
+    "id": 27,
+    "group": "Drawdown & recovery",
+    "label": "% Up 20% Or More From A 252-Day Low",
+    "values": [
+      42.22,
+      47.83,
+      36.36,
+      28.57,
+      50,
+      33.33
+    ]
+  },
+  {
+    "id": 28,
+    "group": "Drawdown & recovery",
+    "label": "% Up 30% Or More From A 252-Day Low",
+    "values": [
+      20,
+      13.04,
+      27.27,
+      21.43,
+      6.25,
+      33.33
+    ]
+  },
+  {
+    "id": 29,
+    "group": "Drawdown & recovery",
+    "label": "% Up 40% Or More From A 252-Day Low",
+    "values": [
+      15.56,
+      8.7,
+      22.73,
+      21.43,
+      0,
+      33.33
+    ]
+  },
+  {
+    "id": 30,
+    "group": "Momentum",
+    "label": "% With A Positive 126-Day Rate Of Change",
+    "values": [
+      57.78,
+      86.96,
+      27.27,
+      42.86,
+      87.5,
+      33.33
+    ]
+  },
+  {
+    "id": 31,
+    "group": "Momentum",
+    "label": "% With A Positive 252-Day Rate Of Change",
+    "values": [
+      77.78,
+      95.65,
+      59.09,
+      64.29,
+      93.75,
+      66.67
+    ]
+  },
+  {
+    "id": 32,
+    "group": "Momentum",
+    "label": "% With A 10-Day Rate Of Change Of -10% Or Greater",
+    "values": [
+      4.44,
+      0,
+      9.09,
+      7.14,
+      0,
+      16.67
+    ]
+  },
+  {
+    "id": 33,
+    "group": "Momentum",
+    "label": "% With A Relative Strength Index (Rsi) < 30",
+    "values": [
+      11.11,
+      4.35,
+      18.18,
+      21.43,
+      0,
+      33.33
+    ]
+  },
+  {
+    "id": 34,
+    "group": "Momentum",
+    "label": "% With A Relative Strength Index (Rsi) > 70",
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+]

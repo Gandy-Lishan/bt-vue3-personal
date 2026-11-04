@@ -240,6 +240,27 @@ const router = createRouter({
       component: () => import('@/pages/seasonality/SeasonalityPage.vue'),
     },
     {
+      path: '/research',
+      redirect: '/research/spotlights/risk-on-off',
+    },
+    {
+      path: '/research/spotlights',
+      redirect: '/research/spotlights/risk-on-off',
+    },
+    {
+      path: '/research/intraday',
+      redirect: '/research/intraday/intraday-monitor',
+    },
+    {
+      path: '/research/market-analytics',
+      redirect: '/research/market-analytics/seasonality-calendar',
+    },
+    {
+      path: '/research/:group/:page',
+      name: 'research-workspace',
+      component: () => import('@/pages/research-workspace/ResearchWorkspacePage.vue'),
+    },
+    {
       path: '/swing_trading_dashboard',
       name: 'swing-trading-dashboard',
       // The migrated dashboard intentionally remains an Options API JavaScript SFC.

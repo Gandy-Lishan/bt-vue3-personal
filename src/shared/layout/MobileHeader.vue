@@ -259,7 +259,6 @@ const notificationCount = 8
               >
                 <span class="font-medium">Indicators</span>
               </RouterLink>
-
               <!-- Trend & Volatility group -->
               <div>
                 <button
@@ -556,7 +555,7 @@ const notificationCount = 8
               <div>
                 <button
                   class="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
-                  :class="{ 'text-[var(--chrome-accent)]': route.path.startsWith('/tools') }"
+                  :class="{ 'text-[var(--chrome-accent)]': route.path.startsWith('/research') }"
                   @click="toggleGroup('extraTools')"
                 >
                   <span class="font-medium">Extra Tools</span>
@@ -567,62 +566,9 @@ const notificationCount = 8
                   />
                 </button>
                 <div v-show="expandedGroups.extraTools" class="bg-[var(--chrome-surface-soft)]">
-                  <a
-                    href="https://users.sentimentrader.com/users/intraday/"
-                    target="_blank"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    @click="toggleDrawer"
-                  >
-                    Intraday Charts
-                  </a>
-                  <a
-                    href="https://users.sentimentrader.com/users/country_breadth_overview/"
-                    target="_blank"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    @click="toggleDrawer"
-                  >
-                    Global Breadth Overview
-                  </a>
-                  <a
-                    href="https://users.sentimentrader.com/users/market_overview/"
-                    target="_blank"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    @click="toggleDrawer"
-                  >
-                    Market Sentiment Overview
-                  </a>
-                  <a
-                    href="https://users.sentimentrader.com/users/heatmap_optix/ALL"
-                    target="_blank"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    @click="toggleDrawer"
-                  >
-                    Optix Heatmap
-                  </a>
-                  <a
-                    href="https://users.sentimentrader.com/users/charts/risk_levels"
-                    target="_blank"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    @click="toggleDrawer"
-                  >
-                    Risk Levels
-                  </a>
-                  <a
-                    href="https://users.sentimentrader.com/users/ranks/"
-                    target="_blank"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    @click="toggleDrawer"
-                  >
-                    Ranks
-                  </a>
-                  <a
-                    href="https://users.sentimentrader.com/users/seasonality_calendar/"
-                    target="_blank"
-                    class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition"
-                    @click="toggleDrawer"
-                  >
-                    Seasonality Calendar
-                  </a>
+                  <RouterLink to="/research/spotlights/risk-on-off" class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition" @click="toggleDrawer">Spotlights</RouterLink>
+                  <RouterLink to="/research/intraday/intraday-monitor" class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition" @click="toggleDrawer">Intraday Monitor</RouterLink>
+                  <RouterLink to="/research/market-analytics/seasonality-calendar" class="flex items-center gap-3 pl-8 pr-4 py-2.5 text-sm text-[var(--chrome-text-secondary)] hover:bg-[var(--chrome-hover)] transition" @click="toggleDrawer">Market Analytics</RouterLink>
                 </div>
               </div>
             </nav>

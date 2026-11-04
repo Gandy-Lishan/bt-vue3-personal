@@ -158,15 +158,11 @@ const navItems: NavItem[] = [
   {
     label: 'Extra Tools',
     keyPath: '15',
-    path: '/tools',
+    path: '/research',
     subMenu: [
-      { label: 'Intraday charts', keyPath: '15-1', path: 'https://users.sentimentrader.com/users/intraday/', external: true },
-      { label: 'Global Breadth Overview', keyPath: '15-2', path: 'https://users.sentimentrader.com/users/country_breadth_overview/', external: true },
-      { label: 'Market Sentiment Overview', keyPath: '15-4', path: 'https://users.sentimentrader.com/users/market_overview/', external: true },
-      { label: 'Optix Heatmap', keyPath: '15-5', path: 'https://users.sentimentrader.com/users/heatmap_optix/ALL', external: true },
-      { label: 'Risk Levels', keyPath: '15-9', path: 'https://users.sentimentrader.com/users/charts/risk_levels', external: true },
-      { label: 'Ranks', keyPath: '15-11', path: 'https://users.sentimentrader.com/users/ranks/', external: true },
-      { label: 'Seasonality Calendar', keyPath: '15-13', path: 'https://users.sentimentrader.com/users/seasonality_calendar/', external: true },
+      { label: 'Spotlights', keyPath: '15-1', path: '/research/spotlights/risk-on-off' },
+      { label: 'Intraday Monitor', keyPath: '15-2', path: '/research/intraday/intraday-monitor' },
+      { label: 'Market Analytics', keyPath: '15-3', path: '/research/market-analytics/seasonality-calendar' },
     ],
   },
 ]
