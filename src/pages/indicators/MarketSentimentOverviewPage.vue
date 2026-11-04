@@ -137,8 +137,8 @@ onBeforeUnmount(() => controller?.abort())
             <p class="mt-2 text-sm leading-6 text-[var(--app-text-muted)]">Each market in the table is accompanied by a "dot". That dot shows the current level of Sentiment for that market relative to its recent range. "Extremely Pessimistic" (the far left, darkest green) means the indicator is showing that investors have likely already sold and that market should rise; "Extremely Optimistic" (the far right, darkest red), on the other hand, means that Sentiment is suggesting investors are too confident and that market may fall going forward. The more extreme the indicator, the stronger the contrary signal.</p>
           </div>
           <div class="inline-flex shrink-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-1" aria-label="View mode">
-            <button type="button" class="inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-semibold" :class="viewMode === 'table' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'" @click="viewMode = 'table'"><List :size="16"/> List</button>
-            <button type="button" class="inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-semibold" :class="viewMode === 'cards' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'" @click="viewMode = 'cards'"><Grid2X2 :size="16"/> Cards</button>
+            <button type="button" class="inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-semibold" :class="viewMode === 'table' ? 'bg-[var(--app-primary)] text-[var(--app-on-primary)]' : 'text-[var(--app-text-secondary)]'" @click="viewMode = 'table'"><List :size="16"/> List</button>
+            <button type="button" class="inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-semibold" :class="viewMode === 'cards' ? 'bg-[var(--app-primary)] text-[var(--app-on-primary)]' : 'text-[var(--app-text-secondary)]'" @click="viewMode = 'cards'"><Grid2X2 :size="16"/> Cards</button>
           </div>
         </header>
 

@@ -209,8 +209,8 @@ onBeforeUnmount(() => controller?.abort())
 </template>
 
 <style scoped>
-.rank-track{position:relative;display:block;height:8px;overflow:visible;border-radius:999px;background:var(--app-surface-muted)}.rank-track:after{position:absolute;top:-5px;bottom:-5px;left:50%;width:1px;background:var(--app-border);content:''}.rank-track em{position:absolute;top:0;z-index:1;height:100%}.rank-track em.low{border-radius:999px 0 0 999px;background:var(--app-positive)}.rank-track em.high{border-radius:0 999px 999px 0;background:var(--app-negative)}
+.rank-track{position:relative;display:block;height:8px;overflow:visible;border-radius:999px;background:var(--app-border-muted)}.rank-track:after{position:absolute;top:-5px;bottom:-5px;left:50%;width:1px;background:var(--app-border-strong);content:''}.rank-track em{position:absolute;top:0;z-index:1;height:100%}.rank-track em.low{border-radius:999px 0 0 999px;background:var(--app-positive)}.rank-track em.high{border-radius:0 999px 999px 0;background:var(--app-negative)}
 .rank-chart-card{scroll-margin-top:1rem}
-.rank-preview{position:fixed;z-index:300;width:300px;overflow:hidden;border:1px solid var(--app-border);border-radius:8px;background:var(--app-surface);box-shadow:0 10px 28px rgb(0 0 0 / .24);color:var(--app-text);pointer-events:none}.rank-preview strong{display:block;overflow:hidden;padding:.55rem .7rem;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}.rank-preview img{display:block;width:100%;max-height:180px;object-fit:contain;background:#fff}
+.rank-preview{position:fixed;z-index:300;width:300px;overflow:hidden;border:1px solid var(--app-border);border-radius:8px;background:var(--app-surface);box-shadow:0 10px 28px rgb(0 0 0 / .24);color:var(--app-text);pointer-events:none}.rank-preview strong{display:block;overflow:hidden;padding:.55rem .7rem;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}.rank-preview img{display:block;width:100%;max-height:180px;object-fit:contain;background:var(--app-surface-muted)}
 @media(max-width:640px){.rank-scale,.rank-scale+div>div{grid-template-columns:minmax(90px,.8fr) minmax(130px,1.5fr) 36px;gap:.55rem}}
 </style>

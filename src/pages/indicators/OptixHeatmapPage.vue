@@ -24,6 +24,43 @@ const loadError = ref(false)
 const hover = ref<{ name: string; reading: string; thumbnail: string; x: number; y: number } | null>(null)
 let chart: Highcharts.Chart | null = null
 let controller: AbortController | null = null
+let themeObserver: MutationObserver | null = null
+
+function themeColor(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
+
+function rgb(hex: string): [number, number, number] {
+  const digits = hex.replace('#', '')
+  return [0, 2, 4].map((index) => Number.parseInt(digits.slice(index, index + 2), 16)) as [number, number, number]
+}
+
+function mixedColor(foreground: string, background: string, amount: number): string {
+  const front = rgb(foreground)
+  const back = rgb(background)
+  return `rgb(${front.map((channel, index) => Math.round(channel * amount + back[index]! * (1 - amount))).join(', ')})`
+}
+
+function luminance(color: string): number {
+  const channels = color.startsWith('#') ? rgb(color) : color.match(/\d+/g)?.slice(0, 3).map(Number) ?? [0, 0, 0]
+  const linear = channels.map((channel) => {
+    const value = channel / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return linear[0]! * 0.2126 + linear[1]! * 0.7152 + linear[2]! * 0.0722
+}
+
+function readableText(background: string): string {
+  const candidates = [themeColor('--app-text'), themeColor('--app-on-strong-tone')]
+  const backgroundLuminance = luminance(background)
+  return candidates.sort((left, right) => {
+    const ratio = (color: string) => {
+      const value = luminance(color)
+      return (Math.max(value, backgroundLuminance) + 0.05) / (Math.min(value, backgroundLuminance) + 0.05)
+    }
+    return ratio(right) - ratio(left)
+  })[0]!
+}
 
 function text(value: unknown, fallback = ''): string {
   return value === null || value === undefined || value === '' ? fallback : String(value)
@@ -35,11 +72,13 @@ function number(value: unknown, fallback: number): number {
 }
 
 function pointAppearance(score: number) {
-  if (score <= 2) return { color: 'color-mix(in srgb, var(--app-positive) 95%, var(--app-surface))', textColor: '#fff' }
-  if (score <= 3) return { color: 'color-mix(in srgb, var(--app-positive) 26%, var(--app-surface))', textColor: 'var(--app-text)' }
-  if (score >= 6) return { color: 'color-mix(in srgb, var(--app-negative) 76%, var(--app-surface))', textColor: '#fff' }
-  if (score >= 5) return { color: 'color-mix(in srgb, var(--app-negative) 33%, var(--app-surface))', textColor: 'var(--app-text)' }
-  return { color: 'var(--app-surface-muted)', textColor: 'var(--app-text)' }
+  const surface = themeColor('--app-surface')
+  let color = themeColor('--app-surface-muted')
+  if (score <= 2) color = mixedColor(themeColor('--app-positive'), surface, 0.95)
+  else if (score <= 3) color = mixedColor(themeColor('--app-positive'), surface, 0.26)
+  else if (score >= 6) color = mixedColor(themeColor('--app-negative'), surface, 0.76)
+  else if (score >= 5) color = mixedColor(themeColor('--app-negative'), surface, 0.33)
+  return { color, textColor: readableText(color) }
 }
 
 function formatData(bucket: unknown): HeatmapPoint[] {
@@ -98,23 +137,23 @@ function renderChart() {
       style: { fontFamily: 'inherit' },
     },
     title: { text: undefined },
-    credits: { enabled: true, text: 'SENTIMENTRADER', href: '#' },
+    credits: { enabled: true, text: 'SENTIMENTRADER', href: '#', style: { color: themeColor('--app-text-muted') } },
     colorAxis: {
       min: 1,
       max: 7,
       tickPositions: [1, 7],
       stops: [
-        [0, 'var(--app-positive)'],
-        [.5, 'var(--app-surface-muted)'],
-        [1, 'var(--app-negative)'],
+        [0, themeColor('--app-positive')],
+        [.5, themeColor('--app-surface-muted')],
+        [1, themeColor('--app-negative')],
       ],
       labels: {
-        style: { color: 'var(--app-text-secondary)' },
+        style: { color: themeColor('--app-text-secondary') },
         formatter() { return this.value === 1 ? 'Extreme Pessimism' : 'Extreme Optimism' },
       },
     },
     tooltip: { enabled: false },
-    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', symbolWidth: 420, symbolHeight: 12, symbolRadius: 6 },
+    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', symbolWidth: 420, symbolHeight: 12, symbolRadius: 6, itemStyle: { color: themeColor('--app-text') } },
     plotOptions: {
       series: {
         cursor: 'pointer',
@@ -129,7 +168,7 @@ function renderChart() {
       },
       treemap: {
         layoutAlgorithm: 'squarified',
-        borderColor: 'var(--app-surface)',
+        borderColor: themeColor('--app-surface'),
         borderWidth: 2,
         dataLabels: {
           enabled: true,
@@ -171,8 +210,14 @@ async function load() {
 }
 
 watch(selectedMovingAverageIndex, () => renderChart())
-onMounted(load)
-onBeforeUnmount(() => { controller?.abort(); chart?.destroy() })
+onMounted(() => {
+  themeObserver = new MutationObserver((changes) => {
+    if (changes.some((change) => change.attributeName === 'data-theme')) renderChart()
+  })
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  void load()
+})
+onBeforeUnmount(() => { controller?.abort(); chart?.destroy(); themeObserver?.disconnect() })
 </script>
 
 <template>
@@ -193,7 +238,7 @@ onBeforeUnmount(() => { controller?.abort(); chart?.destroy() })
 
         <div class="flex flex-wrap items-center justify-center gap-2 px-4 pb-1 pt-4">
           <span class="mr-1 text-sm font-semibold">Moving Average:</span>
-          <button v-for="(days, index) in movingAverages" :key="days" type="button" class="h-9 rounded-md border px-3 text-sm font-semibold transition" :class="selectedMovingAverageIndex === index ? 'border-[var(--app-primary)] bg-[var(--app-primary)] text-white' : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text-secondary)] hover:border-[var(--app-primary)] hover:text-[var(--app-primary)]'" @click="selectedMovingAverageIndex = index">{{ days }} Days</button>
+          <button v-for="(days, index) in movingAverages" :key="days" type="button" class="h-9 rounded-md border px-3 text-sm font-semibold transition" :class="selectedMovingAverageIndex === index ? 'border-[var(--app-primary)] bg-[var(--app-primary)] text-[var(--app-on-primary)]' : 'border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text-secondary)] hover:border-[var(--app-primary)] hover:text-[var(--app-primary)]'" @click="selectedMovingAverageIndex = index">{{ days }} Days</button>
         </div>
 
         <p v-if="loadError" class="m-4 rounded-md border border-[var(--app-negative)]/30 bg-[var(--app-negative)]/5 px-4 py-3 text-sm text-[var(--app-negative)]">Unable to load the Optix Heatmap. <button class="font-semibold underline" type="button" @click="load">Try again</button></p>
@@ -213,5 +258,5 @@ onBeforeUnmount(() => { controller?.abort(); chart?.destroy() })
 </template>
 
 <style scoped>
-.heatmap-preview-popover{position:fixed;z-index:300;width:300px;overflow:hidden;border:1px solid var(--app-border);border-radius:8px;background:var(--app-surface);box-shadow:0 10px 28px rgb(0 0 0 / .24);color:var(--app-text);pointer-events:none}.heatmap-preview-popover>div{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem .7rem}.heatmap-preview-popover strong{overflow:hidden;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}.heatmap-preview-popover span{flex:none;color:var(--app-text-muted);font-size:.7rem}.heatmap-preview-popover img{display:block;width:100%;max-height:180px;object-fit:contain;background:white}
+.heatmap-preview-popover{position:fixed;z-index:300;width:300px;overflow:hidden;border:1px solid var(--app-border);border-radius:8px;background:var(--app-surface);box-shadow:0 10px 28px rgb(0 0 0 / .24);color:var(--app-text);pointer-events:none}.heatmap-preview-popover>div{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem .7rem}.heatmap-preview-popover strong{overflow:hidden;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}.heatmap-preview-popover span{flex:none;color:var(--app-text-muted);font-size:.7rem}.heatmap-preview-popover img{display:block;width:100%;max-height:180px;object-fit:contain;background:var(--app-surface-muted)}
 </style>
