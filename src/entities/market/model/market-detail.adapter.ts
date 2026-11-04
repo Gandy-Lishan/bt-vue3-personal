@@ -11,12 +11,17 @@ import type {
   MarketCashFlowRow,
   MarketCompanyProfile,
   MarketDetailTab,
+  MarketEarningsInfo,
   MarketEarningsRow,
   MarketFinancialRow,
+  MarketInsiderTransactionRow,
+  MarketInstitutionalHoldingRow,
   MarketMetric,
+  MarketMutualFundHoldingRow,
   MarketNewsRow,
   MarketPredictionDetail,
   MarketSecRow,
+  MarketUpcomingEarningsRow,
 } from './market-detail.types'
 
 export const marketDetailTabs: Array<{ id: MarketDetailTab; label: string }> = [
@@ -46,6 +51,20 @@ export interface MarketDetailRawParts {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+export function formatUTCDate(isoStr: unknown): string {
+  const text = String(isoStr ?? '').trim()
+  if (!text) return '—'
+  const [year, month, day] = text.split('T')[0].split('-').map(Number)
+  if (!year || !month || !day) return text
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
 }
 
 export function safeMarketJsonParse(value: unknown): unknown {
@@ -126,6 +145,25 @@ function periodLabel(row: Record<string, unknown>) {
   const date = row.fiscal_date_ending ?? row.date
   if (period === 'FY') return String(date ?? '').slice(0, 4) || '—'
   return dateParts(date).label
+}
+
+function newsTimeLabel(value: unknown) {
+  const text = String(value ?? '').trim()
+  if (!text) return '—'
+
+  const timestamp = Date.parse(text)
+  if (!Number.isFinite(timestamp)) return text
+
+  const date = new Date(timestamp)
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  const year = date.getUTCFullYear()
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+  const hour24 = date.getUTCHours()
+  const ampm = hour24 >= 12 ? 'PM' : 'AM'
+  const hour = hour24 % 12 || 12
+
+  return `${month}/${day}/${year} ${hour}:${minutes} ${ampm}`
 }
 
 export function formatMarketCompact(value: number | null, options: { currency?: boolean; percent?: boolean } = {}) {
@@ -221,7 +259,7 @@ function normalizeProfile(payload: unknown, ticker: string, prediction: MarketPr
 function normalizeAnalyst(payload: unknown): {
   consensus: MarketAnalystConsensusItem[]
   targets: MarketAnalystTargetRow[]
-  latestRating: string
+  latestRating: number | null
 } {
   const record = marketDataRecord(payload)
   const rating = isRecord(record.rating_data) ? record.rating_data : {}
@@ -246,7 +284,7 @@ function normalizeAnalyst(payload: unknown): {
     { label: 'Strong Sell', percent: parsePercentValue(rating.analyst_ratings_strong_sell_percent), count: parseMarketNumber(rating.analyst_ratings_strong_sell), color: '#ef4444' },
   ]
 
-  return { consensus, targets, latestRating: textValue(rating.latest_rating, '') }
+  return { consensus, targets, latestRating: parseMarketNumber(rating.latest_rating) }
 }
 
 function normalizeEarnings(payload: unknown): MarketEarningsRow[] {
@@ -254,15 +292,41 @@ function normalizeEarnings(payload: unknown): MarketEarningsRow[] {
   const earning = isRecord(record.earning_data) ? record.earning_data : {}
   return parseArray(earning.history_earn_data).map((row) => ({
     period: periodLabel(row),
+    fiscalDate: textValue(row.fiscal_date_ending, ''),
     estimatedEps: parseMarketNumber(row.eps_estimated),
     actualEps: parseMarketNumber(row.eps),
     estimatedRevenue: parseMarketNumber(row.revenue_estimated),
     actualRevenue: parseMarketNumber(row.revenue),
     surprise: parseMarketNumber(row.eps_surprise),
+    epsSurprise: parseMarketNumber(row.eps_surprise),
+    revenueSurprise: parseMarketNumber(row.revenue_surprise),
+    yoyGrowth: parseMarketNumber(row.yoy_growth),
+    qoqGrowth: parseMarketNumber(row.qoq_growth),
   }))
 }
 
-function normalizeIncome(payload: unknown, balancePayload: unknown): MarketFinancialRow[] {
+function normalizeEarningsInfo(payload: unknown): MarketEarningsInfo | null {
+  const record = marketDataRecord(payload)
+  const earning = isRecord(record.earning_data) ? record.earning_data : {}
+  const avgEps = parseMarketNumber(earning.avg_eps)
+  const beatCount = parseMarketNumber(earning.beat_count)
+  const missCount = parseMarketNumber(earning.miss_count)
+  const avgSurprise = parseMarketNumber(earning.avg_eps_surprise)
+  if (avgEps === null && beatCount === null && missCount === null && avgSurprise === null) return null
+  return { avgEps, beatCount, missCount, avgSurprise }
+}
+
+function normalizeUpcomingEarnings(payload: unknown): MarketUpcomingEarningsRow[] {
+  const record = marketDataRecord(payload)
+  const earning = isRecord(record.earning_data) ? record.earning_data : {}
+  return parseArray(earning.upcoming_earn_data).map((row) => ({
+    date: formatUTCDate(row.fiscal_date_ending),
+    estimatedEps: parseMarketNumber(row.eps_estimated),
+    estimatedRevenue: parseMarketNumber(row.revenue_estimated),
+  }))
+}
+
+export function normalizeIncome(payload: unknown, balancePayload: unknown): MarketFinancialRow[] {
   const incomeRecord = marketDataRecord(payload)
   const balanceRecord = marketDataRecord(balancePayload)
   const income = parseNestedDataArray(incomeRecord, ['income_data', 'data'])
@@ -273,10 +337,30 @@ function normalizeIncome(payload: unknown, balancePayload: unknown): MarketFinan
     netIncome: parseMarketNumber(row.net_income),
     ebitda: parseMarketNumber(row.ebitda),
     totalDebt: parseMarketNumber(balance[index]?.total_debt),
+    grossProfit: parseMarketNumber(row.gross_profit),
+    operatingIncome: parseMarketNumber(row.operating_income),
+    grossMargin: parseMarketNumber(row.gross_margin),
+    operatingMargin: parseMarketNumber(row.operating_margin),
+    netMargin: parseMarketNumber(row.net_margin),
+    assetTurnover: parseMarketNumber(row.asset_turnover),
+    returnOnEquity: parseMarketNumber(row.return_on_equity),
+    returnOnAsset: parseMarketNumber(row.return_on_asset),
+    altmanZScore: parseMarketNumber(row.altman_z_score),
+    piotroskiScore: parseMarketNumber(row.piotroski_score),
+    revenueYoY: parseMarketNumber(row.revenue_yoy_growth),
+    grossProfitYoY: parseMarketNumber(row.gross_profit_yoy_growth),
+    operatingIncomeYoY: parseMarketNumber(row.operating_income_yoy_growth),
+    netIncomeYoY: parseMarketNumber(row.net_income_yoy_growth),
+    ebitdaYoY: parseMarketNumber(row.ebitda_yoy_growth),
+    revenueRatio: parseMarketNumber(row.revenue_ratio),
+    grossProfitRatio: parseMarketNumber(row.gross_profit_ratio),
+    operatingIncomeRatio: parseMarketNumber(row.operating_income_ratio),
+    netIncomeRatio: parseMarketNumber(row.net_income_ratio),
+    ebitdaRatio: parseMarketNumber(row.ebitda_ratio),
   }))
 }
 
-function normalizeBalance(payload: unknown): MarketBalanceSheetRow[] {
+export function normalizeBalance(payload: unknown): MarketBalanceSheetRow[] {
   const record = marketDataRecord(payload)
   return parseNestedDataArray(record, ['balance_data', 'data']).map((row) => ({
     period: periodLabel(row),
@@ -284,48 +368,177 @@ function normalizeBalance(payload: unknown): MarketBalanceSheetRow[] {
     totalLiabilities: parseMarketNumber(row.total_liabilities),
     totalEquity: parseMarketNumber(row.total_equity),
     currentRatio: parseMarketNumber(row.current_ratio),
+    cashAndCashEquivalents: parseMarketNumber(row.cash_and_cash_equivalents),
+    totalDebt: parseMarketNumber(row.total_debt),
+    // Assets
+    totalCurrentAssets: parseMarketNumber(row.total_current_assets),
+    totalNonCurrentAssets: parseMarketNumber(row.total_non_current_assets),
+    shortTermInvestments: parseMarketNumber(row.short_term_investments),
+    netReceivables: parseMarketNumber(row.net_receivables),
+    inventory: parseMarketNumber(row.inventory),
+    longTermInvestments: parseMarketNumber(row.long_term_investments),
+    propertyPlantEquipmentNet: parseMarketNumber(row.property_plant_equipment_net),
+    goodwill: parseMarketNumber(row.goodwill),
+    intangibleAssets: parseMarketNumber(row.intangible_assets),
+    // Liabilities
+    totalCurrentLiabilities: parseMarketNumber(row.total_current_liabilities),
+    totalNonCurrentLiabilities: parseMarketNumber(row.total_non_current_liabilities),
+    accountPayables: parseMarketNumber(row.account_payables),
+    shortTermDebt: parseMarketNumber(row.short_term_debt),
+    deferredRevenue: parseMarketNumber(row.deferred_revenue),
+    deferredRevenueNonCurrent: parseMarketNumber(row.deferred_revenue_non_current),
+    otherNonCurrentLiabilities: parseMarketNumber(row.other_non_current_liabilities),
+    longTermDebt: parseMarketNumber(row.long_term_debt),
+    retainedEarnings: parseMarketNumber(row.retained_earnings),
+    commonStock: parseMarketNumber(row.common_stock),
+    // Ratios
+    quickRatio: parseMarketNumber(row.quick_ratio),
+    cashRatio: parseMarketNumber(row.cash_ratio),
+    assetTurnover: parseMarketNumber(row.asset_turnover),
+    fixedAssetTurnover: parseMarketNumber(row.fixed_asset_turnover),
+    inventoryTurnover: parseMarketNumber(row.inventory_turnover),
+    d2eRatio: parseMarketNumber(row.d2e_ratio),
+    d2cRatio: parseMarketNumber(row.d2c_ratio),
+    equityRatio: parseMarketNumber(row.equity_ratio),
+    assetGrowth: parseMarketNumber(row.asset_growth),
+    liabilitiesGrowth: parseMarketNumber(row.liabilities_growth),
+    equityGrowth: parseMarketNumber(row.equity_growth),
   }))
 }
 
-function normalizeCash(payload: unknown): MarketCashFlowRow[] {
+export function normalizeCash(payload: unknown): MarketCashFlowRow[] {
   const record = marketDataRecord(payload)
   return parseNestedDataArray(record, ['cash_data', 'data']).map((row) => ({
     period: periodLabel(row),
+    fiscalDate: textValue(row.date, ''),
     operatingCashFlow: parseMarketNumber(row.net_cash_provided_by_operating_activities),
     freeCashFlow: parseMarketNumber(row.free_cash_flow),
     cashBalance: parseMarketNumber(row.cash_at_end_of_period),
+    netIncome: parseMarketNumber(row.net_income),
+    depreciationAndAmortization: parseMarketNumber(row.depreciation_and_amortization),
+    changeInWorkingCapital: parseMarketNumber(row.change_in_working_capital),
+    capitalExpenditure: parseMarketNumber(row.capital_expenditure),
+    acquisitionsNet: parseMarketNumber(row.acquisitions_net),
+    debtRepayment: parseMarketNumber(row.debt_repayment),
+    commonStockRepurchased: parseMarketNumber(row.common_stock_repurchased),
+    dividendsPaid: parseMarketNumber(row.dividends_paid),
+    netChangeInCash: parseMarketNumber(row.net_change_in_cash),
+    investingCashFlow: parseMarketNumber(row.net_cash_used_for_investing_activities),
+    financingCashFlow: parseMarketNumber(row.net_cash_used_provided_by_financing_activities),
+    operatingCashFlowRatio: parseMarketNumber(row.operating_cash_flow_ratio),
+    cashFlowYield: parseMarketNumber(row.cash_flow_yield),
+    cashConversionCycle: parseMarketNumber(row.cash_conversion_cycle),
+    operatingCashFlowGrowth: parseMarketNumber(row.operating_cash_flow_growth),
+    freeCashFlowGrowth: parseMarketNumber(row.free_cash_flow_growth),
+    reinvestmentRate: parseMarketNumber(row.reinvestment_rate),
+    capexToOperatingCash: parseMarketNumber(row.capEx2operating_cash),
+    cashFlowCoverage: parseMarketNumber(row.cash_flow_coverage),
+    cashConversionChange: parseMarketNumber(row.cash_conversion_change),
+    operatingRatioChange: parseMarketNumber(row.operating_ratio_change),
+    freeCashFlowMargin: parseMarketNumber(row.free_cash_flow_margin),
+    freeFlowToDebt: parseMarketNumber(row.free_flow2debt),
   }))
 }
 
-function normalizeOwnership(payload: unknown): Array<{ title: string; metrics: MarketMetric[] }> {
+// Mirrors Vue2 `formatNumber(value, 'customSign', sign)`: the magnitude is
+// formatted from `Math.abs(value)` with two fixed decimals (units above 1K),
+// so trailing zeros are kept and negative values lose their minus sign.
+function formatOwnershipCustom(value: number): string {
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000_000) return `${(abs / 1_000_000_000).toFixed(2)}B`
+  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(2)}M`
+  if (abs >= 1_000) return `${(abs / 1_000).toFixed(2)}K`
+  return abs.toFixed(2)
+}
+
+function ownershipMetric(label: string, value: unknown, format: 'currency' | 'number' | 'percent', suffix = '', description = ''): MarketMetric {
+  const numeric = parseMarketNumber(value)
+  let formatted: string
+  if (numeric === null) {
+    formatted = '-'
+  } else if (format === 'percent') {
+    formatted = `${formatOwnershipCustom(numeric)}%`
+  } else if (format === 'number') {
+    formatted = formatOwnershipCustom(numeric)
+  } else {
+    formatted = formatMarketCompact(numeric, { currency: true })
+  }
+  return {
+    label,
+    value: `${formatted}${suffix}`,
+    description,
+    zero: numeric === 0,
+  }
+}
+
+function normalizeOwnership(payload: unknown): {
+  panels: Array<{ title: string; metrics: MarketMetric[] }>
+  insiders: MarketInsiderTransactionRow[]
+  institutions: MarketInstitutionalHoldingRow[]
+  funds: MarketMutualFundHoldingRow[]
+} {
   const record = marketDataRecord(payload)
   const holder = isRecord(record.holder_data) ? record.holder_data : {}
-  return [
+
+  const panels = [
     {
-      title: 'Insider Transactions',
+      title: 'Executive Insider Activity',
       metrics: [
-        metric('Annual Trading Volume', holder.insider_activity_annual_trading_volume, { currency: true }),
-        metric('Buy/Sell Ratio', holder.insider_activity_buy_sell_ratio),
-        metric('Net Buying Sentiment', holder.insider_activity_net_buy_sentiment, { percent: true }),
+        ownershipMetric('Annual Trading Volume', holder.insider_activity_annual_trading_volume, 'currency', '', 'The total number of shares bought and sold by company insiders within a year.'),
+        ownershipMetric('Buy/Sell Ratio', holder.insider_activity_buy_sell_ratio, 'number', 'x', 'The ratio of the total number of shares bought by insiders to the total number of shares sold by insiders over a specific period (e.g., quarterly or annually).'),
+        ownershipMetric('Net Buying Sentiment', holder.insider_activity_net_buy_sentiment, 'percent', '', 'Net Buy Sentiment is a qualitative or quantitative metric derived from the Insider Buy/Sell Ratio, usually expressed as a percentage or a sentiment score. It indicates whether insiders are, overall, net buyers or net sellers.'),
       ],
     },
     {
-      title: 'Institutional Holdings',
+      title: 'Institutional Activity',
       metrics: [
-        metric('Total Holding', holder.institution_activity_total_holding, { currency: true }),
-        metric('Quarterly Change', holder.institution_activity_quarterly_change, { percent: true }),
-        metric('Average Position', holder.institution_activity_avg_position, { currency: true }),
+        ownershipMetric('Total Holding', holder.institution_activity_total_holding, 'currency', '', 'The total number of shares of a company\'s stock held by all reporting institutional investors at a specific point in time (typically reported quarterly through 13F filings).'),
+        ownershipMetric('Quarterly Change', holder.institution_activity_quarterly_change, 'percent', '', 'The percentage or absolute change in total institutional holdings from one quarter to the next.'),
+        ownershipMetric('Average Position', holder.institution_activity_avg_position, 'currency', '', 'The average number of shares held by each institutional investor.'),
       ],
     },
     {
       title: 'Mutual Fund Holdings',
       metrics: [
-        metric('Total Fund Holding', holder.mutual_fund_total_holding, { currency: true }),
-        metric('Unique Funds', holder.mutual_fund_unique_funds),
-        metric('Average Holding Size', holder.mutual_fund_avg_holding_size, { currency: true }),
+        ownershipMetric('Total Fund Holding', holder.mutual_fund_total_holding, 'currency', '', 'The total number of shares of a company\'s stock held by all reporting mutual funds.'),
+        ownershipMetric('Unique Funds', holder.mutual_fund_unique_funds, 'number', '', 'The number of distinct mutual funds that hold a company\'s stock.'),
+        ownershipMetric('Average Holding Size', holder.mutual_fund_avg_holding_size, 'currency', '', 'The average number of shares held by each independent mutual fund.'),
       ],
     },
   ]
+
+  const insiders = parseNestedDataArray(record, ['insider_data', 'data']).map((row, index) => ({
+    id: `insider-${index}`,
+    date: dateParts(row.transaction_date).label,
+    timestamp: dateParts(row.transaction_date).timestamp,
+    insider: textValue(row.reporting_name),
+    type: textValue(row.type),
+    shares: parseMarketNumber(row.securities_transacted),
+    price: parseMarketNumber(row.price),
+    value: parseMarketNumber(row.value),
+  }))
+
+  const institutions = parseArray(holder.institutional_holders).map((row, index) => ({
+    id: `institution-${index}`,
+    name: textValue(row.holder),
+    date: dateParts(row.date_reported).label,
+    timestamp: dateParts(row.date_reported).timestamp,
+    shares: parseMarketNumber(row.shares),
+    changesShares: parseMarketNumber(row.share_change),
+    changePercent: parseMarketNumber(row.change_percent),
+    value: parseMarketNumber(row.value),
+  }))
+
+  const funds = parseArray(holder.fund_holders).map((row, index) => ({
+    id: `fund-${index}`,
+    name: textValue(row.holder),
+    shares: parseMarketNumber(row.shares),
+    dayReported: dateParts(row.date_reported).label,
+    timestamp: dateParts(row.date_reported).timestamp,
+    value: parseMarketNumber(row.value),
+  }))
+
+  return { panels, insiders, institutions, funds }
 }
 
 function normalizeNews(payload: unknown): MarketNewsRow[] {
@@ -333,9 +546,12 @@ function normalizeNews(payload: unknown): MarketNewsRow[] {
   return parseArray(record.news_data).map((row, index) => ({
     id: `${row.symbol ?? 'news'}-${index}`,
     date: dateParts(row.published_date).label,
+    time: newsTimeLabel(row.published_date),
+    publishedAt: textValue(row.published_date, ''),
     symbol: textValue(row.symbol),
     title: textValue(row.news_title),
     source: textValue(row.source),
+    imageUrl: textValue(row.image_url, ''),
     url: textValue(row.news_url, ''),
   }))
 }
@@ -345,6 +561,7 @@ function normalizeSec(payload: unknown): MarketSecRow[] {
   return parseArray(record.sec_data).map((row, index) => ({
     id: `${row.symbol ?? 'sec'}-${index}`,
     date: dateParts(row.filling_date).label,
+    ticker: textValue(row.symbol),
     type: textValue(row.sec_type),
     description: textValue(row.description),
     url: textValue(row.finalLink, ''),
@@ -399,6 +616,8 @@ export function normalizeMarketPredictionDetail(
   const analyst = normalizeAnalyst(parts.analyst)
   const analystTargets = analyst.targets.length ? analyst.targets : fallbackAnalystTarget(prediction)
 
+  const ownership = normalizeOwnership(parts.ownership)
+
   return {
     ticker,
     prediction,
@@ -406,12 +625,18 @@ export function normalizeMarketPredictionDetail(
     analystConsensus: analyst.consensus.some((item) => (item.count ?? 0) > 0 || (item.percent ?? 0) > 0)
       ? analyst.consensus
       : defaultConsensusFromPrediction(prediction),
+    analystLatestRating: analyst.latestRating,
     analystTargets,
     earnings: normalizeEarnings(parts.earnings),
+    earningsInfo: normalizeEarningsInfo(parts.earnings),
+    upcomingEarnings: normalizeUpcomingEarnings(parts.earnings),
     financials: normalizeIncome(parts.income, parts.balance),
     balanceSheet: normalizeBalance(parts.balance),
     cashFlow: normalizeCash(parts.cash),
-    ownershipPanels: normalizeOwnership(parts.ownership),
+    ownershipPanels: ownership.panels,
+    ownershipInsiders: ownership.insiders,
+    ownershipInstitutions: ownership.institutions,
+    ownershipFunds: ownership.funds,
     news: normalizeNews(parts.news),
     sec: normalizeSec(parts.sec),
   }

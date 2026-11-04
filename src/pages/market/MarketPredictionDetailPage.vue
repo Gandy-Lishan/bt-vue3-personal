@@ -11,19 +11,21 @@ import {
   Download,
   FileText,
   LineChart,
-  Newspaper,
   Star,
   Users,
 } from '@lucide/vue'
-import { fetchMarketPredictionDetail, normalizeMarketDetailTab } from '@/entities/market/api/market-detail.api'
+import { fetchMarketDetailPart, normalizeMarketDetailTab } from '@/entities/market/api/market-detail.api'
+import type { MarketDetailPartKey } from '@/entities/market/api/market-detail.api'
 import { fetchMarketPredictions } from '@/entities/market/api/market-prediction.api'
 import {
   formatMarketCompact,
   latestItem,
   marketDetailTabs,
+  normalizeMarketPredictionDetail,
   predictionDisplayName,
   targetSummaryText,
 } from '@/entities/market/model/market-detail.adapter'
+import type { MarketDetailRawParts } from '@/entities/market/model/market-detail.adapter'
 import {
   formatMarketCurrency,
   formatMarketPercent,
@@ -38,6 +40,15 @@ import type { MarketPredictionRow } from '@/entities/market/model/market-predict
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import DetailSearchSidebar from '@/shared/ui/DetailSearchSidebar.vue'
 import MarketPredictionRatingBadge from './ui/MarketPredictionRatingBadge.vue'
+import MarketDetailAnalystsTab from './ui/detail/MarketDetailAnalystsTab.vue'
+import MarketDetailChartTab from './ui/detail/MarketDetailChartTab.vue'
+import MarketDetailCashFlowTab from './ui/detail/MarketDetailCashFlowTab.vue'
+import MarketDetailEarningsTab from './ui/detail/MarketDetailEarningsTab.vue'
+import MarketDetailFinancialsTab from './ui/detail/MarketDetailFinancialsTab.vue'
+import MarketDetailBalanceSheetTab from './ui/detail/MarketDetailBalanceSheetTab.vue'
+import MarketDetailNewsTab from './ui/detail/MarketDetailNewsTab.vue'
+import MarketDetailSecTab from './ui/detail/MarketDetailSecTab.vue'
+import MarketDetailOwnershipTab from './ui/detail/MarketDetailOwnershipTab.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,6 +57,10 @@ const rows = ref<MarketPredictionRow[]>([])
 const detail = ref<MarketPredictionDetail | null>(null)
 const listLoading = ref(false)
 const detailLoading = ref(false)
+const detailParts: MarketDetailRawParts = {}
+const loadedParts = new Set<MarketDetailPartKey>()
+const pendingParts = new Map<MarketDetailPartKey, Promise<void>>()
+let tabRequestToken = 0
 const listSearchQuery = ref('')
 const profileExpanded = ref(false)
 const watched = ref(false)
@@ -65,7 +80,6 @@ const logoUrl = computed(() => profile.value?.logoUrl ?? `https://images.financi
 const latestTarget = computed(() => latestItem(detail.value?.analystTargets ?? []))
 const latestFinancial = computed(() => latestItem(detail.value?.financials ?? []))
 const latestCashFlow = computed(() => latestItem(detail.value?.cashFlow ?? []))
-const latestBalance = computed(() => latestItem(detail.value?.balanceSheet ?? []))
 const visibleDescription = computed(() => {
   const description = profile.value?.description ?? ''
   if (profileExpanded.value || description.length < 210) return description
@@ -170,19 +184,126 @@ async function loadPredictionRows() {
   }
 }
 
+// Mirrors Vue2: each tab requests only its own sections; the company profile
+// is always requested for the header. Other sections load when their tab is
+// opened and are cached for the rest of the visit.
+const TAB_PARTS: Record<MarketDetailTab, MarketDetailPartKey[]> = {
+  overview: ['profile', 'analyst', 'earnings', 'income', 'balance', 'cash', 'news', 'sec'],
+  chart: [],
+  analysts: ['analyst'],
+  earnings: ['earnings'],
+  financials: ['income', 'balance'],
+  balanceSheet: ['balance'],
+  cashFlow: ['cash'],
+  ownership: ['ownership'],
+  news: ['news'],
+  sec: ['sec'],
+}
+
+// Which normalized detail fields a freshly arrived raw part owns. Lets a part
+// update only its own fields so unrelated tabs don't re-render.
+const PART_FIELDS: Record<MarketDetailPartKey, Array<keyof MarketPredictionDetail>> = {
+  profile: ['profile'],
+  analyst: ['analystConsensus', 'analystLatestRating', 'analystTargets'],
+  earnings: ['earnings', 'earningsInfo', 'upcomingEarnings'],
+  income: ['financials'],
+  balance: ['financials', 'balanceSheet'],
+  cash: ['cashFlow'],
+  ownership: ['ownershipPanels', 'ownershipInsiders', 'ownershipInstitutions', 'ownershipFunds'],
+  news: ['news'],
+  sec: ['sec'],
+}
+
+function currentPrediction(): MarketPredictionRow | null {
+  return rows.value.find((row) => row.ticker === ticker.value) ?? null
+}
+
+function applyDetail(changedKeys: Set<MarketDetailPartKey | 'prediction'>) {
+  const symbol = ticker.value
+  if (!symbol) return
+
+  const next = normalizeMarketPredictionDetail(symbol, { ...detailParts }, currentPrediction())
+  const previous = detail.value
+  if (!previous) {
+    detail.value = next
+    return
+  }
+
+  const patched = { ...previous } as unknown as Record<string, unknown>
+  const source = next as unknown as Record<string, unknown>
+  for (const key of changedKeys) {
+    if (key === 'prediction') {
+      patched.prediction = next.prediction
+      continue
+    }
+    for (const field of PART_FIELDS[key]) patched[field] = source[field]
+  }
+  detail.value = patched as unknown as MarketPredictionDetail
+}
+
+function loadPart(key: MarketDetailPartKey, symbol: string, signal: AbortSignal): Promise<void> {
+  if (loadedParts.has(key)) return Promise.resolve()
+  const inFlight = pendingParts.get(key)
+  if (inFlight) return inFlight
+
+  const promise = fetchMarketDetailPart(key, symbol, signal)
+    .then((payload) => {
+      if (signal.aborted || symbol !== ticker.value) return
+      detailParts[key] = payload
+      loadedParts.add(key)
+      applyDetail(new Set([key]))
+    })
+    .catch(() => {
+      if (signal.aborted || symbol !== ticker.value) return
+      // Mark as attempted so a failing endpoint doesn't loop on every switch.
+      loadedParts.add(key)
+      applyDetail(new Set([key]))
+    })
+    .finally(() => {
+      if (pendingParts.get(key) === promise) pendingParts.delete(key)
+    })
+
+  pendingParts.set(key, promise)
+  return promise
+}
+
+async function loadActiveTabParts(tab: MarketDetailTab, symbol: string, signal: AbortSignal) {
+  const token = ++tabRequestToken
+  const missing = TAB_PARTS[tab].filter((key) => !loadedParts.has(key))
+
+  if (missing.length) {
+    detailLoading.value = true
+    await Promise.all(missing.map((key) => loadPart(key, symbol, signal)))
+  }
+
+  if (token !== tabRequestToken || signal.aborted || symbol !== ticker.value) return
+
+  // Refresh the fields owned by this tab from everything loaded so far.
+  applyDetail(new Set(TAB_PARTS[tab]))
+  detailLoading.value = false
+}
+
 async function loadDetail() {
   if (!ticker.value) return
   detailAbortController?.abort()
   detailAbortController = new AbortController()
-  detailLoading.value = true
+  const controller = detailAbortController
+  const symbol = ticker.value
+
   profileExpanded.value = false
-  try {
-    await loadPredictionRows()
-    const prediction = rows.value.find((row) => row.ticker === ticker.value) ?? null
-    detail.value = await fetchMarketPredictionDetail(ticker.value, prediction, detailAbortController.signal)
-  } finally {
-    detailLoading.value = false
-  }
+  pendingParts.clear()
+  loadedParts.clear()
+  for (const key of Object.keys(detailParts) as MarketDetailPartKey[]) delete detailParts[key]
+  // Render the shell and chart tab immediately; other tabs gate on their own
+  // section requests below.
+  detail.value = normalizeMarketPredictionDetail(symbol, {}, null)
+  detailLoading.value = true
+
+  // Neither the prediction list nor the header profile blocks tab content.
+  void loadPredictionRows()
+  void loadPart('profile', symbol, controller.signal)
+
+  await loadActiveTabParts(activeTab.value, symbol, controller.signal)
 }
 
 function linePath(values: Array<number | null>, width: number, height: number) {
@@ -230,16 +351,6 @@ function tableCurrency(value: number | null) {
   return formatMarketCompact(value, { currency: true })
 }
 
-function sourceLabel(item: { url: string; source?: string }) {
-  if (item.source) return item.source
-  if (!item.url) return '—'
-  try {
-    return new URL(item.url).hostname.replace(/^www\./, '')
-  } catch {
-    return item.url
-  }
-}
-
 function updateSidebarHeight() {
   const element = detailContentElement.value
   const sideBySide = typeof window !== 'undefined' && window.matchMedia(sidebarBreakpoint).matches
@@ -274,6 +385,16 @@ function observeDetailContent() {
 watch(ticker, () => {
   void loadDetail()
 }, { immediate: true })
+
+watch(activeTab, (tab) => {
+  const controller = detailAbortController
+  if (!controller || controller.signal.aborted || !ticker.value) return
+  void loadActiveTabParts(tab, ticker.value, controller.signal)
+})
+
+watch(rows, () => {
+  if (detail.value) applyDetail(new Set(['prediction']))
+})
 
 watch([detail, activeTab], () => {
   void nextTick(observeDetailContent)
@@ -537,60 +658,24 @@ onBeforeUnmount(() => {
               </section>
             </section>
 
+            <MarketDetailAnalystsTab v-else-if="activeTab === 'analysts'" :detail="detail" />
+            <MarketDetailNewsTab v-else-if="activeTab === 'news'" :detail="detail" />
+            <MarketDetailSecTab v-else-if="activeTab === 'sec'" :detail="detail" />
+            <MarketDetailOwnershipTab v-else-if="activeTab === 'ownership'" :detail="detail" />
+            <MarketDetailCashFlowTab v-else-if="activeTab === 'cashFlow'" :ticker="ticker" :detail="detail" />
+            <MarketDetailChartTab v-else-if="activeTab === 'chart'" :ticker="ticker" />
+
             <section v-else class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
-              <template v-if="activeTab === 'chart'">
-                <h2 class="mb-3 text-lg font-extrabold">Price & Forecast</h2>
-                <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-3">
-                  <svg class="h-72 w-full overflow-visible" viewBox="0 0 760 220" preserveAspectRatio="none">
-                    <path v-if="forecastPath" :d="forecastPath" fill="none" stroke="var(--app-primary)" stroke-width="4" stroke-linecap="round" />
-                  </svg>
-                </div>
-              </template>
-
-              <template v-else-if="activeTab === 'analysts'">
-                <h2 class="mb-3 text-lg font-extrabold">Analyst Price Targets</h2>
-                <div class="overflow-hidden rounded-md border border-[var(--app-border)]">
-                  <table class="min-w-full text-left text-sm">
-                    <thead class="bg-[var(--app-surface-muted)]"><tr><th class="px-3 py-2">Date</th><th class="px-3 py-2">Target</th><th class="px-3 py-2">Min</th><th class="px-3 py-2">Max</th><th class="px-3 py-2">Reports</th><th class="px-3 py-2">Accuracy</th></tr></thead>
-                    <tbody>
-                      <tr v-for="row in detail.analystTargets" :key="`${row.date}-${row.target}`" class="border-t border-[var(--app-border-muted)]"><td class="px-3 py-2">{{ row.date }}</td><td class="px-3 py-2 font-bold">{{ formatMarketCurrency(row.target) }}</td><td class="px-3 py-2">{{ formatMarketCurrency(row.minPrice) }}</td><td class="px-3 py-2">{{ formatMarketCurrency(row.maxPrice) }}</td><td class="px-3 py-2">{{ row.reportCount ?? '—' }}</td><td class="px-3 py-2">{{ formatMarketPercent(row.accuracy) }}</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </template>
-
-              <template v-else-if="activeTab === 'earnings'">
-                <h2 class="mb-3 text-lg font-extrabold">Earnings History</h2>
-                <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  <div v-for="row in detail.earnings" :key="row.period" class="rounded-md border border-[var(--app-border-muted)] p-3 text-sm">
-                    <p class="font-extrabold">{{ row.period }}</p>
-                    <p>Estimated EPS: <b>{{ formatMarketCurrency(row.estimatedEps) }}</b></p>
-                    <p>Actual EPS: <b>{{ formatMarketCurrency(row.actualEps) }}</b></p>
-                    <p>Revenue: <b>{{ tableCurrency(row.actualRevenue) }}</b></p>
-                  </div>
-                </div>
+              <template v-if="activeTab === 'earnings'">
+                <MarketDetailEarningsTab :detail="detail" />
               </template>
 
               <template v-else-if="activeTab === 'financials'">
-                <h2 class="mb-3 text-lg font-extrabold">Financials</h2>
-                <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  <div v-for="row in detail.financials" :key="row.period" class="rounded-md border border-[var(--app-border-muted)] p-3 text-sm">
-                    <p class="font-extrabold">{{ row.period }}</p>
-                    <p>Revenue: <b>{{ tableCurrency(row.revenue) }}</b></p>
-                    <p>Net Income: <b>{{ tableCurrency(row.netIncome) }}</b></p>
-                    <p>EBITDA: <b>{{ tableCurrency(row.ebitda) }}</b></p>
-                  </div>
-                </div>
+                <MarketDetailFinancialsTab :ticker="ticker" :detail="detail" />
               </template>
 
               <template v-else-if="activeTab === 'balanceSheet'">
-                <h2 class="mb-3 text-lg font-extrabold">Balance Sheet</h2>
-                <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                  <div class="rounded-md border border-[var(--app-border-muted)] p-3"><p class="text-xs text-[var(--app-text-muted)]">Total Assets</p><b>{{ tableCurrency(latestBalance?.totalAssets ?? null) }}</b></div>
-                  <div class="rounded-md border border-[var(--app-border-muted)] p-3"><p class="text-xs text-[var(--app-text-muted)]">Total Liabilities</p><b>{{ tableCurrency(latestBalance?.totalLiabilities ?? null) }}</b></div>
-                  <div class="rounded-md border border-[var(--app-border-muted)] p-3"><p class="text-xs text-[var(--app-text-muted)]">Total Equity</p><b>{{ tableCurrency(latestBalance?.totalEquity ?? null) }}</b></div>
-                  <div class="rounded-md border border-[var(--app-border-muted)] p-3"><p class="text-xs text-[var(--app-text-muted)]">Current Ratio</p><b>{{ latestBalance?.currentRatio ?? '—' }}</b></div>
-                </div>
+                <MarketDetailBalanceSheetTab :ticker="ticker" :detail="detail" />
               </template>
 
               <template v-else-if="activeTab === 'cashFlow'">
@@ -602,40 +687,6 @@ onBeforeUnmount(() => {
                     <p>Free Cash Flow: <b>{{ tableCurrency(row.freeCashFlow) }}</b></p>
                     <p>Cash Balance: <b>{{ tableCurrency(row.cashBalance) }}</b></p>
                   </div>
-                </div>
-              </template>
-
-              <template v-else-if="activeTab === 'ownership'">
-                <h2 class="mb-3 text-lg font-extrabold">Ownership</h2>
-                <div class="grid gap-3 md:grid-cols-3">
-                  <div v-for="panel in detail.ownershipPanels" :key="panel.title" class="rounded-md border border-[var(--app-border-muted)] p-3">
-                    <h3 class="mb-2 font-extrabold">{{ panel.title }}</h3>
-                    <div v-for="metric in panel.metrics" :key="metric.label" class="flex justify-between gap-3 border-t border-[var(--app-border-muted)] py-2 text-sm first:border-0">
-                      <span class="text-[var(--app-text-secondary)]">{{ metric.label }}</span><b>{{ metric.value }}</b>
-                    </div>
-                  </div>
-                </div>
-              </template>
-
-              <template v-else-if="activeTab === 'news'">
-                <h2 class="mb-3 flex items-center gap-2 text-lg font-extrabold"><Newspaper :size="20" /> Latest News</h2>
-                <div class="space-y-2">
-                  <a v-for="item in detail.news" :key="item.id" class="block rounded-md border border-[var(--app-border-muted)] p-3 hover:bg-[var(--app-surface-soft)]" :href="item.url" target="_blank" rel="noopener noreferrer">
-                    <p class="font-extrabold">{{ item.title }}</p>
-                    <p class="mt-1 text-xs text-[var(--app-text-muted)]">{{ item.date }} · {{ sourceLabel(item) }}</p>
-                  </a>
-                  <p v-if="!detail.news.length" class="py-8 text-center text-sm text-[var(--app-text-muted)]">No news found</p>
-                </div>
-              </template>
-
-              <template v-else-if="activeTab === 'sec'">
-                <h2 class="mb-3 text-lg font-extrabold">SEC Filings</h2>
-                <div class="space-y-2">
-                  <a v-for="item in detail.sec" :key="item.id" class="block rounded-md border border-[var(--app-border-muted)] p-3 hover:bg-[var(--app-surface-soft)]" :href="item.url" target="_blank" rel="noopener noreferrer">
-                    <p class="font-extrabold">{{ item.type }} · {{ item.description }}</p>
-                    <p class="mt-1 text-xs text-[var(--app-text-muted)]">{{ item.date }}</p>
-                  </a>
-                  <p v-if="!detail.sec.length" class="py-8 text-center text-sm text-[var(--app-text-muted)]">No SEC filings found</p>
                 </div>
               </template>
             </section>
