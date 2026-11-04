@@ -35,7 +35,7 @@ const emit = defineEmits<{
     class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4"
     :style="props.height ? { height: props.height } : undefined"
   >
-    <label class="mb-10 flex h-10 shrink-0 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3">
+    <label class="flex h-10 shrink-0 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3" :class="$slots['after-search'] ? 'mb-3' : 'mb-10'">
       <input
         class="w-full bg-transparent text-sm outline-none"
         :value="props.modelValue"
@@ -44,6 +44,8 @@ const emit = defineEmits<{
       />
       <Search :size="18" class="ml-2 shrink-0 text-[var(--app-text-secondary)]" />
     </label>
+
+    <slot name="after-search" />
 
     <h3 class="mb-2 shrink-0 text-sm font-semibold">{{ props.title }}</h3>
     <div class="min-h-0 flex-1 overflow-y-auto pr-1">

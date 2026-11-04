@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQueryRaw, type RouteLocationRaw } from 'vue-router'
 import { ArrowDown, ArrowUp, ChevronLeft, LayoutGrid, Menu, Search, Star, Table2, X } from '@lucide/vue'
-import { fetchIndicatorChartData, fetchIndicatorDownloadData } from '@/entities/indicator/api/indicator.api'
+import { fetchIndicatorChartData, fetchIndicatorDownloadData, fetchIndicatorTrends } from '@/entities/indicator/api/indicator.api'
 import { isSeasonalityIndicatorType, pruneStandaloneDetailChartData } from '@/entities/indicator/model/indicator.chart'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
 import {
@@ -33,6 +33,7 @@ import DetailSearchSidebar from '@/shared/ui/DetailSearchSidebar.vue'
 import type { ListExplorerViewMode } from '@/shared/ui/list-page.types'
 import { useSortedPagedRows } from './composables/useSortedPagedRows'
 import CftcDataNotice from './ui/CftcDataNotice.vue'
+import IndicatorCategorySwitcher from './ui/IndicatorCategorySwitcher.vue'
 import ConstituentConditionsTable from './ui/ConstituentConditionsTable.vue'
 import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
@@ -105,6 +106,7 @@ function updateMobileState() {
 
 const relatedRows = ref<Indicator[]>([])
 const isRelatedLoading = ref(false)
+const relatedTrendRequested = new Set<string>()
 let relatedRequestId = 0
 let relatedLoadedForId = ''
 const relatedViewMode = ref<ListExplorerViewMode>('table')
@@ -959,6 +961,17 @@ function ensureRelatedRows() {
   void loadRelatedRows(id, charts, requestId)
 }
 
+async function ensureRelatedCardTrends(rows: Indicator[], requestId: number) {
+  const ids = [...new Set(rows.filter((row) => row.id && !row.trendLines.length && !relatedTrendRequested.has(row.id)).map((row) => row.id))]
+  if (!ids.length) return
+  ids.forEach((id) => relatedTrendRequested.add(id))
+  const trends = await fetchIndicatorTrends(ids)
+  if (requestId !== relatedRequestId) return
+  relatedRows.value = relatedRows.value.map((row) =>
+    trends[row.id] ? { ...row, trendLines: trends[row.id] } : row,
+  )
+}
+
 function updateSidebarHeight() {
   const element = detailContentElement.value
   // Only in the two-column layout: stacked, a sidebar forced to the detail's height
@@ -1033,6 +1046,7 @@ watch(
     csvMessage.value = ''
 
     relatedRequestId++
+    relatedTrendRequested.clear()
     relatedLoadedForId = ''
     relatedRows.value = []
     isRelatedLoading.value = false
@@ -1104,6 +1118,15 @@ watch(
 watch(activeTab, (tab) => {
   if (tab === 'related') ensureRelatedRows()
 })
+
+watch(
+  () => [activeTab.value, relatedViewMode.value, isRelatedLoading.value, pagedRelatedRows.value.map((row) => row.id).join('|')] as const,
+  () => {
+    if (activeTab.value === 'related' && relatedViewMode.value === 'cards' && !isRelatedLoading.value) {
+      void ensureRelatedCardTrends(pagedRelatedRows.value, relatedRequestId)
+    }
+  },
+)
 </script>
 
 <template>
@@ -1148,6 +1171,9 @@ watch(activeTab, (tab) => {
           :height="sidebarHeight"
           @item-click="(item) => store.rememberIndicatorSource(item.id, String(item.sourceList ?? ''))"
         >
+          <template v-if="!isStandaloneDetail" #after-search>
+            <IndicatorCategorySwitcher @change="listSearchQuery = ''" />
+          </template>
           <template #action="{ item }">
             <span v-if="item.favoriteLocked" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <button
@@ -1484,6 +1510,7 @@ watch(activeTab, (tab) => {
                 :indicators="pagedRelatedRows"
                 :loading="isRelatedLoading"
                 :columns="relatedChartColumns"
+                fit-container
                 :show-favorite="false"
                 :sort-key="relatedSortKey"
                 :sort-direction="relatedSortDirection"
@@ -1588,6 +1615,8 @@ watch(activeTab, (tab) => {
                       spellcheck="false"
                     />
                   </label>
+
+                  <IndicatorCategorySwitcher v-if="!isStandaloneDetail" class="px-1" @change="listSearchQuery = ''" />
 
                   <!-- Item list -->
                   <div class="space-y-0">

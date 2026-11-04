@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<{
   sortKey?: string
   sortDirection?: IndicatorSortDirection
   compact?: boolean
+  fitContainer?: boolean
 }>(), {
   showFavorite: true,
   sortKey: '',
@@ -83,6 +84,14 @@ function columnMinWidth(column: IndicatorTableColumn) {
   return Math.min(column.minWidth ?? width, width)
 }
 
+function fittedWidth(column: IndicatorTableColumn) {
+  const widths: Record<string, string> = {
+    chart_name: '32%', sub_type: '12%', timeframe: '11%', last_value: '10%',
+    last_change: '10%', last_update: '12%', sentiment: '13%',
+  }
+  return widths[column.key] ?? '12%'
+}
+
 function isSorted(column: IndicatorTableColumn) {
   return props.sortKey === column.key
 }
@@ -138,7 +147,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
 <template>
   <div class="overflow-hidden rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface)]">
     <div class="overflow-x-auto">
-      <table class="min-w-full border-collapse text-left text-[0.8125rem] text-[var(--app-text)]">
+      <table class="min-w-full border-collapse text-left text-[0.8125rem] text-[var(--app-text)]" :class="props.fitContainer ? 'table-fixed' : ''">
         <thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold">
           <tr class="border-b border-[var(--app-border)]">
             <th
@@ -154,7 +163,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
               scope="col"
               class="box-border py-2.5"
               :class="[props.compact ? 'px-2' : 'px-3', alignClass(column)]"
-              :style="{ minWidth: `calc(${columnMinWidth(column)}px * var(--fixed-ui-scale, 1))` }"
+              :style="props.fitContainer ? { width: fittedWidth(column) } : { minWidth: `calc(${columnMinWidth(column)}px * var(--fixed-ui-scale, 1))` }"
               :aria-sort="sortAria(column)"
             >
               <button
@@ -215,11 +224,11 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
                 v-for="column in props.columns"
                 :key="column.key"
                 class="box-border py-2.5"
-                :class="[props.compact ? 'px-2' : 'px-3', alignClass(column), changeTone(indicator, column)]"
+                :class="[props.compact ? 'px-2' : 'px-3', props.fitContainer ? 'overflow-hidden text-ellipsis whitespace-nowrap' : '', alignClass(column), changeTone(indicator, column)]"
               >
                 <button
                   v-if="column.kind === 'name'"
-                  class="text-left font-semibold text-[var(--app-text)] transition hover:text-[var(--app-primary)] hover:underline"
+                  class="max-w-full truncate text-left font-semibold text-[var(--app-text)] transition hover:text-[var(--app-primary)] hover:underline"
                   type="button"
                   @click="$emit('open', indicator)"
                 >
@@ -237,7 +246,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
                   </a>
                   <span v-else>{{ displayValue(indicator, column) }}</span>
                 </template>
-                <IndicatorSentimentMeter v-else-if="column.kind === 'sentiment'" :score="indicator.sentimentScore" :compact="props.compact" />
+                <IndicatorSentimentMeter v-else-if="column.kind === 'sentiment'" :score="indicator.sentimentScore" :compact="props.compact || props.fitContainer" />
                 <IndicatorSparkline
                   v-else-if="column.kind === 'sparkline'"
                   :series="indicator.trendLines"
