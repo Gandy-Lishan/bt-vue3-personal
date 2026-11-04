@@ -191,6 +191,18 @@ function isActive(item: NavItem) {
 function firstPath(item: NavItem) {
   return item.subMenu?.[0]?.path ?? item.path
 }
+
+// Dropdowns hang from the item's left edge by default. When that would push the
+// menu past the viewport's right edge (e.g. the rightmost nav item), right-align
+// it instead so hovering never triggers a page-wide horizontal scrollbar.
+const dropdownAlign = ref<Record<string, 'left' | 'right'>>({})
+
+function alignDropdown(item: NavItem, event: MouseEvent) {
+  if (!item.subMenu?.length) return
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const dropdownWidth = 240 // the 230px min-width plus border
+  dropdownAlign.value[item.keyPath] = rect.left + dropdownWidth > document.documentElement.clientWidth ? 'right' : 'left'
+}
 </script>
 
 <template>
@@ -301,7 +313,7 @@ function firstPath(item: NavItem) {
     </div>
 
     <nav class="relative flex h-11 items-stretch overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
-      <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0">
+      <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0" @mouseenter="alignDropdown(item, $event)">
         <component
           :is="item.external ? 'a' : 'RouterLink'"
           :href="item.external ? item.path : undefined"
@@ -315,7 +327,8 @@ function firstPath(item: NavItem) {
         </component>
         <div
           v-if="item.subMenu?.length"
-          class="absolute left-0 top-full z-30 hidden min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 shadow-xl group-hover:block"
+          class="absolute top-full z-30 hidden min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 shadow-xl group-hover:block"
+          :class="dropdownAlign[item.keyPath] === 'right' ? 'right-0' : 'left-0'"
         >
           <component
             :is="subItem.external ? 'a' : 'RouterLink'"
