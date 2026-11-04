@@ -194,7 +194,17 @@ function parsePercentValue(value: unknown) {
   return numeric === null ? null : normalizePercentValue(numeric)
 }
 
-function metric(label: string, value: unknown, options?: { currency?: boolean; percent?: boolean; toneValue?: number | null }): MarketMetric {
+function metric(
+  label: string,
+  value: unknown,
+  options?: {
+    currency?: boolean
+    percent?: boolean
+    toneValue?: number | null
+    description?: string
+    suffix?: string
+  },
+): MarketMetric {
   const numeric = parseMarketNumber(value)
   const tone =
     options?.toneValue === undefined || options.toneValue === null
@@ -204,10 +214,13 @@ function metric(label: string, value: unknown, options?: { currency?: boolean; p
         : options.toneValue < 0
           ? 'negative'
           : 'neutral'
+  const formatted = numeric === null ? textValue(value) : `${formatMarketCompact(numeric, options)}${options?.suffix ?? ''}`
   return {
     label,
-    value: numeric === null ? textValue(value) : formatMarketCompact(numeric, options),
+    value: formatted,
     tone,
+    description: options?.description,
+    available: numeric !== null,
   }
 }
 
@@ -234,16 +247,50 @@ function normalizeProfile(payload: unknown, ticker: string, prediction: MarketPr
     change,
     changePercent,
     companyStats: [
-      metric('Market Cap', detail.market_cap, { currency: true }),
-      metric('P/B Ratio', detail.pb_ratio),
-      metric('EV/Sales', detail.ev_to_sales),
-      metric('P/S Ratio', detail.price_to_sales_ratio),
-      metric('Beta', detail.beta),
-      metric('Return on Equity', detail.roe, { percent: true }),
-      metric('Current Ratio', detail.current_ratio),
-      metric('FCF Yield', detail.free_cash_flow_yield, { percent: true }),
+      metric('Market Cap', detail.market_cap, {
+        currency: true,
+        description: "Market cap is the most direct indicator of a company's size. It's calculated by multiplying the total number of outstanding shares by the current stock price.",
+      }),
+      metric('P/E Ratio', detail.pe_ratio, {
+        description: 'The Price-to-Earnings (P/E) ratio divides the current share price by the earnings per share (EPS). It indicates how much investors are willing to pay for each unit of earnings.',
+      }),
+      metric('P/B Ratio', detail.pb_ratio, {
+        description: 'The Price-to-Book (P/B) ratio divides the current share price by the book value per share, comparing market value to book value (net assets).',
+      }),
+      metric('EV/Sales', detail.ev_to_sales, {
+        description: 'EV/Sales divides Enterprise Value by total sales revenue. It is similar to P/S but factors in debt and cash for a more comprehensive view of company value.',
+      }),
+      metric('EV/EBITDA', detail.enterprise_value_over_ebitda, {
+        description: "EV/EBITDA divides Enterprise Value by EBITDA, reflecting the core business's cash-generating capability before interest, taxes, depreciation and amortization.",
+      }),
+      metric('P/S Ratio', detail.price_to_sales_ratio, {
+        description: 'The Price-to-Sales (P/S) ratio divides market capitalization by total sales revenue from the last fiscal year, useful for growth companies that may not yet be profitable.',
+      }),
+      metric('Beta', detail.beta, {
+        description: 'The Beta Coefficient measures the volatility of an individual stock or investment portfolio relative to the overall market.',
+      }),
+      metric('Return on Equity', detail.roe, {
+        percent: true,
+        description: "Return on Equity (ROE) is net income divided by average shareholders' equity. It measures how effectively a company uses shareholder capital to generate profits.",
+      }),
+      metric('ROIC', detail.roic, {
+        percent: true,
+        description: 'Return on Invested Capital (ROIC) measures how efficiently a company uses all its invested capital (equity and debt) to generate profits.',
+      }),
+      metric('Current Ratio', detail.current_ratio, {
+        description: "The Current Ratio divides current assets by current liabilities. It measures a company's ability to pay off short-term debts.",
+      }),
+      metric('FCF Yield', detail.free_cash_flow_yield, {
+        percent: true,
+        description: 'Free Cash Flow Yield divides Free Cash Flow by market capitalization. It shows the cash left after operations and capital expenditures relative to company value.',
+      }),
+      metric('Dividend Yield', detail.dividend_yield, {
+        percent: true,
+        description: 'Dividend yield divides the annual dividend per share by the current share price. It measures how much cash dividend an investor receives per share.',
+      }),
     ],
     tradingStats: [
+      metric('Price', trading.price, { currency: true }),
       metric('Open', trading.open_price, { currency: true }),
       metric('Previous Close', trading.previous_close, { currency: true }),
       metric('Day High', trading.day_high, { currency: true }),
@@ -252,6 +299,9 @@ function normalizeProfile(payload: unknown, ticker: string, prediction: MarketPr
       metric('52W Low', trading.year_low, { currency: true }),
       metric('Volume', trading.volume),
       metric('Avg Volume', trading.avg_volume),
+      metric('ATR (14)', trading.atr14),
+      metric('200MA Distance', trading.ma200_distance, { suffix: '%' }),
+      metric('Relative Volume', trading.relative_volume, { suffix: 'x' }),
     ],
   }
 }

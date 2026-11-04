@@ -10,7 +10,9 @@ import {
   Database,
   Download,
   FileText,
+  Landmark,
   LineChart,
+  Newspaper,
   Star,
   Users,
 } from '@lucide/vue'
@@ -23,7 +25,6 @@ import {
   marketDetailTabs,
   normalizeMarketPredictionDetail,
   predictionDisplayName,
-  targetSummaryText,
 } from '@/entities/market/model/market-detail.adapter'
 import type { MarketDetailRawParts } from '@/entities/market/model/market-detail.adapter'
 import {
@@ -40,6 +41,7 @@ import type { MarketPredictionRow } from '@/entities/market/model/market-predict
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import DetailSearchSidebar from '@/shared/ui/DetailSearchSidebar.vue'
 import MarketPredictionRatingBadge from './ui/MarketPredictionRatingBadge.vue'
+import MarketInfoHint from './ui/detail/MarketInfoHint.vue'
 import MarketDetailAnalystsTab from './ui/detail/MarketDetailAnalystsTab.vue'
 import MarketDetailChartTab from './ui/detail/MarketDetailChartTab.vue'
 import MarketDetailCashFlowTab from './ui/detail/MarketDetailCashFlowTab.vue'
@@ -80,6 +82,16 @@ const logoUrl = computed(() => profile.value?.logoUrl ?? `https://images.financi
 const latestTarget = computed(() => latestItem(detail.value?.analystTargets ?? []))
 const latestFinancial = computed(() => latestItem(detail.value?.financials ?? []))
 const latestCashFlow = computed(() => latestItem(detail.value?.cashFlow ?? []))
+const latestBalance = computed(() => latestItem(detail.value?.balanceSheet ?? []))
+const latestEarnings = computed(() => latestItem(detail.value?.earnings ?? []))
+const nextEarnings = computed(() => detail.value?.upcomingEarnings?.[0] ?? null)
+const latestInsider = computed(() => detail.value?.ownershipInsiders?.[0] ?? null)
+const ownershipInstitutionCount = computed(() => detail.value?.ownershipInstitutions.length ?? 0)
+const ownershipFundCount = computed(() => detail.value?.ownershipFunds.length ?? 0)
+const latestNews = computed(() => (detail.value?.news ?? []).slice(0, 2))
+const latestFilings = computed(() => (detail.value?.sec ?? []).slice(0, 2))
+const companyDetailRows = computed(() => (profile.value?.companyStats ?? []).filter((metric) => metric.available !== false))
+const tradingStatRows = computed(() => (profile.value?.tradingStats ?? []).filter((metric) => metric.available !== false))
 const visibleDescription = computed(() => {
   const description = profile.value?.description ?? ''
   if (profileExpanded.value || description.length < 210) return description
@@ -188,7 +200,7 @@ async function loadPredictionRows() {
 // is always requested for the header. Other sections load when their tab is
 // opened and are cached for the rest of the visit.
 const TAB_PARTS: Record<MarketDetailTab, MarketDetailPartKey[]> = {
-  overview: ['profile', 'analyst', 'earnings', 'income', 'balance', 'cash', 'news', 'sec'],
+  overview: ['profile', 'analyst', 'earnings', 'income', 'balance', 'cash', 'ownership', 'news', 'sec'],
   chart: [],
   analysts: ['analyst'],
   earnings: ['earnings'],
@@ -529,7 +541,7 @@ onBeforeUnmount(() => {
           <template v-else-if="detail">
             <section v-if="activeTab === 'overview'" class="space-y-3">
               <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <section class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                <section class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                   <div class="mb-3 flex items-center justify-between gap-3">
                     <h2 class="text-lg font-extrabold">Price & Forecast</h2>
                     <RouterLink class="text-sm font-bold text-[var(--app-primary)] hover:underline" :to="{ query: { ...route.query, tab: 'chart' } }">
@@ -547,54 +559,58 @@ onBeforeUnmount(() => {
                     </span>
                   </div>
 
-                  <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-3">
-                    <svg class="h-56 w-full overflow-visible" viewBox="0 0 760 220" preserveAspectRatio="none" role="img" aria-label="Forecast chart">
-                      <defs>
-                        <linearGradient id="marketForecastFill" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stop-color="var(--app-primary)" stop-opacity="0.22" />
-                          <stop offset="100%" stop-color="var(--app-primary)" stop-opacity="0.02" />
-                        </linearGradient>
-                      </defs>
-                      <path v-if="forecastPath" :d="`${forecastPath} L 760 220 L 0 220 Z`" fill="url(#marketForecastFill)" />
-                      <path v-if="forecastPath" :d="forecastPath" fill="none" stroke="var(--app-primary)" stroke-width="4" stroke-linecap="round" />
-                    </svg>
+                  <div class="flex flex-1 flex-col rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-3">
+                    <div class="flex min-h-56 flex-1 items-stretch">
+                      <svg class="h-full w-full overflow-visible" viewBox="0 0 760 220" preserveAspectRatio="none" role="img" aria-label="Forecast chart">
+                        <defs>
+                          <linearGradient id="marketForecastFill" x1="0" x2="0" y1="0" y2="1">
+                            <stop offset="0%" stop-color="var(--app-primary)" stop-opacity="0.22" />
+                            <stop offset="100%" stop-color="var(--app-primary)" stop-opacity="0.02" />
+                          </linearGradient>
+                        </defs>
+                        <path v-if="forecastPath" :d="`${forecastPath} L 760 220 L 0 220 Z`" fill="url(#marketForecastFill)" />
+                        <path v-if="forecastPath" :d="forecastPath" fill="none" stroke="var(--app-primary)" stroke-width="4" stroke-linecap="round" />
+                      </svg>
+                    </div>
                     <div class="mt-2 flex h-20 items-end gap-1 border-t border-[var(--app-border-muted)] pt-3">
                       <span v-for="bar in forecastBars" :key="bar.id" class="flex-1 rounded-t bg-[var(--app-primary-soft)]" :style="{ height: `${bar.height}px` }" />
                     </div>
                   </div>
 
-                  <div class="mt-3 grid gap-2 md:grid-cols-3">
-                    <div v-for="row in detail.analystTargets.slice(-3)" :key="`${row.date}-${row.target}`" class="rounded-md border border-[var(--app-border-muted)] px-3 py-2">
-                      <p class="text-xs font-semibold text-[var(--app-text-muted)]">{{ row.date }}</p>
-                      <p class="mt-1 text-sm font-bold text-[var(--app-text)]">{{ targetSummaryText(row) }}</p>
+                  <div class="mt-4 border-t border-[var(--app-border-muted)] pt-3">
+                    <h3 class="mb-2 text-sm font-extrabold">Analyst Consensus</h3>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">
+                      <div v-for="item in detail.analystConsensus" :key="item.label">
+                        <div class="flex items-baseline justify-between gap-2">
+                          <span class="truncate text-xs font-semibold text-[var(--app-text-secondary)]">{{ item.label }}</span>
+                          <span class="text-xs font-extrabold">{{ item.percent === null ? '—' : `${item.percent}%` }}</span>
+                        </div>
+                        <span class="mt-1 block h-2 overflow-hidden rounded-full bg-[var(--app-border-muted)]">
+                          <span class="block h-full rounded-full" :style="{ width: `${Math.max(0, Math.min(100, item.percent ?? 0))}%`, backgroundColor: item.color }" />
+                        </span>
+                        <p class="mt-1 text-[11px] text-[var(--app-text-muted)]">{{ item.count ?? 0 }} {{ item.count === 1 ? 'analyst' : 'analysts' }}</p>
+                      </div>
                     </div>
                   </div>
                 </section>
 
-                <section class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
-                  <div class="border-b border-[var(--app-border)] p-4">
-                    <h2 class="flex items-center gap-2 text-lg font-extrabold">
-                      Analyst Consensus
-                      <Users :size="18" class="text-[var(--app-text-muted)]" />
-                    </h2>
-                  </div>
-                  <div class="space-y-3 p-4">
-                    <div v-for="item in detail.analystConsensus" :key="item.label" class="grid grid-cols-[88px_minmax(0,1fr)_72px] items-center gap-3 text-sm">
-                      <span class="font-semibold text-[var(--app-text-secondary)]">{{ item.label }}</span>
-                      <span class="h-3 overflow-hidden rounded-full bg-[var(--app-border-muted)]">
-                        <span class="block h-full rounded-full" :style="{ width: `${Math.max(0, Math.min(100, item.percent ?? 0))}%`, backgroundColor: item.color }" />
+                <section class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                  <h2 class="text-lg font-extrabold">Company Details</h2>
+                  <div class="mt-2 space-y-2 text-sm">
+                    <div v-for="metric in companyDetailRows" :key="metric.label" class="flex items-center justify-between gap-3">
+                      <span class="flex min-w-0 items-center gap-1">
+                        {{ metric.label }}
+                        <MarketInfoHint v-if="metric.description" :text="metric.description" />
                       </span>
-                      <span class="text-right font-extrabold">{{ item.percent === null ? '—' : `${item.percent}%` }} ({{ item.count ?? 0 }})</span>
+                      <span class="shrink-0 font-bold" :class="metricToneClass(metric)">{{ metric.value }}</span>
                     </div>
                   </div>
 
-                  <div class="border-t border-[var(--app-border)] p-4">
-                    <h2 class="mb-2 text-lg font-extrabold">Company Stats</h2>
-                    <div class="space-y-2">
-                      <div v-for="metric in detail.profile.companyStats" :key="metric.label" class="flex items-center justify-between border-b border-[var(--app-border-muted)] pb-2 text-sm last:border-0 last:pb-0">
-                        <span class="font-semibold text-[var(--app-text-secondary)]">{{ metric.label }}</span>
-                        <span class="font-extrabold" :class="metricToneClass(metric)">{{ metric.value }}</span>
-                      </div>
+                  <h2 class="mt-4 border-t border-[var(--app-border)] pt-3 text-lg font-extrabold">Trading Stats</h2>
+                  <div class="mt-2 space-y-2 text-sm">
+                    <div v-for="metric in tradingStatRows" :key="metric.label" class="flex items-center justify-between gap-3">
+                      <span>{{ metric.label }}</span>
+                      <span class="shrink-0 font-bold" :class="metricToneClass(metric)">{{ metric.value }}</span>
                     </div>
                   </div>
                 </section>
@@ -614,8 +630,8 @@ onBeforeUnmount(() => {
 
               <section>
                 <h2 class="mb-2 text-lg font-extrabold">Research Snapshot</h2>
-                <div class="grid gap-3 xl:grid-cols-4">
-                  <div class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                     <h3 class="mb-3 flex items-center gap-2 font-extrabold"><LineChart :size="20" class="text-[var(--app-primary)]" /> Earnings</h3>
                     <div class="flex h-24 items-end gap-2 overflow-hidden border-b border-[var(--app-border-muted)] pb-2">
                       <span v-for="row in earningsChartRows" :key="row.period" class="flex h-full flex-1 items-end justify-center gap-1">
@@ -623,36 +639,104 @@ onBeforeUnmount(() => {
                         <span class="min-h-1 flex-1 rounded-t bg-[var(--app-primary)]" :style="{ height: `${barHeight(row.actualEps, earningsChartRows.map((item) => item.actualEps), 78)}px` }" />
                       </span>
                     </div>
-                    <RouterLink class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'earnings' } }">View details <ArrowRight :size="15" /></RouterLink>
+                    <div class="mt-3 space-y-2 text-sm">
+                      <div class="flex justify-between gap-3"><span>Latest EPS</span><b>{{ formatMarketCurrency(latestEarnings?.actualEps ?? null) }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Next Report</span><b>{{ nextEarnings?.date ?? '—' }}</b></div>
+                    </div>
+                    <RouterLink class="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'earnings' } }">View details <ArrowRight :size="15" /></RouterLink>
                   </div>
 
-                  <div class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                  <div class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                     <h3 class="mb-3 flex items-center gap-2 font-extrabold"><BarChart3 :size="20" class="text-[var(--app-primary)]" /> Financials</h3>
                     <div class="flex h-24 items-end gap-2 border-b border-[var(--app-border-muted)] pb-2">
                       <span v-for="row in financialChartRows" :key="row.period" class="flex-1 rounded-t bg-[var(--app-primary)]" :style="{ height: `${barHeight(row.revenue, financialChartRows.map((item) => item.revenue), 82)}px` }" />
                     </div>
-                    <p class="mt-3 text-sm text-[var(--app-text-muted)]">Revenue {{ tableCurrency(latestFinancial?.revenue ?? null) }}</p>
-                    <RouterLink class="mt-2 inline-flex items-center gap-2 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'financials' } }">View details <ArrowRight :size="15" /></RouterLink>
+                    <div class="mt-3 space-y-2 text-sm">
+                      <div class="flex justify-between gap-3"><span>Revenue</span><b>{{ tableCurrency(latestFinancial?.revenue ?? null) }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Net Income</span><b>{{ tableCurrency(latestFinancial?.netIncome ?? null) }}</b></div>
+                    </div>
+                    <RouterLink class="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'financials' } }">View details <ArrowRight :size="15" /></RouterLink>
                   </div>
 
-                  <div class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                  <div class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                    <h3 class="mb-3 flex items-center gap-2 font-extrabold"><Landmark :size="20" class="text-[var(--app-primary)]" /> Balance Sheet</h3>
+                    <div class="space-y-2 text-sm">
+                      <div class="flex justify-between gap-3"><span>Total Assets</span><b>{{ tableCurrency(latestBalance?.totalAssets ?? null) }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Total Liabilities</span><b>{{ tableCurrency(latestBalance?.totalLiabilities ?? null) }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Total Equity</span><b>{{ tableCurrency(latestBalance?.totalEquity ?? null) }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Current Ratio</span><b>{{ formatMarketCompact(latestBalance?.currentRatio ?? null) }}</b></div>
+                    </div>
+                    <RouterLink class="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'balanceSheet' } }">View details <ArrowRight :size="15" /></RouterLink>
+                  </div>
+
+                  <div class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
                     <h3 class="mb-3 flex items-center gap-2 font-extrabold"><Database :size="20" class="text-[var(--app-primary)]" /> Cash Flow</h3>
-                    <div class="space-y-3 text-sm">
-                      <div class="flex justify-between"><span>Operating Cash Flow</span><b>{{ tableCurrency(latestCashFlow?.operatingCashFlow ?? null) }}</b></div>
-                      <div class="flex justify-between"><span>Free Cash Flow</span><b>{{ tableCurrency(latestCashFlow?.freeCashFlow ?? null) }}</b></div>
-                      <div class="flex justify-between"><span>Cash Balance</span><b>{{ tableCurrency(latestCashFlow?.cashBalance ?? null) }}</b></div>
+                    <div class="space-y-2 text-sm">
+                      <div class="flex justify-between gap-3"><span>Operating Cash Flow</span><b>{{ tableCurrency(latestCashFlow?.operatingCashFlow ?? null) }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Free Cash Flow</span><b>{{ tableCurrency(latestCashFlow?.freeCashFlow ?? null) }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Cash Balance</span><b>{{ tableCurrency(latestCashFlow?.cashBalance ?? null) }}</b></div>
                     </div>
-                    <RouterLink class="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'cashFlow' } }">View details <ArrowRight :size="15" /></RouterLink>
+                    <RouterLink class="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'cashFlow' } }">View details <ArrowRight :size="15" /></RouterLink>
                   </div>
 
-                  <div class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
-                    <h3 class="mb-3 flex items-center gap-2 font-extrabold"><FileText :size="20" class="text-[var(--app-primary)]" /> Ownership & Filings</h3>
-                    <div class="space-y-3 text-sm">
-                      <RouterLink class="flex justify-between hover:text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'ownership' } }"><span>Ownership</span><ArrowRight :size="15" /></RouterLink>
-                      <RouterLink class="flex justify-between hover:text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'news' } }"><span>Latest News</span><ArrowRight :size="15" /></RouterLink>
-                      <RouterLink class="flex justify-between hover:text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'sec' } }"><span>SEC Filings</span><ArrowRight :size="15" /></RouterLink>
+                  <div class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                    <h3 class="mb-3 flex items-center gap-2 font-extrabold"><Users :size="20" class="text-[var(--app-primary)]" /> Ownership</h3>
+                    <div class="space-y-2 text-sm">
+                      <div class="flex justify-between gap-3">
+                        <span class="shrink-0">Latest Insider</span>
+                        <b class="min-w-0 truncate text-right">{{ latestInsider?.insider ?? '—' }}</b>
+                      </div>
+                      <div class="flex justify-between gap-3">
+                        <span class="shrink-0">Transaction</span>
+                        <b class="whitespace-nowrap">{{ latestInsider ? `${latestInsider.type} · ${tableCurrency(latestInsider.value)}` : '—' }}</b>
+                      </div>
+                      <div class="flex justify-between gap-3"><span>Institutions</span><b>{{ ownershipInstitutionCount }}</b></div>
+                      <div class="flex justify-between gap-3"><span>Mutual Funds</span><b>{{ ownershipFundCount }}</b></div>
                     </div>
-                    <p class="mt-4 text-xs text-[var(--app-text-muted)]">{{ detail.news.length }} news items · {{ detail.sec.length }} filings</p>
+                    <RouterLink class="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'ownership' } }">View details <ArrowRight :size="15" /></RouterLink>
+                  </div>
+
+                  <div class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                    <h3 class="mb-3 flex items-center gap-2 font-extrabold"><Newspaper :size="20" class="text-[var(--app-primary)]" /> News</h3>
+                    <div class="space-y-3 text-sm">
+                      <a
+                        v-for="item in latestNews"
+                        :key="item.id"
+                        class="block hover:text-[var(--app-primary)]"
+                        :href="item.url || undefined"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span class="line-clamp-2 font-semibold">{{ item.title }}</span>
+                        <span class="mt-1 block text-xs text-[var(--app-text-muted)]">
+                          {{ item.date }}<template v-if="item.source && item.source !== '—'"> · {{ item.source }}</template>
+                        </span>
+                      </a>
+                      <p v-if="!latestNews.length" class="text-sm italic text-[var(--app-text-muted)]">No news available</p>
+                    </div>
+                    <RouterLink class="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'news' } }">View details <ArrowRight :size="15" /></RouterLink>
+                  </div>
+
+                  <div class="flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
+                    <h3 class="mb-3 flex items-center gap-2 font-extrabold"><FileText :size="20" class="text-[var(--app-primary)]" /> SEC Filings</h3>
+                    <div class="space-y-3 text-sm">
+                      <a
+                        v-for="item in latestFilings"
+                        :key="item.id"
+                        class="block hover:text-[var(--app-primary)]"
+                        :href="item.url || undefined"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span class="flex justify-between gap-3">
+                          <b class="line-clamp-1">{{ item.description }}</b>
+                          <span class="shrink-0 text-xs text-[var(--app-text-muted)]">{{ item.date }}</span>
+                        </span>
+                        <span class="mt-0.5 block text-xs text-[var(--app-text-muted)]">{{ item.type }}</span>
+                      </a>
+                      <p v-if="!latestFilings.length" class="text-sm italic text-[var(--app-text-muted)]">No filings available</p>
+                    </div>
+                    <RouterLink class="mt-auto inline-flex items-center gap-2 pt-4 text-sm font-bold text-[var(--app-primary)]" :to="{ query: { ...route.query, tab: 'sec' } }">View details <ArrowRight :size="15" /></RouterLink>
                   </div>
                 </div>
               </section>

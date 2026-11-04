@@ -17,6 +17,8 @@ export interface MarketMetric {
   value: string
   tone?: 'positive' | 'negative' | 'neutral'
   description?: string
+  /** False when the source value is missing; Vue2 hides these rows from the sidebar. */
+  available?: boolean
   /** True when the underlying value parsed as exactly zero (used to hide all-zero panels). */
   zero?: boolean
 }
