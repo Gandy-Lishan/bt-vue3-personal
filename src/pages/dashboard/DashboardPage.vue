@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, BarChart3, Bell, CircleHelp, Ellipsis, Eye, FileText, Info, ListFilter, RefreshCw, Star, Trophy } from '@lucide/vue'
+import { ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, BarChart3, Bell, CircleHelp, Ellipsis, Eye, FileText, Grid3X3, Info, ListFilter, Plus, RefreshCw, Star, Trophy } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import { copyMySignal, fetchMySignals } from '@/entities/my-stuff/api/my-signal.api'
 import type { MySignalRow } from '@/entities/my-stuff/model/my-signal.types'
@@ -18,10 +18,56 @@ import type { Indicator } from '@/entities/indicator/model/indicator.types'
 import IndicatorCardGrid from '@/pages/indicators/ui/IndicatorCardGrid.vue'
 import ReportCardGrid from '@/pages/reports/ui/ReportCardGrid.vue'
 import { hasMeaningfulIndicatorChange } from './dashboard-indicator-updates'
+import { fetchMyScreens, fetchMyScreenResult } from '@/entities/my-stuff/api/my-screen.api'
+import type { MyScreenRow } from '@/entities/my-stuff/model/my-screen.types'
+import ScreenPreviewModal from '@/pages/my-stuff/ui/ScreenPreviewModal.vue'
+import { fetchCustomHeatmap, type CustomHeatmapData } from './custom-heatmap.api'
 
 const marketGroup = ref('sp1500')
 const groups = [{ value: 'sp1500', label: 'S&P 1500' }, { value: 'sp500', label: 'S&P 500' }, { value: 'ndx', label: 'NDX' }, { value: 'russell', label: 'Russell' }, { value: 'etf', label: 'ETF' }, { value: 'crp', label: 'Crypto' }]
 const signals = ref<MySignalRow[]>([])
+const screens = ref<MyScreenRow[]>([])
+const previewScreen = ref<MyScreenRow | null>(null)
+const heatmapHover = ref<{ name: string; value: string; thumbnail: string; x: number; y: number } | null>(null)
+const screenCounts = ref<Record<string, number>>({})
+const customHeatmap = ref<CustomHeatmapData>({ selected: [], heatmap: [] })
+const heatmapIndex = ref(0)
+const heatmapPeriods = [{ label: '0 Days', index: 0 }, { label: '5 Days', index: 2 }, { label: '10 Days', index: 3 }, { label: '50 Days', index: 5 }, { label: '100 Days', index: 6 }, { label: '200 Days', index: 7 }]
+const heatmapCells = computed(() => (customHeatmap.value.heatmap[heatmapIndex.value] ?? []).slice(0, 20))
+function heatmapTone(color: number) { return color <= 2 ? 'strong-green' : color <= 3 ? 'soft-green' : color >= 6 ? 'red' : color >= 5 ? 'soft-red' : 'neutral' }
+function screenSummary(row: MyScreenRow) {
+  const count = row.conditions.length || row.description.filter(value => value.trim()).length
+  if (count === 1) {
+    const description = row.description.find(value => value.trim())
+    if (description) return description.replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\s+/g, ' ').trim()
+    const condition = row.conditions[0]
+    if (condition) return `${condition.signal} ${['greater than', 'equal to', 'less than'][condition.condition] ?? '='} ${condition.value}`
+  }
+  return `${count} condition${count === 1 ? '' : 's'}`
+}
+function heatmapThumbnail(url: string): string {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  return `https://d1wrgh3h32hjn2.cloudfront.net/${url.replace(/_250\.png$/i, '')}_250.png`
+}
+function showHeatmapPreview(event: MouseEvent, cell: [string, string, number, number]) {
+  const width = 300
+  heatmapHover.value = {
+    name: cell[0], value: String(cell[2]), thumbnail: heatmapThumbnail(cell[1]),
+    x: Math.min(window.innerWidth - width - 12, Math.max(12, event.clientX + 14)),
+    y: Math.max(12, Math.min(window.innerHeight - 60, event.clientY + 14)),
+  }
+}
+function moveHeatmapPreview(event: MouseEvent) {
+  if (!heatmapHover.value) return
+  const width = 300
+  heatmapHover.value.x = Math.min(window.innerWidth - width - 12, Math.max(12, event.clientX + 14))
+  heatmapHover.value.y = Math.max(12, Math.min(window.innerHeight - 60, event.clientY + 14))
+}
+function hideHeatmapThumbnail() {
+  if (!heatmapHover.value) return
+  heatmapHover.value.thumbnail = ''
+}
 const signalSource = ref<'mine' | 'library'>('mine')
 type SignalSortKey = 'symbol' | 'signal' | 'timeframe' | 'lastSignalDate'
 const signalColumnOrder: SignalSortKey[] = ['symbol', 'signal', 'timeframe', 'lastSignalDate']
@@ -304,10 +350,20 @@ async function load() {
     const mine = await fetchMySignals('mine', signal)
     return mine.length ? { rows: mine, source: 'mine' as const } : { rows: await fetchMySignals('library', signal), source: 'library' as const }
   }
+  async function fetchDashboardScreens() {
+    const rows = await fetchMyScreens(signal)
+    const counts = await Promise.all(rows.slice(0, 4).map(async row => {
+      try { return [row.id, (await fetchMyScreenResult(row.url, row, signal)).rows.length] as const }
+      catch { return [row.id, null] as const }
+    }))
+    return { rows, counts: Object.fromEntries(counts.filter((entry): entry is readonly [string, number] => entry[1] !== null)) }
+  }
   await Promise.all([
     settle('date', fetchDashboardDate(signal), value => { dashboardDate.value = value }),
     settle('tradingDate', fetchLatestSignalTradingDate(signal), value => { latestTradingDate.value = value }),
     settle('signals', fetchDashboardSignals(), value => { signals.value = value.rows; signalSource.value = value.source; signalPage.value = 1 }),
+    settle('screens', fetchDashboardScreens(), value => { screens.value = value.rows; screenCounts.value = value.counts }),
+    settle('heatmap', fetchCustomHeatmap(signal), value => { customHeatmap.value = value }),
     settle('indicators', fetchMyIndicators(signal), value => { indicators.value = value }),
     settle('reports', fetchReportFavorites(1, signal, 4), value => { reports.value = value.items; favoriteReportCount.value = value.count ?? value.items.length }),
     settle('watchlist', fetchDashboardWatchlist(signal), value => { watchlist.value = value.rows; latestWatchlistName.value = value.name }),
@@ -383,6 +439,25 @@ onBeforeUnmount(() => controller?.abort())
             <p v-if="errors.watchlist" class="panel-state">Unable to load watchlist movers.</p><p v-else-if="!loading && !movers.length" class="panel-state">No watchlist movers available.</p>
             <div v-else class="table-wrap watchlist-table"><table><thead><tr><th>Symbol</th><th>Price</th><th>Day change</th><th><button type="button" class="watchlist-trend-sort" :class="{ active: moverSortKey === 'trend' }" @click="sortMovers('trend')">Trend<ArrowUp v-if="moverSortKey === 'trend' && moverSortDirection === 'asc'" :size="13"/><ArrowDown v-else-if="moverSortKey === 'trend'" :size="13"/><ArrowUpDown v-else :size="13"/></button></th><th>30-day trend</th></tr></thead><tbody><tr v-for="(row, index) in movers" :key="String(field(row, 'symbol', 'ticker', 'market_symbol') ?? index)"><td><span class="watchlist-symbol"><img class="watchlist-logo" :src="moverLogoUrl(row)" :alt="`${metric(row, 'symbol', 'ticker', 'market_symbol')} logo`" loading="lazy" @error="hideLogo" /><span class="watchlist-symbol-text"><strong>{{ metric(row, 'symbol', 'ticker', 'market_symbol') }}</strong><small>{{ metric(row, 'symbol_name', 'company', 'name') }}</small></span></span></td><td class="watchlist-price">{{ display(field(row, 'close'), 2) }}</td><td><span class="watchlist-change" :class="change(row) === null ? '' : positive(change(row)) ? 'up' : 'down'"><strong>{{ displayDailyChange(change(row)) }}</strong><small>{{ displayPercent(field(row, 'daily_change_percent')) }}</small></span></td><td><span class="trend-badge" :class="`trend-${trendLevel(row)}`"><strong v-if="trendLevel(row) !== 'missing'">{{ display(score(row)) }}</strong>{{ trendLabel(row) }}</span></td><td><svg v-if="trendPoints(row)" class="watchlist-spark" viewBox="0 0 72 26" preserveAspectRatio="none"><defs><linearGradient :id="`watchlist-gradient-${index}`" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" :stop-color="positive(change(row)) ? 'var(--app-positive)' : 'var(--app-negative)'" stop-opacity=".3"/><stop offset="100%" :stop-color="positive(change(row)) ? 'var(--app-positive)' : 'var(--app-negative)'" stop-opacity="0"/></linearGradient></defs><polygon :points="`0,26 ${trendPoints(row)} 72,26`" :fill="`url(#watchlist-gradient-${index})`"/><polyline :points="trendPoints(row)" :class="positive(change(row)) ? 'up' : 'down'"/></svg><span v-else>—</span></td></tr></tbody></table></div>
             <footer class="watchlist-footer"><span><Info :size="16"/>Trend score: 0–10</span></footer>
+          </article>
+          <article v-if="show.tools" class="panel my-screens-panel">
+            <header class="panel-title"><div><ListFilter :size="19"/><h2>My Screens</h2></div><RouterLink to="/my-stuff/screens">View all <ArrowRight :size="14"/></RouterLink></header>
+            <p v-if="errors.screens" class="panel-state">Unable to load screens. Try Refresh.</p>
+            <p v-else-if="loading" class="panel-state">Loading screens...</p>
+            <p v-else-if="!screens.length" class="panel-state">No screens yet. Create one to track stocks that match your criteria.</p>
+            <div v-else class="table-wrap signal-table dashboard-screen-list"><table><colgroup><col class="screen-name-column"><col class="screen-matches-column"><col class="screen-action-column"></colgroup><thead class="bg-[var(--app-surface-muted)] text-[0.6875rem] font-semibold"><tr class="border-b border-[var(--app-border)]"><th>Screen</th><th>Matches</th><th class="text-right">Action</th></tr></thead><tbody><tr v-for="row in screens.slice(0, 4)" :key="row.id"><td class="signal-info-cell" :title="row.name"><strong>{{ row.name }}</strong><span>{{ screenSummary(row) }}</span></td><td><span v-if="screenCounts[row.id] !== undefined" class="dashboard-screen-count">{{ screenCounts[row.id] }} stocks</span><span v-else>—</span></td><td class="action-cell"><button class="signal-preview-button" type="button" :aria-label="`Preview ${row.name}`" title="Screen Preview" @click="previewScreen = row"><Eye :size="15"/></button></td></tr></tbody></table></div>
+            <footer><RouterLink class="dashboard-create-screen" to="/my-stuff/screens"><Plus :size="16"/> Create screen</RouterLink></footer>
+          </article>
+          <article v-if="show.tools" class="panel custom-heatmap-panel">
+            <header class="panel-title"><div><Grid3X3 :size="19"/><h2>Customize Heatmap</h2></div><RouterLink to="/indicators/user-defined-optix-heatmap">Open full view <ArrowRight :size="14"/></RouterLink></header>
+            <p v-if="errors.heatmap" class="panel-state">Unable to load your heatmap. Try Refresh.</p>
+            <p v-else-if="loading" class="panel-state">Loading heatmap...</p>
+            <div v-else-if="!customHeatmap.selected.length" class="custom-heatmap-empty"><Grid3X3 :size="28"/><strong>Make this heatmap yours</strong><span>Choose Optix indicators to see their latest values and moving averages here.</span><RouterLink to="/indicators/user-defined-optix-heatmap">Customize Heatmap <ArrowRight :size="14"/></RouterLink></div>
+            <template v-else>
+              <div class="custom-heatmap-tabs"><button v-for="period in heatmapPeriods" :key="period.index" type="button" :class="{ active: heatmapIndex === period.index }" @click="heatmapIndex = period.index">{{ period.label }}</button></div>
+              <div class="custom-heatmap-grid"><RouterLink v-for="cell in heatmapCells" :key="cell[1]" to="/indicators/user-defined-optix-heatmap" class="custom-heatmap-cell" :class="`custom-heatmap-cell--${heatmapTone(cell[3])}`" @mouseenter="showHeatmapPreview($event, cell)" @mousemove="moveHeatmapPreview" @mouseleave="heatmapHover = null"><span>{{ cell[0] }}</span><strong>{{ cell[2] }}</strong></RouterLink></div>
+              <div class="custom-heatmap-legend"><span>More Pessimistic</span><i/><span>More Optimistic</span></div>
+            </template>
           </article>
           <article v-if="show.tools" class="panel snapshot-panel">
             <header class="panel-title"><div><ListFilter :size="19"/><h2>Explore the Market</h2></div><RouterLink to="/market-screen">View market screener <ArrowRight :size="14"/></RouterLink></header>
@@ -469,6 +544,8 @@ onBeforeUnmount(() => controller?.abort())
       </section>
     </div>
     <SignalPreviewModal v-if="previewSignal" :row="previewSignal" :library="signalSource === 'library'" :busy="previewBusy" @close="previewSignal = null" @view="editPreviewSignal" @copy="duplicatePreviewSignal" />
+    <ScreenPreviewModal v-if="previewScreen" :row="previewScreen" @close="previewScreen = null" @edit="row => { previewScreen = null; router.push({ path: '/my-stuff/screens', query: { screen: row.url, action: 'edit' } }) }" @view-results="row => { previewScreen = null; router.push({ path: '/my-stuff/screens', query: { screen: row.url, action: 'view' } }) }" />
+    <Teleport to="body"><div v-if="heatmapHover" class="heatmap-preview-popover" :style="{ left: `${heatmapHover.x}px`, top: `${heatmapHover.y}px` }"><div><strong>{{ heatmapHover.name }}</strong><span>Value: {{ heatmapHover.value }}</span></div><img v-if="heatmapHover.thumbnail" :src="heatmapHover.thumbnail" :alt="`${heatmapHover.name} chart preview`" @error="hideHeatmapThumbnail" /></div></Teleport>
     <IndicatorPreviewModal v-if="previewIndicator" :row="previewIndicator" @close="previewIndicator = null" @edit="router.push({ name: 'my-indicator-edit', query: { url: previewIndicator?.url } })" />
   </main>
 </template>
@@ -584,16 +661,47 @@ onBeforeUnmount(() => controller?.abort())
 }
 .signals-panel { grid-column: span 10; }
 .watchlist-movers-panel { grid-column: span 10; }
+.my-screens-panel,.custom-heatmap-panel { grid-column: span 10; }
 .snapshot-panel { grid-column: 1 / -1; }
 .sentiment-panel { grid-column: span 10; }
 .trends-panel { grid-column: 1 / -1; }
 .favorite-reports-panel { grid-column: span 10; }
 .signals-panel { order: 1; }
 .watchlist-movers-panel { order: 2; }
-.snapshot-panel { order: 3; }
-.sentiment-panel { order: 4; }
-.favorite-reports-panel { order: 5; }
-.trends-panel { order: 6; }
+.my-screens-panel,.custom-heatmap-panel { order: 3; }
+.snapshot-panel { order: 4; }
+.sentiment-panel { order: 5; }
+.favorite-reports-panel { order: 6; }
+.trends-panel { order: 7; }
+.dashboard-screen-list .screen-name-column { width: 70%; }
+.dashboard-screen-list .screen-matches-column { width: 20%; }
+.dashboard-screen-list .screen-action-column { width: 10%; }
+.my-screens-panel .dashboard-screen-list th { padding: .625rem .75rem; color: var(--app-text); font-size: .6875rem; font-weight: 600; text-align: left; }
+.my-screens-panel .dashboard-screen-list th.text-right { text-align: right; }
+.dashboard-screen-count { border-radius: 1rem; background: var(--app-primary-soft); padding: .25rem .55rem; color: var(--app-primary); font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.my-screens-panel footer { justify-content: center; }
+.custom-heatmap-empty { display: flex; min-height: 13rem; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: .55rem; padding: 1.25rem; color: var(--app-text-muted); text-align: center; }
+.custom-heatmap-empty strong { color: var(--app-text); }
+.custom-heatmap-empty a { display: inline-flex; align-items: center; gap: .3rem; margin-top: .3rem; color: var(--app-primary); font-weight: 700; }
+.custom-heatmap-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: .25rem; margin-bottom: .45rem; padding: .65rem .65rem 0; }
+.custom-heatmap-tabs button { border-radius: .3rem; padding: .3rem .5rem; color: var(--app-text-muted); font-size: .72rem; font-weight: 700; }
+.custom-heatmap-tabs button.active { background: var(--app-primary-soft); color: var(--app-primary); }
+.custom-heatmap-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); grid-auto-rows: 50px; padding: 0 .7rem; }
+.custom-heatmap-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--app-surface); padding: .2rem; color: var(--app-text); font-size: .63rem; text-align: center; text-decoration: none; }
+.custom-heatmap-cell span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.custom-heatmap-cell--strong-green { background: color-mix(in srgb,var(--app-positive) 95%,var(--app-surface)); color: white; }
+.custom-heatmap-cell--soft-green { background: color-mix(in srgb,var(--app-positive) 26%,var(--app-surface)); }
+.custom-heatmap-cell--red { background: color-mix(in srgb,var(--app-negative) 76%,var(--app-surface)); color: white; }
+.custom-heatmap-cell--soft-red { background: color-mix(in srgb,var(--app-negative) 33%,var(--app-surface)); }
+.custom-heatmap-cell--neutral { background: var(--app-surface-muted); }
+.custom-heatmap-legend { display: flex; align-items: center; justify-content: center; gap: .5rem; margin-top: auto; padding: .65rem .7rem; font-size: .6rem; }
+.custom-heatmap-legend i { position: relative; width: 75px; height: 5px; flex: none; border-radius: 5px; background: linear-gradient(90deg,var(--app-positive),var(--app-surface-muted),var(--app-negative)); }
+.custom-heatmap-legend i::after { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; transform: translate(-50%,-50%); border-radius: 50%; background: var(--app-text); content: ''; }
+.heatmap-preview-popover { position: fixed; z-index: 250; width: 300px; overflow: hidden; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-surface); box-shadow: 0 10px 28px rgb(0 0 0 / .24); color: var(--app-text); pointer-events: none; }
+.heatmap-preview-popover > div { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .55rem .7rem; }
+.heatmap-preview-popover strong { overflow: hidden; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.heatmap-preview-popover span { flex: none; color: var(--app-text-muted); font-size: .7rem; }
+.heatmap-preview-popover img { display: block; width: 100%; max-height: 180px; object-fit: contain; background: white; }
 .panel-title {
   display: flex;
   min-height: 3.7rem;
@@ -834,7 +942,7 @@ onBeforeUnmount(() => controller?.abort())
 
 @media (max-width: 1439px) {
   .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .signals-panel, .watchlist-movers-panel, .snapshot-panel, .sentiment-panel, .trends-panel, .favorite-reports-panel { grid-column: 1 / -1; }
+  .signals-panel, .watchlist-movers-panel, .my-screens-panel, .custom-heatmap-panel, .snapshot-panel, .sentiment-panel, .trends-panel, .favorite-reports-panel { grid-column: 1 / -1; }
   .market-rankings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
