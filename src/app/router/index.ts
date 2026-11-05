@@ -179,6 +179,11 @@ const router = createRouter({
       component: () => import('@/pages/indicators/OptixHeatmapPage.vue'),
     },
     {
+      path: '/indicators/user-defined-optix-heatmap',
+      name: 'user-defined-optix-heatmap',
+      component: () => import('@/pages/indicators/UserDefinedOptixHeatmapPage.vue'),
+    },
+    {
       path: '/indicators/phase-table',
       name: 'phase-table',
       component: () => import('@/pages/indicators/PhaseTablePage.vue'),
