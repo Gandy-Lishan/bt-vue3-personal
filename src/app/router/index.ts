@@ -5,6 +5,11 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/light-indicator-api',
+      name: 'light-indicator-api',
+      component: () => import('@/pages/light-indicator-api/LightIndicatorApiPage.vue'),
+    },
+    {
       path: '/',
       name: 'dashboard',
       component: () => import('@/pages/dashboard/ClassicDashboardPage.vue'),
