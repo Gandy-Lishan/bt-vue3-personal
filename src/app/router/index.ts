@@ -326,6 +326,11 @@ const router = createRouter({
       component: () => import('@/pages/my-stuff/ConciergeServicePage.vue'),
     },
     {
+      path: '/contact',
+      name: 'backtest-concierge',
+      component: () => import('@/pages/backtests/BacktestConciergePage.vue'),
+    },
+    {
       path: '/my-stuff/:section?',
       name: 'my-stuff',
       component: () => import('@/pages/my-stuff/MyStuffPage.vue'),
