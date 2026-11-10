@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import sourceContent from './source-content.html?raw'
+import { useTheme } from '@/shared/theme/theme'
 
 const host = ref<HTMLElement | null>(null)
+const { isDarkTheme } = useTheme()
 let shadow: ShadowRoot | null = null
 
 const stylesheets = [
@@ -34,6 +36,50 @@ const indicatorUrls: Record<string, string> = {
 }
 const formPrefixes = ['Form1', 'Form2', 'Form3'] as const
 let submitting = false
+
+// 暗色主题下对 source-content 页面实际用到的 webflow 硬编码色值做覆盖（亮色不受影响）
+const DARK_SHADOW_OVERRIDES = `
+:host(.theme-dark) .section-50-layout.lda-section1-bg,
+:host(.theme-dark) .section-50-layout.lda-section5-bg { background-image: none; background-color: #07111f; }
+:host(.theme-dark) .section-50-layout.lda-section4-bg { background-color: #07111f; }
+:host(.theme-dark) .hero-title, :host(.theme-dark) .hero-section_card-title, :host(.theme-dark) .lia-section_title,
+:host(.theme-dark) .lia-feature-card_title, :host(.theme-dark) .lia-feature-card_subtitle,
+:host(.theme-dark) .example-group_item-label-text { color: #f0f7ff; }
+:host(.theme-dark) .hero-subtitle { color: #61b4ff; }
+:host(.theme-dark) .hero-description, :host(.theme-dark) .lia-section_desc,
+:host(.theme-dark) .hero-section_card-description, :host(.theme-dark) .lia-feature-card_desc,
+:host(.theme-dark) .three-ways-to-start_info-card_text-2 { color: #9fb2cc; }
+:host(.theme-dark) .hero-badge { color: #8dccff; background-color: #102b46; border-color: #29445f; }
+:host(.theme-dark) .hero-feature-card_icon { background-color: #102b46; }
+:host(.theme-dark) .hero-section_card { background-color: rgb(15 27 43 / .72); border-color: #29445f; }
+:host(.theme-dark) .hero-section_card-label, :host(.theme-dark) .lia-section_label { color: #8dccff; }
+:host(.theme-dark) .hero-section_card-feats_info-card { color: #f0f7ff; background-color: #0f1b2b; border-color: #29445f; }
+:host(.theme-dark) .hero-section_card-feats_info-card_link { background-color: #102b46; }
+:host(.theme-dark) .content_title, :host(.theme-dark) .content_text,
+:host(.theme-dark) .three-ways-to-start_info-card_title-2 { color: #d8e8ff; }
+:host(.theme-dark) .lia-feature-card { background-color: #0f1b2b; border-color: #29445f; }
+:host(.theme-dark) .lia-feature-card_featlist_item { background-color: #142337; color: #d8e8ff; border-color: #29445f; }
+:host(.theme-dark) .example-container-card { background-color: #0f1b2b; border-color: #29445f; }
+:host(.theme-dark) .example-group_item-card { border-color: #29445f; }
+:host(.theme-dark) .light-data-api__part4-left { background-color: #0f1b2b; border-color: #29445f; }
+:host(.theme-dark) .light-data-api__part4-left-info-card-2 { color: #f0f7ff; background-color: #142337; border-color: #29445f; }
+:host(.theme-dark) .three-ways-to-start_icon { background-color: #102b46; }
+:host(.theme-dark) .text-span-49 { color: #61b4ff; }
+:host(.theme-dark) .uui-field-label-3 { color: #d8e8ff; }
+:host(.theme-dark) .uui-form_input-4 { color: #f0f7ff; background-color: #142337; border-color: #29445f; }
+:host(.theme-dark) .uui-form_input-4::placeholder { color: #7890ad; }
+:host(.theme-dark) .uui-form_input-4:focus { border-color: #61b4ff; box-shadow: 0 1px 2px #1018280d, 0 0 0 4px #102b46; }
+:host(.theme-dark) .indicator-api-1st-form_wrapper, :host(.theme-dark) .indicator-api-2nd-form_wrapper,
+:host(.theme-dark) .indicator-api-3rd-form_wrapper { color: #f0f7ff; background-color: #0f1b2b; }
+:host(.theme-dark) .indicator-api-form_wrapper-content_notes { background-color: #102b46; border-color: #29445f; }
+:host(.theme-dark) .indicator-api-form_wrapper-content_steps { background-color: #0f1b2b; border-color: #29445f; }
+:host(.theme-dark) .indicator-api-form_wrapper-content_steps-grid { color: #d8e8ff; }
+:host(.theme-dark) .success-message-4 { background-color: #142337; }
+:host(.theme-dark) .error-text-2 { color: #fb7185; }
+:host(.theme-dark) .close-link-top-right { color: #9fb2cc; }
+:host(.theme-dark) .inquiry-bg { background-color: rgb(3 9 21 / .78); border-color: rgb(255 255 255 / .08); }
+:host(.theme-dark) .f-logo-gradient-l, :host(.theme-dark) .f-logo-gradient-r { background-image: none; }
+`
 
 function field(modal: HTMLElement, id: string): string {
   return (modal.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`#${id}`)?.value ?? '').trim()
@@ -218,6 +264,10 @@ onMounted(() => {
     card.removeAttribute('target')
   }
   shadow.appendChild(content)
+  // 黑色主题覆盖：置于最后一个样式节点以获得更高优先级
+  const darkOverrides = document.createElement('style')
+  darkOverrides.textContent = DARK_SHADOW_OVERRIDES
+  shadow.appendChild(darkOverrides)
   shadow.addEventListener('click', onPageClick)
   shadow.addEventListener('input', onPageInput)
   shadow.addEventListener('change', onPageInput)
@@ -234,7 +284,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main ref="host" class="light-indicator-api-page" />
+  <main ref="host" class="light-indicator-api-page" :class="{ 'theme-dark': isDarkTheme }" />
 </template>
 
 <style scoped>
@@ -287,5 +337,17 @@ onUnmounted(() => {
   font-family: Inter, Arial, sans-serif;
   font-size: 14px;
   line-height: 20px;
+}
+</style>
+
+<style>
+/* 黑色主题：宿主底色/文字 + 下沉到 Shadow DOM 的 CSS 变量取暗色值（对齐 app 设计令牌） */
+[data-theme='dark'] main.light-indicator-api-page {
+  --st-primary-600: #61b4ff;
+  --st-primary-700: #8dccff;
+  --st-primary-100: #102b46;
+  --st-gray600: #9fb2cc;
+  color: #f0f7ff;
+  background: #07111f;
 }
 </style>
