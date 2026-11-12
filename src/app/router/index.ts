@@ -199,6 +199,11 @@ const router = createRouter({
       component: () => import('@/pages/indicators/ChartSummaryPage.vue'),
     },
     {
+      path: '/indicators/market-insight-preview',
+      name: 'market-insight-preview',
+      component: () => import('@/pages/indicators/MarketInsightPreviewPage.vue'),
+    },
+    {
       path: '/market-screen',
       name: 'market-screen',
       component: () => import('@/pages/market-screen/MarketScreenPage.vue'),
