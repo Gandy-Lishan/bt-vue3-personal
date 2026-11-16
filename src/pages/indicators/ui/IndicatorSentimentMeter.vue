@@ -25,8 +25,8 @@ const label = computed(() => sentimentLabelFromScore(normalizedScore.value))
       :class="[
         props.compact ? 'h-3 w-3' : 'h-4 w-4',
         cell.startsOptimisticSide ? (props.compact ? 'ml-1.5' : 'ml-2') : '',
-        cell.active && cell.tone === 'green' ? 'border-emerald-500 bg-emerald-500' : '',
-        cell.active && cell.tone === 'red' ? 'border-rose-400 bg-rose-400' : '',
+        cell.active && cell.tone === 'green' ? 'border-[var(--app-positive)] bg-[var(--app-positive)]' : '',
+        cell.active && cell.tone === 'red' ? 'border-[var(--app-negative)] bg-[var(--app-negative)]' : '',
         !cell.active ? 'border-[var(--app-border-strong)] bg-[var(--app-surface)]' : '',
       ]"
     />

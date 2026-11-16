@@ -20,8 +20,18 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/light-indicator-api',
+      name: 'light-indicator-api',
+      component: () => import('@/pages/light-indicator-api/LightIndicatorApiPage.vue'),
+    },
+    {
       path: '/',
       name: 'dashboard',
+      component: () => import('@/pages/dashboard/ClassicDashboardPage.vue'),
+    },
+    {
+      path: '/my-dashboard',
+      name: 'my-dashboard',
       component: () => import('@/pages/dashboard/DashboardPage.vue'),
     },
     {
@@ -159,6 +169,58 @@ const router = createRouter({
       component: () => import('@/pages/indicators/IndicatorsPage.vue'),
     },
     {
+      path: '/indicators/excess-pessimism',
+      name: 'indicators-excess-pessimism',
+      component: () => import('@/pages/indicators/IndicatorExtremesPage.vue'),
+      props: { tone: 'pessimism' },
+    },
+    {
+      path: '/indicators/excess-optimism',
+      name: 'indicators-excess-optimism',
+      component: () => import('@/pages/indicators/IndicatorExtremesPage.vue'),
+      props: { tone: 'optimism' },
+    },
+    {
+      path: '/indicators/market-sentiment-overview',
+      name: 'market-sentiment-overview',
+      component: () => import('@/pages/indicators/MarketSentimentOverviewPage.vue'),
+    },
+    {
+      path: '/indicators/highlighted',
+      name: 'highlighted-indicators',
+      component: () => import('@/pages/indicators/HighlightedIndicatorsPage.vue'),
+    },
+    {
+      path: '/indicators/optix-heatmap',
+      name: 'optix-heatmap',
+      component: () => import('@/pages/indicators/OptixHeatmapPage.vue'),
+    },
+    {
+      path: '/indicators/user-defined-optix-heatmap',
+      name: 'user-defined-optix-heatmap',
+      component: () => import('@/pages/indicators/UserDefinedOptixHeatmapPage.vue'),
+    },
+    {
+      path: '/indicators/phase-table',
+      name: 'phase-table',
+      component: () => import('@/pages/indicators/PhaseTablePage.vue'),
+    },
+    {
+      path: '/indicators/rank-charts',
+      name: 'rank-charts',
+      component: () => import('@/pages/indicators/RankChartsPage.vue'),
+    },
+    {
+      path: '/indicators/chart-summary',
+      name: 'chart-summary',
+      component: () => import('@/pages/indicators/ChartSummaryPage.vue'),
+    },
+    {
+      path: '/indicators/market-insight-preview',
+      name: 'market-insight-preview',
+      component: () => import('@/pages/indicators/MarketInsightPreviewPage.vue'),
+    },
+    {
       path: '/market-screen',
       name: 'market-screen',
       component: () => import('@/pages/market-screen/MarketScreenPage.vue'),
@@ -208,6 +270,27 @@ const router = createRouter({
       path: '/seasonality',
       name: 'seasonality',
       component: () => import('@/pages/seasonality/SeasonalityPage.vue'),
+    },
+    {
+      path: '/research',
+      redirect: '/research/spotlights/risk-on-off',
+    },
+    {
+      path: '/research/spotlights',
+      redirect: '/research/spotlights/risk-on-off',
+    },
+    {
+      path: '/research/intraday',
+      redirect: '/research/intraday/intraday-monitor',
+    },
+    {
+      path: '/research/market-analytics',
+      redirect: '/research/market-analytics/seasonality-calendar',
+    },
+    {
+      path: '/research/:group/:page',
+      name: 'research-workspace',
+      component: () => import('@/pages/research-workspace/ResearchWorkspacePage.vue'),
     },
     {
       path: '/swing_trading_dashboard',
@@ -263,6 +346,11 @@ const router = createRouter({
       path: '/my-stuff/concierge',
       name: 'my-stuff-concierge',
       component: () => import('@/pages/my-stuff/ConciergeServicePage.vue'),
+    },
+    {
+      path: '/contact',
+      name: 'backtest-concierge',
+      component: () => import('@/pages/backtests/BacktestConciergePage.vue'),
     },
     {
       path: '/my-stuff/:section?',

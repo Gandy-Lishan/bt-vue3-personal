@@ -18,8 +18,8 @@ export const indicatorPageAds: IndicatorAd[] = [
     title: 'Use SentimenTrader data in your own system with Light Data API',
     description: 'Access full historical data and ongoing updates for your selected indicators.',
     ctaLabel: 'Explore Light Data API',
-    ctaHref: 'https://sentimentrader.com/light-indicator-api',
-    ctaTarget: '_blank',
+    ctaHref: '/light-indicator-api',
+    ctaTarget: '_self',
     footnote: 'Starts at $300/year · 10 indicators',
   },
 ]

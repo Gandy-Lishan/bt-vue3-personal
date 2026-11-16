@@ -36,7 +36,6 @@ import type {
   CpmCorrelationPayload,
   CpmCorrelationResult,
   CpmJobResponse,
-  CpmPatternPreviewPoint,
   CpmPatternPreviewResult,
 } from '@/entities/cpm/model/cpm.types'
 import {
@@ -56,6 +55,22 @@ import type { AppDataTableColumn } from '@/shared/ui/app-data-table.types'
 import SearchSelect from '@/shared/ui/SearchSelect.vue'
 import indexesData from '@/assets/indexes_list.json'
 import stocksData from '@/assets/stocks_list.json'
+import ascendingChannelImage from '@/assets/patterns/ascending_channel_svg.svg'
+import ascendingChannelThumbnail from '@/assets/patterns/ascending_channel.png'
+import descendingChannelImage from '@/assets/patterns/descending_channel_svg.svg'
+import descendingChannelThumbnail from '@/assets/patterns/descending_channel.png'
+import doubleBottomImage from '@/assets/patterns/double_bottom_svg.svg'
+import doubleBottomThumbnail from '@/assets/patterns/double_bottom.png'
+import doubleTopImage from '@/assets/patterns/double_top_svg.svg'
+import doubleTopThumbnail from '@/assets/patterns/double_top.png'
+import headAndShoulderBottomImage from '@/assets/patterns/head_and_shoulder_bottom_svg.svg'
+import headAndShoulderBottomThumbnail from '@/assets/patterns/head_and_shoulder_bottom.png'
+import headAndShoulderTopImage from '@/assets/patterns/head_and_shoulder_top_svg.svg'
+import headAndShoulderTopThumbnail from '@/assets/patterns/head_and_shoulder_top.png'
+import roundingBottomImage from '@/assets/patterns/rounding_bottom_svg.svg'
+import roundingBottomThumbnail from '@/assets/patterns/rounding_bottom.png'
+import tripleTapImage from '@/assets/patterns/triple_tap_svg.svg'
+import tripleTapThumbnail from '@/assets/patterns/triple_tap.png'
 import CpmPatternPreviewChart from './CpmPatternPreviewChart.vue'
 import CpmPatternChartIQ from './CpmPatternChartIQ.vue'
 
@@ -115,6 +130,7 @@ const activeResultTab = ref<ResultTab>('statistics')
 const selectPatternElement = ref<HTMLElement | null>(null)
 const settingsElement = ref<HTMLElement | null>(null)
 const resultsElement = ref<HTMLElement | null>(null)
+const commonPatternMenu = ref<HTMLDetailsElement | null>(null)
 const patternPreview = ref<CpmPatternPreviewResult | null>(null)
 const patternPreviewLoading = ref(false)
 const previewLoading = ref(false)
@@ -175,15 +191,15 @@ const conditionOptions = [
 ]
 
 const patternOptions = [
-  { value: 'customize_pattern', label: 'Customize Pattern' },
-  { value: 'triple_tap', label: 'Triple Tap' },
-  { value: 'rounding_bottom', label: 'Rounding Bottom' },
-  { value: 'descending_channel', label: 'Descending Channel' },
-  { value: 'ascending_channel', label: 'Ascending Channel' },
-  { value: 'head_and_shoulder_bottom', label: 'Head and Shoulders Bottom' },
-  { value: 'head_and_shoulder_top', label: 'Head and Shoulders Top' },
-  { value: 'double_bottom', label: 'Double Bottom' },
-  { value: 'double_top', label: 'Double Top' },
+  { value: 'customize_pattern', label: 'Customize Pattern', image: '', thumbnail: '' },
+  { value: 'triple_tap', label: 'Triple Tap', image: tripleTapImage, thumbnail: tripleTapThumbnail },
+  { value: 'rounding_bottom', label: 'Rounding Bottom', image: roundingBottomImage, thumbnail: roundingBottomThumbnail },
+  { value: 'descending_channel', label: 'Descending Channel', image: descendingChannelImage, thumbnail: descendingChannelThumbnail },
+  { value: 'ascending_channel', label: 'Ascending Channel', image: ascendingChannelImage, thumbnail: ascendingChannelThumbnail },
+  { value: 'head_and_shoulder_bottom', label: 'Head and Shoulders Bottom', image: headAndShoulderBottomImage, thumbnail: headAndShoulderBottomThumbnail },
+  { value: 'head_and_shoulder_top', label: 'Head and Shoulders Top', image: headAndShoulderTopImage, thumbnail: headAndShoulderTopThumbnail },
+  { value: 'double_bottom', label: 'Double Bottom', image: doubleBottomImage, thumbnail: doubleBottomThumbnail },
+  { value: 'double_top', label: 'Double Top', image: doubleTopImage, thumbnail: doubleTopThumbnail },
 ]
 
 const timeframeOptions = ['Daily', 'Weekly', 'Monthly']
@@ -225,6 +241,8 @@ const workflowTabs: Array<{ id: ActiveStep; label: string }> = [
 ]
 
 const commonPatternOptions = computed(() => patternOptions.filter((item) => item.value !== 'customize_pattern'))
+const selectedCommonPattern = computed(() => commonPatternOptions.value.find((item) => item.value === form.selectPattern))
+const patternPreviewTitle = computed(() => form.patternSource === 'Common Pattern' ? 'Common Pattern Preview' : 'Normalized Pattern Preview')
 
 const marketEntries: MarketEntry[] = [
   ...(stocksData as StockEntry[]).map((entry) => ({
@@ -280,9 +298,8 @@ function formatSummaryDate(value: string) {
   const parsed = new Date(`${value}T00:00:00`)
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
-const chartPoints = computed(() => patternPreview.value?.points.length ? patternPreview.value.points : fallbackPatternPoints.value)
+const chartPoints = computed(() => patternPreview.value?.points ?? [])
 const normalizedPreviewPoints = computed(() => chartPoints.value.slice(-Math.max(6, Math.min(chartPoints.value.length, form.barsNum || 63))))
-const fallbackPatternPoints = computed(() => buildFallbackPatternPoints(form.startDate, form.endDate, form.barsNum || 63))
 const resultData = computed(() => backtestResult.value?.data ?? {})
 const previewMatchRows = computed(() => {
   const result = previewMatchResult.value
@@ -479,27 +496,6 @@ function businessDaysBetween(startDate: string, endDate: string) {
   return count
 }
 
-function buildFallbackPatternPoints(startDate: string, endDate: string, bars: number): CpmPatternPreviewPoint[] {
-  const count = Math.max(8, Math.min(160, bars || 63))
-  const start = Date.parse(`${startDate || defaultStartDate}T00:00:00`)
-  const end = Date.parse(`${endDate || defaultEndDate}T00:00:00`)
-  const startTs = Number.isFinite(start) ? start : Date.now() - count * 86_400_000
-  const endTs = Number.isFinite(end) && end > startTs ? end : startTs + count * 86_400_000
-  const step = count > 1 ? (endTs - startTs) / (count - 1) : 86_400_000
-  const firstValue = 100
-
-  return Array.from({ length: count }, (_, index) => {
-    const wave = Math.sin(index / 5) * 2.6 + Math.cos(index / 11) * 3.2 + index * 0.18
-    const value = firstValue + wave
-    return {
-      date: new Date(startTs + step * index).toISOString().slice(0, 10),
-      timestamp: startTs + step * index,
-      close: Number((value * 72).toFixed(2)),
-      normalizedReturn: ((value / firstValue) - 1) * 100,
-    }
-  })
-}
-
 function updateBarsFromDates() {
   const bars = businessDaysBetween(form.startDate, form.endDate)
   form.barsNum = bars || form.barsNum
@@ -528,6 +524,11 @@ function setPatternSource(source: PatternForm['patternSource']) {
   } else if (form.selectPattern === 'customize_pattern') {
     form.selectPattern = 'head_and_shoulder_top'
   }
+}
+
+function selectCommonPattern(value: string) {
+  form.selectPattern = value
+  if (commonPatternMenu.value) commonPatternMenu.value.open = false
 }
 
 /** Vue2 Form.vue generateCPMName: `SYMBOL  YYYY-M-D H:mm:ss`（不补零） */
@@ -564,6 +565,7 @@ async function refreshPatternPreview() {
   if (!symbol || !form.startDate || !form.endDate) return
 
   const requestId = ++patternPreviewRequestId
+  patternPreview.value = null
   patternPreviewLoading.value = true
   try {
     const result = await fetchCpmPatternPreview(
@@ -571,6 +573,7 @@ async function refreshPatternPreview() {
         symbol,
         startDate: form.startDate,
         endDate: form.endDate,
+        bars: form.barsNum,
       },
       abortController.signal,
     )
@@ -1114,7 +1117,7 @@ watch(
 )
 
 watch(
-  () => [form.symbol, form.startDate, form.endDate],
+  () => [form.symbol, form.startDate, form.endDate, form.barsNum],
   () => {
     void refreshPatternPreview()
   },
@@ -1165,18 +1168,20 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="flex min-w-0 overflow-x-auto border-t border-[var(--app-border)] px-4">
-        <button
-          v-for="step in workflowTabs"
-          :key="step.id"
-          class="h-11 shrink-0 border-b-2 px-4 text-sm font-extrabold"
-          :class="activeStep === step.id ? 'border-[var(--app-primary)] text-[var(--app-primary)]' : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-primary)]'"
-          type="button"
-          @click="goToStep(step.id)"
-        >
-          {{ step.label }}
-        </button>
-      </div>
+      <nav class="progress-track" aria-label="CPM setup progress">
+        <template v-for="step in workflowTabs" :key="step.id">
+          <div v-if="step.id !== 1" class="progress-line" :class="activeStep >= step.id && 'progress-line--active'" aria-hidden="true" />
+          <button
+            class="progress-step"
+            :class="[activeStep > step.id && 'progress-step--complete', activeStep === step.id && 'progress-step--selected']"
+            type="button"
+            :aria-current="activeStep === step.id ? 'step' : undefined"
+            @click="goToStep(step.id)"
+          >
+            <span>{{ step.id }}</span><strong>{{ step.label }}</strong>
+          </button>
+        </template>
+      </nav>
     </section>
 
     <section ref="selectPatternElement" class="mt-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)]">
@@ -1229,15 +1234,33 @@ onBeforeUnmount(() => {
                 <input v-model="form.endDate" type="date" class="h-9 min-w-28 flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]" />
               </span>
             </label>
-            <label
+            <div
               v-else
               class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]"
             >
               Common Pattern
-              <select v-model="form.selectPattern" class="h-9 min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
-                <option v-for="option in commonPatternOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-              </select>
-            </label>
+              <details ref="commonPatternMenu" class="group relative min-w-0 text-sm font-semibold text-[var(--app-text)]">
+                <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 outline-none hover:border-[var(--app-primary)] focus-visible:border-[var(--app-primary)] [&::-webkit-details-marker]:hidden">
+                  <span>{{ selectedCommonPattern?.label ?? 'Select pattern' }}</span>
+                  <span class="ml-2 text-[10px] text-[var(--app-text-muted)] transition group-open:rotate-180">▼</span>
+                </summary>
+                <div class="absolute left-0 top-[calc(100%+0.25rem)] z-30 w-full min-w-56 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1 shadow-xl">
+                  <button
+                    v-for="option in commonPatternOptions"
+                    :key="option.value"
+                    class="group/option relative flex w-full items-center rounded px-2.5 py-2 text-left text-sm font-semibold text-[var(--app-text)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)] focus:bg-[var(--app-primary-soft)] focus:text-[var(--app-primary)] focus:outline-none"
+                    :class="option.value === form.selectPattern ? 'bg-[var(--app-surface-soft)]' : ''"
+                    type="button"
+                    @click="selectCommonPattern(option.value)"
+                  >
+                    {{ option.label }}
+                    <span class="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 hidden w-64 -translate-y-1/2 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-3 shadow-xl group-hover/option:block group-focus/option:block">
+                      <img :src="option.thumbnail" :alt="`${option.label} thumbnail`" class="h-36 w-full object-contain" />
+                    </span>
+                  </button>
+                </div>
+              </details>
+            </div>
             <label class="grid content-start gap-1 text-xs font-bold text-[var(--app-text-muted)]">
               Timeframe
               <select v-model="form.timeframe" class="h-9 min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-sm font-semibold text-[var(--app-text)] outline-none focus:border-[var(--app-primary)]">
@@ -1255,9 +1278,15 @@ onBeforeUnmount(() => {
 
         <aside class="flex flex-col gap-3 border-t border-[var(--app-border-muted)] pt-3 xl:col-start-3 xl:row-start-1 xl:border-t-0 xl:pt-0">
           <div>
-            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">Normalized Pattern Preview</div>
-            <div class="rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
-              <CpmPatternPreviewChart :points="normalizedPreviewPoints" value-mode="normalized" :height="160" />
+            <div class="mb-1 text-xs font-normal uppercase tracking-wide text-[var(--app-text-muted)]">{{ patternPreviewTitle }}</div>
+            <div class="flex h-[220px] items-center justify-center rounded-md border border-[var(--app-border-muted)] bg-[var(--app-surface-soft)] p-2">
+              <img
+                v-if="form.patternSource === 'Common Pattern' && selectedCommonPattern"
+                :src="selectedCommonPattern.image"
+                :alt="`${selectedCommonPattern.label} pattern`"
+                class="max-h-[204px] w-full object-contain"
+              />
+              <CpmPatternPreviewChart v-else class="w-full" :points="normalizedPreviewPoints" value-mode="normalized" :height="160" />
             </div>
           </div>
 
@@ -1541,3 +1570,17 @@ onBeforeUnmount(() => {
     </section>
   </div>
 </template>
+
+<style scoped>
+.progress-track { display: flex; align-items: center; padding: 12px 16px; border-top: 1px solid var(--app-border); }
+.progress-step { display: flex; flex: none; align-items: center; gap: 8px; border-radius: 6px; padding: 3px 5px; color: var(--app-text-muted); font-size: .76rem; transition: background-color .15s ease, color .15s ease; }
+.progress-step:hover { background: var(--app-surface-soft); color: var(--app-text); }
+.progress-step span { display: flex; width: 27px; height: 27px; align-items: center; justify-content: center; border-radius: 9999px; background: var(--app-surface-muted); font-weight: 900; }
+.progress-step--complete { color: var(--app-primary); }
+.progress-step--complete span { background: var(--app-primary); color: white; }
+.progress-step--selected { color: var(--app-text); }
+.progress-step--selected span { background: var(--app-primary); color: white; }
+.progress-line { height: 1px; flex: 1; margin: 0 11px; background: var(--app-border-strong); }
+.progress-line--active { background: var(--app-primary); }
+@media (max-width: 700px) { .progress-step strong { display: none; } }
+</style>

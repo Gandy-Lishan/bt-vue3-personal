@@ -7,11 +7,13 @@ import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
 import AppDataTable from '@/shared/ui/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/shared/ui/app-data-table.types'
 import ScreenPreviewModal from './ScreenPreviewModal.vue'
+import { useRoute } from 'vue-router'
 
 type WorkspaceTab = 'saved' | 'build'
 type BuilderMode = 'create' | 'edit' | 'view'
 
 const emit = defineEmits<{ countChange: [count: number]; viewChange: [view: WorkspaceTab, mode: BuilderMode] }>()
+const route = useRoute()
 
 const categories = ['S&P 500', 'NDX', 'Energy', 'Staples', 'Utilities', 'Materials', 'Industrials', 'Financials', 'Real Estate', 'Technology', 'Health Care', 'Discretionary', 'Communication Services', 'Custom']
 const signalOptions = [
@@ -231,7 +233,15 @@ async function viewRecord(row: MyScreenRow) {
 }
 async function loadRecords() {
   listLoading.value = true; error.value = ''
-  try { records.value = await fetchMyScreens(abortController.signal) }
+  try {
+    records.value = await fetchMyScreens(abortController.signal)
+    const screenUrl = typeof route.query.screen === 'string' ? route.query.screen : ''
+    const target = records.value.find(row => row.url === screenUrl)
+    if (target) {
+      if (route.query.action === 'edit') editRecord(target)
+      else if (route.query.action === 'view') void viewRecord(target)
+    }
+  }
   catch (cause) { records.value = []; error.value = cause instanceof Error ? cause.message : 'Unable to load screens.' }
   finally { listLoading.value = false; emit('countChange', records.value.length) }
 }

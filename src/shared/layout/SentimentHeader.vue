@@ -158,15 +158,11 @@ const navItems: NavItem[] = [
   {
     label: 'Extra Tools',
     keyPath: '15',
-    path: '/tools',
+    path: '/research',
     subMenu: [
-      { label: 'Intraday charts', keyPath: '15-1', path: 'https://users.sentimentrader.com/users/intraday/', external: true },
-      { label: 'Global Breadth Overview', keyPath: '15-2', path: 'https://users.sentimentrader.com/users/country_breadth_overview/', external: true },
-      { label: 'Market Sentiment Overview', keyPath: '15-4', path: 'https://users.sentimentrader.com/users/market_overview/', external: true },
-      { label: 'Optix Heatmap', keyPath: '15-5', path: 'https://users.sentimentrader.com/users/heatmap_optix/ALL', external: true },
-      { label: 'Risk Levels', keyPath: '15-9', path: 'https://users.sentimentrader.com/users/charts/risk_levels', external: true },
-      { label: 'Ranks', keyPath: '15-11', path: 'https://users.sentimentrader.com/users/ranks/', external: true },
-      { label: 'Seasonality Calendar', keyPath: '15-13', path: 'https://users.sentimentrader.com/users/seasonality_calendar/', external: true },
+      { label: 'Spotlights', keyPath: '15-1', path: '/research/spotlights/risk-on-off' },
+      { label: 'Intraday Monitor', keyPath: '15-2', path: '/research/intraday/intraday-monitor' },
+      { label: 'Market Analytics', keyPath: '15-3', path: '/research/market-analytics/seasonality-calendar' },
     ],
   },
 ]
@@ -194,6 +190,18 @@ function isActive(item: NavItem) {
 
 function firstPath(item: NavItem) {
   return item.subMenu?.[0]?.path ?? item.path
+}
+
+// Dropdowns hang from the item's left edge by default. When that would push the
+// menu past the viewport's right edge (e.g. the rightmost nav item), right-align
+// it instead so hovering never triggers a page-wide horizontal scrollbar.
+const dropdownAlign = ref<Record<string, 'left' | 'right'>>({})
+
+function alignDropdown(item: NavItem, event: MouseEvent) {
+  if (!item.subMenu?.length) return
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const dropdownWidth = 240 // the 230px min-width plus border
+  dropdownAlign.value[item.keyPath] = rect.left + dropdownWidth > document.documentElement.clientWidth ? 'right' : 'left'
 }
 </script>
 
@@ -305,7 +313,7 @@ function firstPath(item: NavItem) {
     </div>
 
     <nav class="relative flex h-11 items-stretch overflow-visible border-t border-[var(--chrome-border-muted)] bg-[var(--chrome-bg)] px-[var(--page-gutter)] text-[var(--chrome-text)]">
-      <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0">
+      <div v-for="item in visibleNavItems" :key="item.keyPath" class="group relative flex min-w-0" @mouseenter="alignDropdown(item, $event)">
         <component
           :is="item.external ? 'a' : 'RouterLink'"
           :href="item.external ? item.path : undefined"
@@ -319,7 +327,8 @@ function firstPath(item: NavItem) {
         </component>
         <div
           v-if="item.subMenu?.length"
-          class="absolute left-0 top-full z-30 hidden min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 shadow-xl group-hover:block"
+          class="absolute top-full z-30 hidden min-w-[230px] rounded-b-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg-alt)] py-2 shadow-xl group-hover:block"
+          :class="dropdownAlign[item.keyPath] === 'right' ? 'right-0' : 'left-0'"
         >
           <component
             :is="subItem.external ? 'a' : 'RouterLink'"

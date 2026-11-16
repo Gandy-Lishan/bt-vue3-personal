@@ -4,6 +4,7 @@ import type { ClientRequest } from 'node:http'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import { loadEnv, type PluginOption, type ProxyOptions } from 'vite'
+import { lightIndicatorTicketPlugin } from './server/light-indicator-ticket.ts'
 
 const stApiTargets = {
   prod: 'https://bt2api.sentimentrader.com',
@@ -82,8 +83,19 @@ export default defineConfig(({ mode }) => {
   if (!env.VUE_APP_RED) {
     env.VUE_APP_RED = '#fb7185'
   }
+  const browserProcessEnv = Object.fromEntries(
+    Object.entries(env).filter(([key]) => key.startsWith('VUE_APP_') || key === 'NODE_ENV'),
+  )
 
   const proxy: Record<string, ProxyOptions> = {
+    '/prod-st-data': {
+      target: stApiTargets.prod,
+      changeOrigin: true,
+      rewrite: (path) => path.replace(/^\/prod-st-data/, '/st_data'),
+      configure(proxy) {
+        configureDevelopmentCookieProxy(proxy, devSentimenSession)
+      },
+    },
     '/dev': {
       target: stApiTarget,
       ws: true,
@@ -132,7 +144,7 @@ export default defineConfig(({ mode }) => {
             tag === 'template-placeholder',
         },
       },
-    }), tailwindcss(), developmentAuthCookiePlugin(devSentimenSession)],
+    }), tailwindcss(), developmentAuthCookiePlugin(devSentimenSession), lightIndicatorTicketPlugin(env.NEXT_APP_FRESHDESK_AUTH)],
     resolve: {
       alias: {
         // 【Vue2→Vue3 兼容】Vite alias 映射 —— 让 ChartIQ 原版文件中的 @/utils/* 等导入路径在 Vite 中正确解析
@@ -158,7 +170,7 @@ export default defineConfig(({ mode }) => {
     },
     // 【Vue2→Vue3 兼容】ChartIQ 原版文件使用 process.env.VUE_APP_*
     define: {
-      'process.env': JSON.stringify(env),
+      'process.env': JSON.stringify(browserProcessEnv),
       // 【Vue2→Vue3 兼容】ChartIQ components.js 用 __TREE_SHAKE__ 做 import guard，必须设为 false
       __TREE_SHAKE__: false,
     },

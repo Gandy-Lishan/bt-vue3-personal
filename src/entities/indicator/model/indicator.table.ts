@@ -189,7 +189,7 @@ const cotColumns: IndicatorTableColumn[] = [
   { key: 'net_position', label: 'Net Position', kind: 'number', align: 'right', minWidth: 140 },
   { key: 'three_year_max', label: '3-Year Max', kind: 'number', align: 'right', minWidth: 130 },
   { key: 'three_year_min', label: '3-Year Min', kind: 'number', align: 'right', minWidth: 130 },
-  { key: 'last_update', label: 'Last Update', kind: 'date', rawDate: true, minWidth: 135 },
+  { key: 'last_update', label: 'Last Update', kind: 'date', rawDateOnly: true, minWidth: 135 },
 ]
 
 const overviewColumns: IndicatorTableColumn[] = [

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { BarChart3, CalendarDays, Download, ExternalLink, Maximize2, Plus } from '@lucide/vue'
+import { BarChart3, CalendarDays, Download, Equal, ExternalLink, Maximize2 } from '@lucide/vue'
 import Highcharts from 'highcharts/highstock'
 import { isIndicatorSeasonalityChartData, isSeasonalityIndicatorType } from '@/entities/indicator/model/indicator.chart'
 import type { IndicatorChartData, IndicatorChartDataRow, IndicatorDetail } from '@/entities/indicator/model/indicator.types'
@@ -61,7 +61,7 @@ let themeObserver: MutationObserver | null = null
 const chartElement = ref<HTMLDivElement | null>(null)
 const chartShell = ref<HTMLElement | null>(null)
 const activeRange = ref<RangeId>('3Y')
-const isComparing = ref(false)
+const showExtremeLines = ref(true)
 const visibleMin = ref<number | null>(null)
 const visibleMax = ref<number | null>(null)
 
@@ -491,7 +491,7 @@ function paddedDataRange(values: number[]) {
 }
 
 function syncChartYAxisExtremes(min = visibleMin.value, max = visibleMax.value, redraw = true) {
-  if (!chart || !activeSeriesModels.length || isComparing.value) return
+  if (!chart || !activeSeriesModels.length) return
 
   const twoPane = activeSeriesModels.length > 1
   const panes: Array<{ axisIndex: number; series: ChartSeriesModel[] }> = twoPane
@@ -503,7 +503,12 @@ function syncChartYAxisExtremes(min = visibleMin.value, max = visibleMax.value, 
 
   for (const pane of panes) {
     const axis = chart.yAxis[pane.axisIndex]
-    const range = paddedDataRange(visibleSeriesValues(pane.series, min, max))
+    const values = visibleSeriesValues(pane.series, min, max)
+    if (showExtremeLines.value && pane.axisIndex === panes.at(-1)?.axisIndex) {
+      const thresholds = thresholdValuesForAxis(seriesNumericValues(pane.series))
+      values.push(...[thresholds.opt, thresholds.pess].filter((value): value is number => value !== null && Number.isFinite(value)))
+    }
+    const range = paddedDataRange(values)
     if (axis && range) {
       axis.setExtremes(range.min, range.max, false, false)
     }
@@ -578,19 +583,8 @@ async function toggleFullScreen() {
   window.setTimeout(() => chart?.reflow(), 100)
 }
 
-function toggleCompare() {
-  isComparing.value = !isComparing.value
-  chart?.update(
-    {
-      plotOptions: {
-        series: {
-          compare: isComparing.value ? 'percent' : undefined,
-        },
-      },
-    } as Highcharts.Options,
-    true,
-    false,
-  )
+function toggleExtremeLines() {
+  showExtremeLines.value = !showExtremeLines.value
 }
 
 function backtestMarketSymbol() {
@@ -774,7 +768,7 @@ function renderChart() {
                   style: { color: primaryColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
                   x: chartSize(44),
                 },
-            plotLines: thresholdPlotLines(thresholds),
+            plotLines: showExtremeLines.value ? thresholdPlotLines(thresholds) : [],
           },
         ]
       : [
@@ -801,7 +795,7 @@ function renderChart() {
                   style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
                   x: chartSize(44),
                 },
-            plotLines: thresholdPlotLines(thresholds),
+            plotLines: showExtremeLines.value ? thresholdPlotLines(thresholds) : [],
           },
         ],
     tooltip: {
@@ -837,7 +831,6 @@ function renderChart() {
         showInNavigator: true,
         connectNulls: false,
         getExtremesFromAll: false,
-        compare: isComparing.value ? 'percent' : undefined,
         states: disabledSeriesStates(),
       },
       column: {
@@ -891,6 +884,7 @@ watch(
   () => props.detail.id,
   () => {
     activeRange.value = defaultRange()
+    showExtremeLines.value = true
   },
   { immediate: true },
 )
@@ -907,7 +901,7 @@ watch(isCompactChart, () => {
   void nextTick(renderChart)
 })
 
-watch(isComparing, () => {
+watch(showExtremeLines, () => {
   void nextTick(renderChart)
 })
 
@@ -959,12 +953,13 @@ onBeforeUnmount(() => {
           <button
             v-if="!isSeasonalityChart"
             class="chart-action-button"
-            :class="{ 'bg-[var(--app-primary-soft)]': isComparing }"
+            :class="{ 'bg-[var(--app-primary-soft)]': showExtremeLines }"
+            :aria-pressed="showExtremeLines"
             type="button"
-            @click="toggleCompare"
+            @click="toggleExtremeLines"
           >
-            <Plus :size="15" />
-            Compare
+            <Equal :size="15" />
+            {{ showExtremeLines ? 'Hide Extremes' : 'Show Extremes' }}
           </button>
 
           <button
@@ -1033,11 +1028,12 @@ onBeforeUnmount(() => {
           <button
             v-if="!isSeasonalityChart"
             class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
-            :class="{ 'bg-[var(--app-primary-soft)]': isComparing }"
+            :class="{ 'bg-[var(--app-primary-soft)]': showExtremeLines }"
+            :aria-pressed="showExtremeLines"
             type="button"
-            @click="toggleCompare"
+            @click="toggleExtremeLines"
           >
-            <Plus :size="14" /> Compare
+            <Equal :size="14" /> {{ showExtremeLines ? 'Hide Extremes' : 'Show Extremes' }}
           </button>
           <button
             class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"

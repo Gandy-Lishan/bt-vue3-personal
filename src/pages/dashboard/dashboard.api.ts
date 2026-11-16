@@ -10,6 +10,19 @@ export interface DashboardWatchlist {
   source: 'personal' | 'empty'
 }
 
+export interface ClassicDashboardPayload extends MetricRow {
+  date: string
+  data: unknown[]
+  latest_commentary: MetricRow[]
+  htop_webinar: MetricRow[]
+  market_overview_data: MetricRow[]
+  pess_extreme: MetricRow[]
+  opt_extreme: MetricRow[]
+  phase_table_data: unknown
+  heatmap_data: unknown[]
+  dashboard_spotlight_data: MetricRow
+}
+
 function parse(value: unknown): unknown {
   if (typeof value !== 'string') return value
   try { return JSON.parse(value) } catch { return value }
@@ -44,6 +57,25 @@ async function get(path: string, signal?: AbortSignal): Promise<unknown> {
 export async function fetchDashboardDate(signal?: AbortSignal): Promise<string> {
   const payload = object(await get('/dev/st_data/dashboard', signal))
   return String(object(payload.data).date ?? payload.date ?? '')
+}
+
+export async function fetchClassicDashboard(signal?: AbortSignal): Promise<ClassicDashboardPayload> {
+  const raw = object(await get('/dev/st_data/dashboard', signal))
+  const nested = object(raw.data)
+  const payload = Object.keys(nested).length && !Array.isArray(raw.data) ? { ...raw, ...nested } : raw
+  return {
+    ...payload,
+    date: String(payload.date ?? ''),
+    data: Array.isArray(parse(payload.data)) ? parse(payload.data) as unknown[] : [],
+    latest_commentary: list(payload.latest_commentary),
+    htop_webinar: list(payload.htop_webinar),
+    market_overview_data: list(payload.market_overview_data),
+    pess_extreme: list(payload.pess_extreme),
+    opt_extreme: list(payload.opt_extreme),
+    phase_table_data: parse(payload.phase_table_data) ?? {},
+    heatmap_data: Array.isArray(parse(payload.heatmap_data)) ? parse(payload.heatmap_data) as unknown[] : [],
+    dashboard_spotlight_data: object(payload.dashboard_spotlight_data),
+  }
 }
 
 /** Same trading-day source used by the legacy My Signals dashboard. */
@@ -105,4 +137,8 @@ export async function fetchDashboardMarket(group: string, signal?: AbortSignal):
 
 export async function fetchDashboardSectors(signal?: AbortSignal): Promise<MetricRow[]> {
   return list(await get('/dev/st_data/sector_trend_score', signal))
+}
+
+export async function fetchMostRelevantIndicators(signal?: AbortSignal): Promise<MetricRow[]> {
+  return list(await get('/dev/st_data/widgets?chart_name=MostRelevantIndicators', signal))
 }

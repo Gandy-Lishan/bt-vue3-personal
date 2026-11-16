@@ -242,6 +242,7 @@ export async function fetchCpmPatternPreview(request: CpmPatternPreviewRequest, 
           name,
           start: request.startDate,
           end: request.endDate,
+          bars: request.bars,
         })),
       }),
     })

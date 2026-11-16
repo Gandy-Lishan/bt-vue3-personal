@@ -111,21 +111,21 @@ function forecastClass(forecast: string) {
             :key="row.id"
             class="border-b border-[var(--app-border-muted)] odd:bg-[var(--app-surface)] even:bg-[var(--app-row-even)] last:border-b-0 hover:bg-[var(--app-surface-hover)]"
           >
-            <td class="whitespace-nowrap py-3 font-semibold text-[var(--app-text-secondary)]" :class="cellPadding">{{ row.date || '—' }}</td>
+            <td class="whitespace-nowrap py-3 text-[var(--app-text-secondary)]" :class="cellPadding">{{ row.date || '—' }}</td>
             <td class="break-words py-3" :class="cellPadding">
               <a
                 v-if="row.href"
                 :href="row.href"
-                class="group inline-flex max-w-full items-center gap-1.5 font-extrabold text-[var(--app-primary)] hover:underline"
+                class="group inline-flex max-w-full items-center gap-1.5 font-semibold text-[var(--app-primary)] hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 {{ row.title }}
                 <ArrowRight :size="14" class="shrink-0 opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
               </a>
-              <span v-else class="font-extrabold">{{ row.title }}</span>
+              <span v-else class="font-semibold text-[var(--app-text)]">{{ row.title }}</span>
             </td>
-            <td class="py-3 font-semibold uppercase" :class="cellPadding">{{ row.market }}</td>
+            <td class="py-3 uppercase" :class="cellPadding">{{ row.market }}</td>
             <td class="py-3 text-center" :class="cellPadding">
               <span
                 class="inline-flex items-center justify-center"
@@ -135,7 +135,7 @@ function forecastClass(forecast: string) {
                 <component :is="forecastIcon(row.forecast)" :size="17" aria-hidden="true" />
               </span>
             </td>
-            <td class="whitespace-nowrap py-3 font-semibold" :class="cellPadding">{{ activeStudyTimeframeLabel(row.timeframe) || '—' }}</td>
+            <td class="whitespace-nowrap py-3" :class="cellPadding">{{ activeStudyTimeframeLabel(row.timeframe) || '—' }}</td>
           </tr>
         </tbody>
       </table>

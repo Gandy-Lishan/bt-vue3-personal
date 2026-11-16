@@ -100,6 +100,7 @@ function gradientId(index: number) {
       fill="none"
       :stroke="lineStroke(index)"
       stroke-width="2"
+      vector-effect="non-scaling-stroke"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
