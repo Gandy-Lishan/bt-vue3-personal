@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { MarketMetric, MarketPredictionDetail } from '@/entities/market/model/market-detail.types'
 import { formatMarketPercent } from '@/entities/market/model/market-prediction.adapter'
 import { formatMarketCompact } from '@/entities/market/model/market-detail.adapter'
-import { useSortedPagedRows } from '@/pages/indicators/composables/useSortedPagedRows'
+import { useSortedPagedRows, type SortableValue } from '@/pages/indicators/composables/useSortedPagedRows'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
 import AppDataTable from '@/shared/ui/AppDataTable.vue'
 import type { AppDataTableColumn } from '@/shared/ui/app-data-table.types'
@@ -30,7 +30,7 @@ const insiderRows = computed(() => props.detail.ownershipInsiders)
 const institutionRows = computed(() => props.detail.ownershipInstitutions)
 const fundRows = computed(() => props.detail.ownershipFunds)
 
-function filtered<T extends Record<string, unknown>>(rows: T[], query: string, keys: (keyof T)[]): T[] {
+function filtered<T extends object>(rows: T[], query: string, keys: Array<keyof T>): T[] {
   if (!query) return rows
   const q = query.toLowerCase()
   return rows.filter((row) =>
@@ -39,6 +39,11 @@ function filtered<T extends Record<string, unknown>>(rows: T[], query: string, k
       return v !== null && v !== undefined && String(v).toLowerCase().includes(q)
     }),
   )
+}
+
+function sortableValue(value: unknown): SortableValue {
+  if (typeof value === 'number' || typeof value === 'string') return value
+  return value === null || value === undefined ? null : String(value)
 }
 
 const insiderFiltered = computed(() =>
@@ -53,23 +58,17 @@ const fundFiltered = computed(() =>
 
 const insiderTable = useSortedPagedRows(insiderFiltered, (row, key) => {
   if (key === 'date') return row.timestamp ?? (Date.parse(row.date) || row.date)
-  const value = row[key as keyof typeof row]
-  if (typeof value === 'number') return value
-  return value === null || value === undefined ? null : String(value)
+  return sortableValue((row as unknown as Record<string, unknown>)[key])
 }, PAGE_SIZE)
 
 const institutionTable = useSortedPagedRows(institutionFiltered, (row, key) => {
   if (key === 'date') return row.timestamp ?? (Date.parse(row.date) || row.date)
-  const value = row[key as keyof typeof row]
-  if (typeof value === 'number') return value
-  return value === null || value === undefined ? null : String(value)
+  return sortableValue((row as unknown as Record<string, unknown>)[key])
 }, PAGE_SIZE)
 
 const fundTable = useSortedPagedRows(fundFiltered, (row, key) => {
   if (key === 'dayReported') return row.timestamp ?? (Date.parse(row.dayReported) || row.dayReported)
-  const value = row[key as keyof typeof row]
-  if (typeof value === 'number') return value
-  return value === null || value === undefined ? null : String(value)
+  return sortableValue((row as unknown as Record<string, unknown>)[key])
 }, PAGE_SIZE)
 
 function handleSort(key: string) {
