@@ -88,21 +88,21 @@ onBeforeUnmount(() => controller?.abort())
 
 <template>
   <main class="min-h-screen bg-[var(--app-bg)] px-[var(--page-gutter)] pb-10 pt-7 text-[var(--app-text)]">
-    <div v-if="page" class="mx-auto grid max-w-[1560px] gap-5 xl:grid-cols-[230px_minmax(0,1fr)]">
-      <aside class="h-fit overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] xl:sticky xl:top-5">
+    <div v-if="page" class="grid w-full gap-5 xl:grid-cols-[220px_minmax(0,1fr)]">
+      <aside class="h-fit overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3 xl:sticky xl:top-5">
         <div class="flex items-center justify-between border-b border-[var(--app-border)] px-4 py-4">
           <h2 class="text-xs font-semibold uppercase tracking-[.06em] text-[var(--app-text-secondary)]">Research workspace</h2>
           <span class="rounded bg-[var(--app-primary-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--app-primary)]">{{ researchPages.length }}</span>
         </div>
-        <nav class="max-h-72 overflow-y-auto p-2 xl:max-h-[calc(100vh-9rem)]" aria-label="Extra Tools navigation">
+        <nav class="max-h-72 overflow-y-auto xl:max-h-[calc(100vh-9rem)]" aria-label="Extra Tools navigation">
           <section v-for="navGroup in navigationGroups" :key="navGroup" class="mb-3 last:mb-0">
             <div class="flex items-center justify-between px-3 py-2 text-[.625rem] font-semibold uppercase tracking-[.06em] text-[var(--app-text-muted)]">
               <span>{{ navGroup === 'intraday' ? 'Intraday' : researchGroupLabels[navGroup] }}</span>
               <span class="rounded bg-[var(--app-surface-muted)] px-1.5 py-0.5">{{ pagesForGroup(navGroup).length }}</span>
             </div>
-            <RouterLink v-for="item in pagesForGroup(navGroup)" :key="item.slug" :to="`/research/${item.group}/${item.slug}`" class="flex items-start gap-2 rounded-md px-3 py-2 text-[.8125rem] font-medium leading-5 text-[var(--app-text-secondary)] transition hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-primary)]" :class="item.group === group && item.slug === slug ? 'bg-[var(--app-primary-soft)] font-semibold text-[var(--app-primary)]' : ''" :aria-current="item.group === group && item.slug === slug ? 'page' : undefined">
-              <component :is="iconForPage(item)" :size="16" class="mt-0.5 shrink-0" />
-              <span>{{ item.title }}</span>
+            <RouterLink v-for="item in pagesForGroup(navGroup)" :key="item.slug" :to="`/research/${item.group}/${item.slug}`" class="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-[var(--app-text)] transition hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-primary)]" :class="item.group === group && item.slug === slug ? 'bg-[var(--app-primary-soft)]' : ''" :aria-current="item.group === group && item.slug === slug ? 'page' : undefined">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" :class="item.group === group && item.slug === slug ? 'text-[var(--app-primary)]' : 'text-[var(--app-text-secondary)]'"><component :is="iconForPage(item)" :size="21" /></span>
+              <span class="min-w-0 text-sm font-semibold leading-5">{{ item.title }}</span>
             </RouterLink>
           </section>
         </nav>
