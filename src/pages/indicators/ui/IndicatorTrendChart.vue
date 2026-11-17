@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { BarChart3, CalendarDays, Download, Equal, ExternalLink, Maximize2 } from '@lucide/vue'
+import { BarChart3, CalendarDays, Download, ExternalLink, Maximize2 } from '@lucide/vue'
 import Highcharts from 'highcharts/highstock'
 import { isIndicatorSeasonalityChartData, isSeasonalityIndicatorType } from '@/entities/indicator/model/indicator.chart'
 import type { IndicatorChartData, IndicatorChartDataRow, IndicatorDetail } from '@/entities/indicator/model/indicator.types'
@@ -19,8 +19,9 @@ import {
 } from './indicatorHighcharts'
 import { colorZonesFromFlags, type ChartZone } from './indicatorChartZones'
 import { indicatorLineIndexes, seriesColorFallback, seriesColorVar } from './indicatorSeriesColor'
+import { indicatorYAxisRange } from './indicatorYAxisRange'
 
-type RangeId = '3M' | '6M' | 'YTD' | '1Y' | '3Y' | '5Y' | '10Y' | '15Y' | '20Y' | 'All'
+type RangeId = '1D' | '2D' | '3D' | '4D' | '5D' | '1W' | '2W' | '3M' | '6M' | 'YTD' | '1Y' | '3Y' | '5Y' | '10Y' | '15Y' | '20Y' | 'All'
 
 interface ChartSeriesModel {
   key: string
@@ -53,6 +54,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   download: []
+  viewDaily: []
 }>()
 
 let chart: Highcharts.Chart | null = null
@@ -61,9 +63,13 @@ let themeObserver: MutationObserver | null = null
 const chartElement = ref<HTMLDivElement | null>(null)
 const chartShell = ref<HTMLElement | null>(null)
 const activeRange = ref<RangeId>('3Y')
-const showExtremeLines = ref(true)
+const expandExtremeScale = ref(false)
 const visibleMin = ref<number | null>(null)
 const visibleMax = ref<number | null>(null)
+const datePickerOpen = ref(false)
+const selectedStart = ref('')
+const selectedEnd = ref('')
+const dateRangeError = ref('')
 
 // Chart-specific narrow breakpoint: axis titles, navigator etc. should only fold on small phones.
 const compactChartBreakpoint = '(max-width: 640px)'
@@ -75,6 +81,8 @@ function updateCompactChartState() {
 }
 
 const standardRows = computed(() => (Array.isArray(props.rows) ? props.rows : []))
+const isIntradayChart = computed(() => props.detail.sourceList?.startsWith('intraday') ?? false)
+const isIntradayPreset = computed(() => props.detail.sourceList === 'intraday-charts')
 const seasonalityData = computed(() => (isIndicatorSeasonalityChartData(props.rows) ? props.rows : null))
 const isSeasonalityChart = computed(() => {
   const type = props.detail.raw?.type ?? props.detail.type
@@ -100,6 +108,13 @@ const rangeOptions: Array<{ id: RangeId; label: string; unit?: 'month' | 'year' 
   { id: '20Y', label: '20Y', unit: 'year', count: 20 },
   { id: 'All', label: 'All' },
 ]
+const intradayDayRanges: Array<{ id: RangeId; label: string; unit?: 'day' | 'week'; count?: number }> = [1, 2, 3, 4, 5].map((count) => ({ id: `${count}D` as RangeId, label: `${count}D`, unit: 'day', count }))
+const intradayPresetRanges: Array<{ id: RangeId; label: string; unit?: 'day' | 'week'; count?: number }> = [
+  { id: '1D', label: '1D', unit: 'day', count: 1 }, { id: '5D', label: '5D', unit: 'day', count: 5 },
+  { id: '1W', label: '1W', unit: 'week', count: 1 }, { id: '2W', label: '2W', unit: 'week', count: 2 },
+  { id: 'All', label: 'All' },
+]
+const activeRangeOptions = computed(() => isIntradayChart.value ? (isIntradayPreset.value ? intradayPresetRanges : intradayDayRanges) : rangeOptions)
 
 const excludedKeys = new Set(['date', 'Date', 'dumb', 'Dumb', 'color', 'Color'])
 const thresholdKeys = new Set(['opt', 'pess'])
@@ -107,6 +122,7 @@ const chartTheme = indicatorChartTheme
 
 const visibleRangeLabel = computed(() => {
   if (visibleMin.value === null || visibleMax.value === null) return 'No date range'
+  if (isIntradayChart.value) return `${Highcharts.dateFormat('%m-%d %H:%M', visibleMin.value)} - ${Highcharts.dateFormat('%m-%d %H:%M', visibleMax.value)}`
   return `${formatChartDate(visibleMin.value)} - ${formatChartDate(visibleMax.value)}`
 })
 
@@ -455,7 +471,7 @@ function thresholdPlotLines(thresholds: ChartThresholdValues): Highcharts.YAxisP
   return lines
 }
 
-function chartDataBounds(series = buildSeriesModels()) {
+function chartDataBounds(series = isIntradayChart.value ? activeSeriesModels : buildSeriesModels()) {
   const timestamps = series.flatMap((item) => item.data.map((point) => point[0]))
   if (!timestamps.length) return null
   return {
@@ -475,21 +491,6 @@ function visibleSeriesValues(series: ChartSeriesModel[], min: number | null = vi
   return values.length ? values : seriesNumericValues(series)
 }
 
-function paddedDataRange(values: number[]) {
-  const finiteValues = values.filter((value) => Number.isFinite(value))
-  if (!finiteValues.length) return null
-
-  let min = Math.min(...finiteValues)
-  let max = Math.max(...finiteValues)
-  if (min === max) {
-    const padding = Math.max(Math.abs(min) * 0.08, 0.01)
-    return { min: min - padding, max: max + padding }
-  }
-
-  const padding = (max - min) * 0.08
-  return { min: min - padding, max: max + padding }
-}
-
 function syncChartYAxisExtremes(min = visibleMin.value, max = visibleMax.value, redraw = true) {
   if (!chart || !activeSeriesModels.length) return
 
@@ -504,11 +505,10 @@ function syncChartYAxisExtremes(min = visibleMin.value, max = visibleMax.value, 
   for (const pane of panes) {
     const axis = chart.yAxis[pane.axisIndex]
     const values = visibleSeriesValues(pane.series, min, max)
-    if (showExtremeLines.value && pane.axisIndex === panes.at(-1)?.axisIndex) {
-      const thresholds = thresholdValuesForAxis(seriesNumericValues(pane.series))
-      values.push(...[thresholds.opt, thresholds.pess].filter((value): value is number => value !== null && Number.isFinite(value)))
-    }
-    const range = paddedDataRange(values)
+    const thresholds = pane.axisIndex === panes.at(-1)?.axisIndex
+      ? isIntradayChart.value ? { opt: 80, pess: 20 } : thresholdValuesForAxis(seriesNumericValues(pane.series))
+      : { opt: null, pess: null }
+    const range = indicatorYAxisRange(values, [thresholds.opt, thresholds.pess], expandExtremeScale.value)
     if (axis && range) {
       axis.setExtremes(range.min, range.max, false, false)
     }
@@ -520,10 +520,12 @@ function syncChartYAxisExtremes(min = visibleMin.value, max = visibleMax.value, 
 function rangeStartFor(rangeId: RangeId, max: number) {
   if (rangeId === 'All') return null
 
-  const range = rangeOptions.find((item) => item.id === rangeId)
+  const range = activeRangeOptions.value.find((item) => item.id === rangeId)
   if (!range) return null
 
   const date = new Date(max)
+  if (range.unit === 'day') return max - (range.count ?? 0) * 24 * 60 * 60 * 1000
+  if (range.unit === 'week') return max - (range.count ?? 0) * 7 * 24 * 60 * 60 * 1000
   if (range.unit === 'ytd') return Date.UTC(date.getUTCFullYear(), 0, 1)
   if (range.unit === 'month') {
     date.setUTCMonth(date.getUTCMonth() - (range.count ?? 0))
@@ -540,6 +542,39 @@ function rangeStartFor(rangeId: RangeId, max: number) {
 function updateVisibleRange(min: number | undefined, max: number | undefined) {
   visibleMin.value = Number.isFinite(min) ? Number(min) : null
   visibleMax.value = Number.isFinite(max) ? Number(max) : null
+}
+
+function dateInputValue(timestamp: number | null) {
+  return timestamp === null ? '' : new Date(timestamp).toISOString().slice(0, 16)
+}
+
+function openDatePicker() {
+  selectedStart.value = dateInputValue(visibleMin.value)
+  selectedEnd.value = dateInputValue(visibleMax.value)
+  dateRangeError.value = ''
+  datePickerOpen.value = !datePickerOpen.value
+}
+
+function applySelectedDates() {
+  const axis = chart?.xAxis[0]
+  const bounds = chartDataBounds()
+  const start = Date.parse(`${selectedStart.value}Z`)
+  const end = Date.parse(`${selectedEnd.value}Z`)
+  if (!axis || !bounds || !Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+    dateRangeError.value = 'Choose a valid start and end time.'
+    return
+  }
+  const min = Math.max(bounds.min, start)
+  const max = Math.min(bounds.max, end)
+  if (min >= max) {
+    dateRangeError.value = 'The selected range has no chart data.'
+    return
+  }
+  axis.setExtremes(min, max, true, false, { trigger: 'customDateRange' })
+  updateVisibleRange(min, max)
+  syncChartYAxisExtremes(min, max)
+  datePickerOpen.value = false
+  dateRangeError.value = ''
 }
 
 function applyRange(rangeId: RangeId) {
@@ -561,6 +596,7 @@ function applyRange(rangeId: RangeId) {
 }
 
 function defaultRange() {
+  if (isIntradayChart.value) return '1D'
   const url = props.detail.id
   if (url === 'risk_levels' || isTrendReltrend()) return '1Y'
   return '3Y'
@@ -583,8 +619,8 @@ async function toggleFullScreen() {
   window.setTimeout(() => chart?.reflow(), 100)
 }
 
-function toggleExtremeLines() {
-  showExtremeLines.value = !showExtremeLines.value
+function toggleExtremeScale() {
+  expandExtremeScale.value = !expandExtremeScale.value
 }
 
 function backtestMarketSymbol() {
@@ -620,12 +656,126 @@ function destroyChart() {
   activeSeriesModels = []
 }
 
+function sharedChartFrame(theme: ReturnType<typeof chartTheme>, compact: boolean) {
+  return {
+    ...baseHighchartsChartOptions(theme),
+    spacingLeft: chartSize(8),
+    spacingRight: chartSize(compact ? 8 : 72),
+    spacingTop: chartSize(8),
+    spacingBottom: chartSize(10),
+    zooming: { type: 'x' as const },
+  }
+}
+
+function sharedLegend(theme: ReturnType<typeof chartTheme>) {
+  return {
+    enabled: true, align: 'center' as const, verticalAlign: 'top' as const,
+    layout: 'horizontal' as const, itemDistance: chartSize(26), margin: chartSize(46),
+    symbolWidth: chartSize(34), x: 0, y: chartSize(28),
+    itemStyle: { color: theme.textSecondary, fontSize: chartFontSize(11), fontWeight: '600' },
+    itemHoverStyle: { color: theme.primary },
+  }
+}
+
+function sharedXAxis(theme: ReturnType<typeof chartTheme>) {
+  return {
+    type: 'datetime' as const, ordinal: false, gridLineWidth: 0,
+    gridLineColor: theme.grid, gridLineDashStyle: 'Dot' as const,
+    lineColor: theme.border, tickColor: theme.border, tickPixelInterval: chartSize(150),
+    crosshair: highchartsCrosshairOptions(),
+  }
+}
+
+function sharedYAxis(theme: ReturnType<typeof chartTheme>, compact: boolean, tickPixelInterval: number) {
+  return {
+    opposite: true, offset: 0, gridLineWidth: 1, gridLineColor: theme.grid,
+    gridLineDashStyle: 'Dot' as const, lineWidth: 0, minPadding: 0.1, maxPadding: 0.1,
+    tickPixelInterval: chartSize(tickPixelInterval),
+    labels: { x: chartSize(compact ? 0 : 25), style: { color: theme.textSecondary, fontSize: chartFontSize(compact ? 9 : 10) } },
+  }
+}
+
+function sharedTooltipRows(points: Highcharts.Point[]) {
+  return points
+    .filter((point) => point.y !== undefined && point.series.visible)
+    .map((point) => {
+      const value = typeof point.y === 'number' ? point.y.toFixed(2) : point.y
+      const name = escapeHtml(stripLastValueSuffix(point.series.name))
+      return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;margin-top:6px;"><span style="display:flex;align-items:center;min-width:0;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${point.color};margin-right:7px;flex:0 0 auto;"></span><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span></span><b>${value}</b></div>`
+    })
+    .join('')
+}
+
+function renderIntradayChart() {
+  if (!chartElement.value) return
+  const theme = chartTheme()
+  const rows = datedRows()
+  const symbol = marketSymbol() || props.detail.title
+  const price = rows.flatMap(({ row, timestamp }) => numericValue(row.price) === null ? [] : [[timestamp, numericValue(row.price)!] as [number, number]])
+  const optix = rows.flatMap(({ row, timestamp }) => numericValue(row.optix) === null ? [] : [[timestamp, numericValue(row.optix)!] as [number, number]])
+  const values = rows.flatMap(({ row, timestamp }) => numericValue(row.value) === null ? [] : [[timestamp, numericValue(row.value)!] as [number, number]])
+  const preset = isIntradayPreset.value
+  const extremeLines: Highcharts.YAxisPlotLinesOptions[] = [
+    { value: 20, color: theme.positive, dashStyle: 'ShortDash', width: 1.5, label: { text: '20', style: { color: theme.positive } }, zIndex: 5 },
+    { value: 80, color: theme.negative, dashStyle: 'ShortDash', width: 1.5, label: { text: '80', style: { color: theme.negative } }, zIndex: 5 },
+  ]
+  const etTime = (value: number) => new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(value)
+  const compact = isCompactChart.value
+  const neutralVariable = seriesColorVar(true, 0)
+  const indicatorVariable = seriesColorVar(false, 0)
+  const neutralColor = cssVar(neutralVariable, seriesColorFallback(neutralVariable))
+  const indicatorColor = cssVar(indicatorVariable, seriesColorFallback(indicatorVariable))
+  const priceModel: ChartSeriesModel = { key: 'price', name: symbol, data: price, color: neutralColor }
+  const optixModel: ChartSeriesModel = { key: 'optix', name: `${symbol} Intraday Optix`, data: optix, color: indicatorColor }
+  const valueModel: ChartSeriesModel = { key: 'value', name: props.detail.title, data: values, color: indicatorColor }
+  const navigatorSource = preset ? valueModel : optixModel.data.length ? optixModel : priceModel
+  activeSeriesModels = preset ? [valueModel] : [priceModel, optixModel]
+
+  chart = Highcharts.stockChart(chartElement.value, {
+    time: { timezone: 'UTC' },
+    chart: { ...sharedChartFrame(theme, compact), type: preset ? (String(props.detail.raw?.chart_type ?? 'line') as Highcharts.ChartOptions['type']) : 'line' },
+    credits: { enabled: false }, accessibility: { enabled: false },
+    rangeSelector: { enabled: false },
+    legend: sharedLegend(theme),
+    navigator: { ...chartNavigatorOptions(theme, navigatorSource.data), enabled: !compact },
+    scrollbar: { ...chartScrollbarOptions(theme), enabled: !compact },
+    xAxis: { ...sharedXAxis(theme), ordinal: !preset, minRange: 1,
+      labels: { formatter() { return preset ? etTime(Number(this.value)) : Highcharts.dateFormat('%m-%d %H:%M', Number(this.value)) }, style: { color: theme.textSecondary, fontSize: chartFontSize(11) } },
+      events: { afterSetExtremes(event) { updateVisibleRange(event.min, event.max); syncChartYAxisExtremes(event.min, event.max) } } },
+    yAxis: preset ? [{ ...sharedYAxis(theme, compact, 44), height: '90%',
+      title: compact ? undefined : { text: props.detail.raw?.yaxistext ? escapeHtml(String(props.detail.raw.yaxistext)) : seriesAxisTitle(valueModel), useHTML: true, style: { color: theme.primary, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' }, x: chartSize(44) },
+      reversed: Boolean(props.detail.raw?.reverse_axis), plotLines: extremeLines }]
+      : [{ ...sharedYAxis(theme, compact, 46), top: '0%', height: '37%',
+          title: compact ? undefined : { text: seriesAxisTitle(priceModel), useHTML: true, style: { color: theme.textSecondary, fontSize: chartFontSize(10), lineHeight: '1.15' }, x: chartSize(36) } },
+        { ...sharedYAxis(theme, compact, 44), top: '40%', height: '60%',
+          title: compact ? undefined : { text: seriesAxisTitle(optixModel), useHTML: true, style: { color: theme.primary, fontSize: chartFontSize(10), lineHeight: '1.15' }, x: chartSize(44) },
+          plotLines: extremeLines }],
+    tooltip: { shared: true, useHTML: true, backgroundColor: theme.tooltipBg, borderColor: theme.border,
+      borderRadius: chartSize(8), padding: chartSize(8), shadow: true, style: { color: theme.textSecondary, fontSize: chartFontSize(12) }, formatter() {
+      const date = preset ? `${etTime(Number(this.x))} ET` : `${Highcharts.dateFormat('%m-%d-%Y %H:%M', Number(this.x))} ET`
+      const points = this.points ?? [this]
+      return `<div style="width:220px;max-width:220px;"><b>${date}</b>${sharedTooltipRows(points)}</div>`
+    } },
+    plotOptions: { series: { animation: false, turboThreshold: 0, showInNavigator: true, connectNulls: false,
+      getExtremesFromAll: false, states: disabledSeriesStates() } },
+    series: preset ? [{ type: (String(props.detail.raw?.chart_type ?? 'line') as 'line'), name: seriesLegendName(valueModel), data: values,
+      color: indicatorColor, lineWidth: 2, marker: { enabled: false }, dataGrouping: { enabled: false } }]
+      : [{ type: 'line', name: seriesLegendName(priceModel), data: price, yAxis: 0, color: neutralColor, lineWidth: 2, marker: { enabled: false }, dataGrouping: { enabled: false } },
+        { type: 'line', name: seriesLegendName(optixModel), data: optix, yAxis: 1, color: indicatorColor, lineWidth: 2, marker: { enabled: false }, dataGrouping: { enabled: false } }],
+  } as Highcharts.Options)
+  applyRange(activeRange.value)
+}
+
 function renderChart() {
   destroyChart()
   if (isSeasonalityChart.value || !chartElement.value || props.loading || props.error || !hasRows.value) {
     updateVisibleRange(undefined, undefined)
     return
   }
+
+  if (isIntradayChart.value) { renderIntradayChart(); return }
 
   const seriesModels = buildSeriesModels()
   if (!seriesModels.length) {
@@ -638,7 +788,6 @@ function renderChart() {
   const twoPane = seriesModels.length > 1
   const theme = chartTheme()
   const textColor = theme.textSecondary
-  const gridColor = theme.grid
   const borderColor = theme.border
   const primaryColor = theme.primary
   const lowerSeries = indicatorSeries(seriesModels, twoPane)
@@ -651,14 +800,7 @@ function renderChart() {
       timezone: 'UTC',
     },
     chart: {
-      ...baseHighchartsChartOptions(theme),
-      spacingLeft: chartSize(8),
-      spacingRight: chartSize(isCompact ? 8 : 72),
-      spacingTop: chartSize(8),
-      spacingBottom: chartSize(10),
-      zooming: {
-        type: 'x',
-      },
+      ...sharedChartFrame(theme, isCompact),
     },
     credits: {
       enabled: false,
@@ -670,23 +812,7 @@ function renderChart() {
       enabled: false,
     },
     legend: {
-      enabled: true,
-      align: 'center',
-      verticalAlign: 'top',
-      layout: 'horizontal',
-      itemDistance: chartSize(26),
-      margin: chartSize(46),
-      symbolWidth: chartSize(34),
-      x: 0,
-      y: chartSize(28),
-      itemStyle: {
-        color: textColor,
-        fontSize: chartFontSize(11),
-        fontWeight: '600',
-      },
-      itemHoverStyle: {
-        color: primaryColor,
-      },
+      ...sharedLegend(theme),
     },
     navigator: {
       ...chartNavigatorOptions(theme, navigatorSource.data),
@@ -697,19 +823,11 @@ function renderChart() {
       enabled: !isCompact,
     },
     xAxis: {
-      type: 'datetime',
-      ordinal: false,
-      gridLineWidth: 0,
-      gridLineColor: gridColor,
-      gridLineDashStyle: 'Dot',
-      lineColor: borderColor,
-      tickColor: borderColor,
-      tickPixelInterval: chartSize(150),
+      ...sharedXAxis(theme),
       labels: {
         format: "{value:%b '%y}",
         style: { color: textColor, fontSize: chartFontSize(11) },
       },
-      crosshair: highchartsCrosshairOptions(),
       events: {
         afterSetExtremes(event) {
           updateVisibleRange(event.min, event.max)
@@ -720,21 +838,9 @@ function renderChart() {
     yAxis: twoPane
       ? [
           {
+            ...sharedYAxis(theme, isCompact, 46),
             top: '0%',
             height: '37%',
-            opposite: true,
-            offset: 0,
-            gridLineWidth: 1,
-            gridLineColor: gridColor,
-            gridLineDashStyle: 'Dot',
-            lineWidth: 0,
-            minPadding: 0.1,
-            maxPadding: 0.1,
-            tickPixelInterval: chartSize(46),
-            labels: {
-              x: chartSize(isCompact ? 0 : 25),
-              style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
-            },
             title: isCompact
               ? undefined
               : {
@@ -745,21 +851,9 @@ function renderChart() {
                 },
           },
           {
+            ...sharedYAxis(theme, isCompact, 44),
             top: '40%',
             height: '60%',
-            opposite: true,
-            offset: 0,
-            gridLineWidth: 1,
-            gridLineColor: gridColor,
-            gridLineDashStyle: 'Dot',
-            lineWidth: 0,
-            minPadding: 0.1,
-            maxPadding: 0.1,
-            tickPixelInterval: chartSize(44),
-            labels: {
-              x: chartSize(isCompact ? 0 : 25),
-              style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
-            },
             title: isCompact
               ? undefined
               : {
@@ -768,25 +862,13 @@ function renderChart() {
                   style: { color: primaryColor, fontSize: chartFontSize(10), lineHeight: '1.15' },
                   x: chartSize(44),
                 },
-            plotLines: showExtremeLines.value ? thresholdPlotLines(thresholds) : [],
+            plotLines: thresholdPlotLines(thresholds),
           },
         ]
       : [
           {
+            ...sharedYAxis(theme, isCompact, 44),
             height: '90%',
-            opposite: true,
-            offset: 0,
-            gridLineWidth: 1,
-            gridLineColor: gridColor,
-            gridLineDashStyle: 'Dot',
-            lineWidth: 0,
-            minPadding: 0.1,
-            maxPadding: 0.1,
-            tickPixelInterval: chartSize(44),
-            labels: {
-              x: chartSize(isCompact ? 0 : 25),
-              style: { color: textColor, fontSize: chartFontSize(isCompact ? 9 : 10) },
-            },
             title: isCompact
               ? undefined
               : {
@@ -795,7 +877,7 @@ function renderChart() {
                   style: { color: primaryColor, fontSize: chartFontSize(10), fontWeight: '600', lineHeight: '1.15' },
                   x: chartSize(44),
                 },
-            plotLines: showExtremeLines.value ? thresholdPlotLines(thresholds) : [],
+            plotLines: thresholdPlotLines(thresholds),
           },
         ],
     tooltip: {
@@ -812,14 +894,7 @@ function renderChart() {
       },
       formatter(this: { x?: number; points?: Highcharts.Point[]; point?: Highcharts.Point }) {
         const points = this.points ?? (this.point ? [this.point] : [])
-        const rows = points
-          .filter((point: Highcharts.Point) => point.y !== undefined && point.series.visible)
-          .map((point: Highcharts.Point) => {
-            const value = typeof point.y === 'number' ? point.y.toFixed(2) : point.y
-            const name = escapeHtml(stripLastValueSuffix(point.series.name))
-            return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;margin-top:6px;"><span style="display:flex;align-items:center;min-width:0;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${point.color};margin-right:7px;flex:0 0 auto;"></span><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span></span><b>${value}</b></div>`
-          })
-          .join('')
+        const rows = sharedTooltipRows(points)
 
         return `<div style="width:220px;max-width:220px;"><b>${formatChartDate(Number(this.x))}</b>${rows}</div>`
       },
@@ -884,15 +959,30 @@ watch(
   () => props.detail.id,
   () => {
     activeRange.value = defaultRange()
-    showExtremeLines.value = true
+    expandExtremeScale.value = false
   },
   { immediate: true },
 )
 
 watch(
   () => [props.detail.id, props.rows, props.loading, props.error, props.isMobile, isCompactChart.value],
-  () => {
-    void nextTick(renderChart)
+  (current, previous) => {
+    const preserveRange = previous?.[0] === current[0] && isIntradayChart.value && chart && visibleMin.value !== null && visibleMax.value !== null
+      ? { min: visibleMin.value, max: visibleMax.value }
+      : null
+    void nextTick(() => {
+      renderChart()
+      if (!preserveRange || !chart) return
+      const bounds = chartDataBounds()
+      if (!bounds) return
+      const min = Math.max(bounds.min, preserveRange.min)
+      const max = Math.min(bounds.max, preserveRange.max)
+      if (min < max) {
+        chart.xAxis[0].setExtremes(min, max, true, false, { trigger: 'intradayRefresh' })
+        updateVisibleRange(min, max)
+        syncChartYAxisExtremes(min, max)
+      }
+    })
   },
   { deep: true },
 )
@@ -901,8 +991,8 @@ watch(isCompactChart, () => {
   void nextTick(renderChart)
 })
 
-watch(showExtremeLines, () => {
-  void nextTick(renderChart)
+watch(expandExtremeScale, () => {
+  syncChartYAxisExtremes()
 })
 
 onMounted(() => {
@@ -927,13 +1017,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section ref="chartShell" class="indicator-chart-shell overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
+  <section ref="chartShell" class="indicator-chart-shell overflow-visible rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
     <div class="chart-toolbar px-4 pt-4">
       <!-- Desktop toolbar -->
       <div v-if="!props.isMobile" class="chart-primary-row">
         <div v-if="!isSeasonalityChart" class="chart-range-group">
           <button
-            v-for="range in rangeOptions"
+            v-for="range in activeRangeOptions"
             :key="range.id"
             class="chart-range-button border-r border-[var(--app-border)] text-[0.8125rem] font-semibold last:border-r-0"
             :class="activeRange === range.id ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)] hover:bg-[var(--app-primary-soft)] hover:text-[var(--app-primary)]'"
@@ -944,22 +1034,42 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <div v-if="!isSeasonalityChart" class="chart-date-range text-[0.8125rem] font-semibold text-[var(--app-primary)]">
-          <span>{{ visibleRangeLabel }}</span>
-          <CalendarDays :size="16" />
+        <div v-if="!isSeasonalityChart" class="relative">
+          <button class="chart-date-range text-[0.8125rem] font-semibold text-[var(--app-primary)]" type="button" :aria-expanded="datePickerOpen" aria-label="Select chart date range" @click="openDatePicker">
+            <span>{{ visibleRangeLabel }}</span>
+            <CalendarDays :size="16" />
+          </button>
+          <form v-if="datePickerOpen" class="chart-date-picker" @submit.prevent="applySelectedDates">
+            <label>From <input v-model="selectedStart" type="datetime-local" required /></label>
+            <label>To <input v-model="selectedEnd" type="datetime-local" required /></label>
+            <p v-if="dateRangeError" class="text-xs text-[var(--app-negative)]">{{ dateRangeError }}</p>
+            <button type="submit" class="chart-date-apply">Apply</button>
+          </form>
         </div>
 
         <div class="chart-actions-row">
           <button
+            v-if="isIntradayChart && !isIntradayPreset"
+            class="chart-action-button"
+            type="button"
+            @click="emit('viewDaily')"
+          >
+            <BarChart3 :size="15" />
+            View Daily {{ marketSymbol() }} Optix
+          </button>
+          <button
             v-if="!isSeasonalityChart"
             class="chart-action-button"
-            :class="{ 'bg-[var(--app-primary-soft)]': showExtremeLines }"
-            :aria-pressed="showExtremeLines"
+            :class="{ 'bg-[var(--app-primary-soft)]': expandExtremeScale }"
+            :aria-pressed="expandExtremeScale"
             type="button"
-            @click="toggleExtremeLines"
+            @click="toggleExtremeScale"
           >
-            <Equal :size="15" />
-            {{ showExtremeLines ? 'Hide Extremes' : 'Show Extremes' }}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 9h16" stroke="var(--app-negative)" stroke-width="2" stroke-linecap="round" />
+              <path d="M4 15h16" stroke="var(--app-positive)" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            {{ expandExtremeScale ? 'Hide Extremes' : 'Show Extremes' }}
           </button>
 
           <button
@@ -981,7 +1091,7 @@ onBeforeUnmount(() => {
               <Download :size="15" />
               Download
             </button>
-            <div id="indicator-download-tooltip" class="download-tooltip" role="tooltip">
+            <div v-if="!isIntradayChart" id="indicator-download-tooltip" class="download-tooltip" role="tooltip">
               To prevent abuse of sentimentrader data, we only provide recent 3-6 months data of the indicator.
               If you need access to full history, please contact us
               <a href="mailto:admin@sentimentrader.com" target="_blank" rel="noopener noreferrer">admin@sentimentrader.com</a>.
@@ -989,6 +1099,7 @@ onBeforeUnmount(() => {
           </div>
 
           <button
+            v-if="!isIntradayChart"
             class="chart-action-button"
             type="button"
             @click="openLargeChart"
@@ -998,7 +1109,7 @@ onBeforeUnmount(() => {
           </button>
 
           <button
-            v-if="!isSeasonalityChart"
+            v-if="!isSeasonalityChart && !isIntradayChart"
             class="chart-action-button"
             type="button"
             @click="openBacktest"
@@ -1018,22 +1129,40 @@ onBeforeUnmount(() => {
             class="flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--app-text)]"
             @change="applyRange(activeRange)"
           >
-            <option v-for="range in rangeOptions" :key="range.id" :value="range.id">{{ range.label }}</option>
+            <option v-for="range in activeRangeOptions" :key="range.id" :value="range.id">{{ range.label }}</option>
           </select>
-          <span class="text-xs font-semibold text-[var(--app-primary)]">{{ visibleRangeLabel }}</span>
+          <button class="text-xs font-semibold text-[var(--app-primary)]" type="button" :aria-expanded="datePickerOpen" aria-label="Select chart date range" @click="openDatePicker">{{ visibleRangeLabel }} <CalendarDays :size="14" class="inline" /></button>
         </div>
+        <form v-if="datePickerOpen && !isSeasonalityChart" class="flex flex-wrap items-end gap-2" @submit.prevent="applySelectedDates">
+          <label class="text-xs">From <input v-model="selectedStart" type="datetime-local" required class="block rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-1" /></label>
+          <label class="text-xs">To <input v-model="selectedEnd" type="datetime-local" required class="block rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-1" /></label>
+          <button type="submit" class="chart-date-apply">Apply</button>
+          <p v-if="dateRangeError" class="w-full text-xs text-[var(--app-negative)]">{{ dateRangeError }}</p>
+        </form>
 
         <!-- Action buttons row -->
         <div class="flex items-center gap-2 overflow-x-auto">
           <button
+            v-if="isIntradayChart && !isIntradayPreset"
+            class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
+            type="button"
+            @click="emit('viewDaily')"
+          >
+            <BarChart3 :size="14" /> View Daily {{ marketSymbol() }} Optix
+          </button>
+          <button
             v-if="!isSeasonalityChart"
             class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
-            :class="{ 'bg-[var(--app-primary-soft)]': showExtremeLines }"
-            :aria-pressed="showExtremeLines"
+            :class="{ 'bg-[var(--app-primary-soft)]': expandExtremeScale }"
+            :aria-pressed="expandExtremeScale"
             type="button"
-            @click="toggleExtremeLines"
+            @click="toggleExtremeScale"
           >
-            <Equal :size="14" /> {{ showExtremeLines ? 'Hide Extremes' : 'Show Extremes' }}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 9h16" stroke="var(--app-negative)" stroke-width="2" stroke-linecap="round" />
+              <path d="M4 15h16" stroke="var(--app-positive)" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            {{ expandExtremeScale ? 'Hide Extremes' : 'Show Extremes' }}
           </button>
           <button
             class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
@@ -1050,6 +1179,7 @@ onBeforeUnmount(() => {
             <Download :size="14" /> CSV
           </button>
           <button
+            v-if="!isIntradayChart"
             class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
             type="button"
             @click="openLargeChart"
@@ -1057,7 +1187,7 @@ onBeforeUnmount(() => {
             <ExternalLink :size="14" /> Legacy
           </button>
           <button
-            v-if="!isSeasonalityChart"
+            v-if="!isSeasonalityChart && !isIntradayChart"
             class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-xs font-semibold text-[var(--app-primary)] whitespace-nowrap"
             type="button"
             @click="openBacktest"
@@ -1131,6 +1261,25 @@ onBeforeUnmount(() => {
   gap: calc(6px * var(--fixed-ui-scale, 1));
   white-space: nowrap;
 }
+
+.chart-date-picker {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  right: 0;
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+
+.chart-date-picker label { display: grid; gap: 4px; font-size: 12px; }
+.chart-date-picker input { border: 1px solid var(--app-border); border-radius: 4px; padding: 4px; background: var(--app-surface); color: var(--app-text); }
+.chart-date-apply { border-radius: 4px; padding: 5px 10px; background: var(--app-primary); color: white; font-size: 12px; font-weight: 600; }
 
 .chart-action-button {
   height: calc(30px * var(--fixed-ui-scale, 1));
