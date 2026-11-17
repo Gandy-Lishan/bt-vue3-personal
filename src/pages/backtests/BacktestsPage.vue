@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { Calendar } from '@lucide/vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
+import BacktestSettings from './ui/BacktestSettings.vue'
+import BacktestHelp from './ui/BacktestHelp.vue'
+import { trimTwoDecimals, validateNumeric, type NumericField } from './ui/backtestValidation'
 
 type Condition = { type: string; indicator: string; comparison: string; value: string; delay: number }
 const emptyCondition = (): Condition => ({ type: 'Sentiment Indicator', indicator: '', comparison: 'CrossAbove', value: '', delay: 0 })
@@ -19,31 +21,18 @@ watch(() => form.period, (p) => {
   }
 })
 function quickRange(years: number): [string, string] { const now = new Date(); const endMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()); const start = new Date(endMs); start.setUTCFullYear(start.getUTCFullYear() - years); return [formatDate(start), formatDate(new Date(endMs))] }
-const periodHint = computed(() => {
-  if (form.period === 'All History') return 'Uses the full available history for SPX'
-  const years = quickPeriods[form.period]
-  if (years) { const [start, end] = quickRange(years); return `${start} to ${end}` }
-  return ''
-})
 function formatDate(d: Date) { return d.toISOString().slice(0, 10) }
-function onDateInput(key: 'startDate' | 'endDate', e: Event) { const el = e.target as HTMLInputElement; form[key] = el.value.replace(/[^\d-]/g, '').slice(0, 10) }
-const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-const dowNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
-const openPicker = ref<'start' | 'end' | null>(null)
-const pickerMonth = ref(new Date().getMonth())
-const pickerYear = ref(new Date().getFullYear())
-function parseDate(s: string) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); if (!m) return null; const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))); return Number.isNaN(d.getTime()) ? null : d }
-function openDate(which: 'start' | 'end') { const d = parseDate(which === 'start' ? form.startDate : form.endDate) || new Date(); pickerMonth.value = d.getMonth(); pickerYear.value = d.getFullYear(); openPicker.value = which }
-function shiftMonth(delta: number) { const m = pickerMonth.value + delta; pickerMonth.value = (m + 12) % 12; if (m < 0 || m > 11) pickerYear.value += delta }
-const pickerCells = computed(() => { const offset = new Date(pickerYear.value, pickerMonth.value, 1).getDay(); const days = new Date(pickerYear.value, pickerMonth.value + 1, 0).getDate(); return [...Array<number>(offset).fill(0), ...Array.from({ length: days }, (_, i) => i + 1)] })
-function isSelected(which: 'start' | 'end', day: number) { const d = parseDate(which === 'start' ? form.startDate : form.endDate); return !!d && d.getFullYear() === pickerYear.value && d.getMonth() === pickerMonth.value && d.getDate() === day }
-function pickDay(which: 'start' | 'end', day: number) { form[which === 'start' ? 'startDate' : 'endDate'] = formatDate(new Date(Date.UTC(pickerYear.value, pickerMonth.value, day))); openPicker.value = null }
-function onDocClick(e: MouseEvent) { if (!(e.target as HTMLElement).closest('.range-field')) openPicker.value = null }
-onMounted(() => document.addEventListener('click', onDocClick))
-onUnmounted(() => document.removeEventListener('click', onDocClick))
 const entry = ref<Condition[]>([emptyCondition()])
 const exit = ref<Condition[]>([emptyCondition()])
 const step = ref(0)
+const marketExpanded = ref(true)
+const settingsRef = ref<InstanceType<typeof BacktestSettings> | null>(null)
+const riskErrors = reactive<Partial<Record<NumericField, string>>>({})
+function validateRisk(field: 'takeProfit' | 'stopLoss' | 'timeInMarket') {
+  form[field] = trimTwoDecimals(form[field])
+  riskErrors[field] = validateNumeric(field, form[field])
+}
+function toggleMarket() { if (step.value !== 0) { step.value = 0; marketExpanded.value = true } else marketExpanded.value = !marketExpanded.value }
 const steps = ['Setup', 'Entry', 'Exit', 'Risk & Execution', 'Review & Run']
 const mode = ref('Single-Condition')
 const message = ref('')
@@ -58,8 +47,20 @@ const scoreLine = '0,75 70,75 70,25 82,25 82,75 151,75 151,25 158,25 158,75 220,
 const draftKey = 'backtest-create-draft-v1'
 try { const saved = JSON.parse(localStorage.getItem(draftKey) || 'null'); if (saved) { Object.assign(form, saved.form); entry.value = saved.entry || [emptyCondition()]; exit.value = saved.exit || [emptyCondition()] } } catch { localStorage.removeItem(draftKey) }
 function saveDraft() { localStorage.setItem(draftKey, JSON.stringify({ form: { ...form }, entry: entry.value, exit: exit.value })); message.value = 'Draft saved on this device.' }
-function clear() { Object.assign(form, defaults); entry.value = [emptyCondition()]; exit.value = [emptyCondition()]; step.value = 0; localStorage.removeItem(draftKey); message.value = 'Form cleared.' }
-function run() { if (!form.symbol || !form.name) { step.value = 0; message.value = 'Enter a symbol and name.' } else if (!entry.value[0]?.indicator) { step.value = 1; message.value = 'Select an entry indicator.' } else if (!exit.value[0]?.indicator) { step.value = 2; message.value = 'Select an exit indicator.' } else { step.value = 4; message.value = 'Ready for execution. Backend submission is not connected yet.' } }
+function clear() { Object.assign(form, defaults); entry.value = [emptyCondition()]; exit.value = [emptyCondition()]; step.value = 0; Object.keys(riskErrors).forEach((key) => delete riskErrors[key as NumericField]); localStorage.removeItem(draftKey); message.value = 'Form cleared.' }
+async function run() {
+  step.value = 0
+  marketExpanded.value = true
+  await nextTick()
+  if (!settingsRef.value?.validateAll()) { message.value = 'Correct the highlighted backtest settings.'; return }
+  if (!form.symbol || !form.name) { message.value = 'Enter a symbol and name.'; return }
+  if (!entry.value[0]?.indicator) { step.value = 1; message.value = 'Select an entry indicator.'; return }
+  if (!exit.value[0]?.indicator) { step.value = 2; message.value = 'Select an exit indicator.'; return }
+  for (const field of ['takeProfit', 'stopLoss', 'timeInMarket'] as const) validateRisk(field)
+  if (Object.values(riskErrors).some(Boolean)) { step.value = 3; message.value = 'Correct the highlighted risk settings.'; return }
+  step.value = 4
+  message.value = 'Ready for execution. Backend submission is not connected yet.'
+}
 </script>
 
 <template>
@@ -67,28 +68,9 @@ function run() { if (!form.symbol || !form.name) { step.value = 0; message.value
     <header class="topbar"><div class="title"><h1>Create Backtest</h1><span>Backtests / <b>New</b></span></div><nav><button v-for="(label, i) in steps" :key="label" :class="{ current: step === i }" @click="step = i"><em>{{ i + 1 }}</em>{{ label }}</button></nav><div class="top-actions"><button class="outline">⊙ Tutorial</button><button class="outline" @click="saveDraft">▣ Save Draft</button></div></header>
     <div class="workspace" :class="{ hiddenSidebar: !sidebar }">
       <aside class="builder"><div class="builder-head"><h2>Strategy Builder</h2><button @click="sidebar = false">«</button></div><div class="strategy"><strong>{{ form.strategy === 'Dual' ? 'Dual Symbol Backtest' : 'Single Symbol Backtest' }}</strong><small>{{ remaining }} items remaining</small><p><span>{{ form.symbol }}</span><span>{{ form.frequency }}</span><span>{{ form.direction }}</span></p></div>
-        <section class="market-section"><button class="section-title blue" @click="step = 0">①. Market &amp; Capital <span>{{ step === 0 ? '⌃' : '›' }}</span></button><div v-if="step === 0" class="market fields">
-          <label>Backtest Type<select v-model="form.strategy"><option value="Single">Single Symbol Backtest</option><option value="Dual">Dual Symbol Backtest</option></select></label><label>Symbol<input v-model="form.symbol" /></label>
-          <label>Benchmark<input v-model="form.benchmark" /></label><label>Timeframe<select v-model="form.frequency"><option>Daily</option><option>Weekly</option><option>Monthly</option></select></label>
-          <label class="period span">Backtest Period<select v-model="form.period"><option>All History</option><option>1 Year</option><option>3 Years</option><option>5 Years</option><option>10 Years</option><option>15 Years</option><option>20 Years</option><option>Custom Date Range</option></select><small v-if="periodHint" class="period-hint">{{ periodHint }}</small></label>
-          <label v-if="form.period === 'Custom Date Range'" class="range">Date Range<span class="range-box"><span class="range-field"><Calendar :size="16" class="range-icon" /><input :value="form.startDate" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" maxlength="10" @input="onDateInput('startDate', $event)" @focus="openDate('start')" /><div v-if="openPicker === 'start'" class="picker"><div class="picker-head"><button type="button" @click="shiftMonth(-1)">‹</button><b>{{ monthNames[pickerMonth] }} {{ pickerYear }}</b><button type="button" @click="shiftMonth(1)">›</button></div><div class="picker-grid"><span v-for="(w, wi) in dowNames" :key="'sw' + wi" class="picker-dow">{{ w }}</span><button v-for="(d, di) in pickerCells" :key="'sd' + di" type="button" :disabled="!d" :class="{ selected: d && isSelected('start', d) }" @click="pickDay('start', d)">{{ d }}</button></div></div></span><span class="range-to">to</span><span class="range-field"><Calendar :size="16" class="range-icon" /><input :value="form.endDate" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" maxlength="10" @input="onDateInput('endDate', $event)" @focus="openDate('end')" /><div v-if="openPicker === 'end'" class="picker"><div class="picker-head"><button type="button" @click="shiftMonth(-1)">‹</button><b>{{ monthNames[pickerMonth] }} {{ pickerYear }}</b><button type="button" @click="shiftMonth(1)">›</button></div><div class="picker-grid"><span v-for="(w, wi) in dowNames" :key="'ew' + wi" class="picker-dow">{{ w }}</span><button v-for="(d, di) in pickerCells" :key="'ed' + di" type="button" :disabled="!d" :class="{ selected: d && isSelected('end', d) }" @click="pickDay('end', d)">{{ d }}</button></div></div></span></span></label>
-          <label v-if="form.strategy === 'Dual'" class="span">Second Symbol<input v-model="form.symbol2" /></label>
-          <label>Starting Capital<input v-model="form.capital" type="number" min="0" /></label><label>Direction<select v-model="form.direction"><option>Long</option><option>Short</option></select></label>
-          <label>Model<select v-model="form.model"><option>cash</option><option>margin</option></select></label>
-          <details class="execution-costs span">
-            <summary><span class="execution-title">Trade Price &amp; Costs</span><span class="execution-summary">{{ form.tradePrice }} · Commission {{ form.commission || '0' }} · Slippage {{ form.slippage || '0' }}</span></summary>
-            <div class="execution-fields">
-              <label>Trade Price<select v-model="form.tradePrice"><option>Current Close</option><option>Next Open</option></select></label>
-              <label>Commission<input v-model="form.commission" type="number" min="0" step="any" /></label>
-              <label>Slippage<input v-model="form.slippage" type="number" min="0" step="any" /></label>
-            </div>
-          </details>
-          <label>Market Environment<select v-model="form.environment"><option>Market Environment</option><option>Bull Market</option><option>Bear Market</option></select></label><label>Index MA Slope<select v-model="form.maSlope"><option>Index Moving Average Slope</option><option>Positive</option><option>Negative</option></select></label>
-          <label>Exclude Overlapping Obs.<input v-model="form.excludeOO" type="number" min="0" /></label>
-          <label>Backtest Name<input v-model="form.name" /></label><label>User Tag<input v-model="form.userTag" /></label>
-        </div></section>
+        <section class="market-section"><button class="section-title blue" :aria-expanded="step === 0 && marketExpanded" @click="toggleMarket">①. Market &amp; Capital <span>{{ step === 0 && marketExpanded ? '⌃' : '›' }}</span></button><BacktestSettings v-if="step === 0 && marketExpanded" ref="settingsRef" v-model="form" /></section>
         <section v-for="(title, i) in ['②. Entry Criteria', '③. Exit Criteria']" :key="title"><button class="section-title" :class="i ? 'red' : 'green'" @click="step = i + 1">{{ title }} <span>{{ step === i + 1 ? '⌃' : '›' }}</span></button><div v-if="step === i + 1" class="criteria"><div class="modes"><span>Mode</span><button v-for="item in ['Single-Condition','SameBar Multi-Condition','TimeOrder Multi-Condition']" :key="item" :class="{ selected: mode === item }" @click="mode = item">{{ item }}</button></div><div v-for="(condition, ci) in activeConditions" :key="ci" class="condition"><div v-if="ci" class="condition-head"><b>Condition {{ ci + 1 }}</b><button @click="activeConditions.splice(ci, 1)">Remove</button></div><label>Type<select v-model="condition.type"><option>Sentiment Indicator</option><option>Technical Indicator</option><option>Symbol OHLCV</option><option>My Indicator</option><option>User Defined Dates</option></select></label><label>Indicator<input v-model="condition.indicator" list="bt-indicators" placeholder="Search for the indicator..." /></label><div class="comparison"><span>Indicator Value</span><select v-model="condition.comparison"><option>CrossAbove</option><option>CrossBelow</option><option>Above</option><option>Below</option><option>Equal</option></select><input v-model="condition.value" type="number" placeholder="Input value" /></div><label class="delay">Delay of Bars<input v-model.number="condition.delay" type="number" min="0" /></label></div><div class="criteria-actions"><button class="outline" @click="activeConditions.push(emptyCondition())">＋ Add Condition</button><button class="outline" @click="preview = true">⌁ Test on Chart</button></div></div></section>
-        <section><button class="section-title orange" @click="step = 3">④. Risk &amp; Execution <span>›</span></button><div v-if="step === 3" class="risk fields"><label>Take Profit %<input v-model="form.takeProfit" type="number" min="0" placeholder="Optional" /></label><label>Stop Loss %<input v-model="form.stopLoss" type="number" min="0" placeholder="Optional" /></label><label>Time in Market (bars)<input v-model="form.timeInMarket" type="number" min="0" placeholder="Optional" /></label></div></section>
+        <section><button class="section-title orange" @click="step = 3">④. Risk &amp; Execution <span>›</span></button><div v-if="step === 3" class="risk fields"><label><span>Take Profit %<BacktestHelp topic="takeProfit" /></span><input v-model="form.takeProfit" type="text" inputmode="decimal" placeholder="Optional" :aria-invalid="!!riskErrors.takeProfit" @input="validateRisk('takeProfit')" /><small v-if="riskErrors.takeProfit" class="risk-error">{{ riskErrors.takeProfit }}</small></label><label><span>Stop Loss %<BacktestHelp topic="stopLoss" /></span><input v-model="form.stopLoss" type="text" inputmode="decimal" placeholder="Optional" :aria-invalid="!!riskErrors.stopLoss" @input="validateRisk('stopLoss')" /><small v-if="riskErrors.stopLoss" class="risk-error">{{ riskErrors.stopLoss }}</small></label><label><span>Time in Market (bars)<BacktestHelp topic="timeInMarket" /></span><input v-model="form.timeInMarket" type="text" inputmode="numeric" placeholder="Optional" :aria-invalid="!!riskErrors.timeInMarket" @input="validateRisk('timeInMarket')" /><small v-if="riskErrors.timeInMarket" class="risk-error">{{ riskErrors.timeInMarket }}</small></label></div></section>
         <section><button class="section-title slate" @click="step = 4">⑤. Review &amp; Run <span>›</span></button><div v-if="step === 4" class="review"><b>{{ form.name }}</b><p>{{ form.symbol }} · {{ form.frequency }} · {{ form.direction }} · {{ form.period }}</p><p>Entry: {{ entry.map(c => c.indicator || 'Not selected').join(', ') }}</p><p>Exit: {{ exit.map(c => c.indicator || 'Not selected').join(', ') }}</p><p v-if="form.strategy === 'Dual'">Second symbol: {{ form.symbol2 }}</p></div></section>
         <div class="bottom"><button @click="clear">Clear</button><button class="outline" @click="saveDraft">▣ Save Draft</button><button class="outline" @click="preview = !preview">▥ Preview Signals</button><button class="primary" @click="run">Run Backtest ❯</button></div><p v-if="message" class="message" role="status">{{ message }}</p>
       </aside>
@@ -115,7 +97,8 @@ function run() { if (!form.symbol || !form.name) { step.value = 0; message.value
 .section-title.red{background:color-mix(in srgb,var(--app-negative) 9%,var(--app-surface));color:var(--app-negative);border-color:var(--app-negative)}
 .section-title.orange{background:color-mix(in srgb,#f59e0b 12%,var(--app-surface))}
 .section-title.slate{background:var(--app-surface-muted);color:var(--app-text-secondary);border-color:var(--app-border-strong)}
-.fields label,.criteria label,.comparison,.modes,.toggles{color:var(--app-text-secondary);font-size:.79rem;font-weight:500}
+.fields label,.criteria label{color:var(--app-text-muted);font-size:.72rem;font-weight:500}
+.comparison,.modes,.toggles{color:var(--app-text-secondary);font-size:.79rem;font-weight:500}
 .fields input,.fields select,.criteria input,.criteria select{height:2.35rem;border:1px solid var(--app-border-strong);border-radius:6px;background:var(--app-surface);color:var(--app-text);padding:0 .65rem;font-size:.84rem;transition:border-color .15s,box-shadow .15s}
 .fields input::placeholder,.criteria input::placeholder{color:var(--app-text-faint)}
 .fields input:focus,.fields select:focus,.criteria input:focus,.criteria select:focus{outline:none;border-color:var(--app-primary);box-shadow:0 0 0 3px var(--app-primary-soft)}
@@ -140,7 +123,7 @@ function run() { if (!form.symbol || !form.name) { step.value = 0; message.value
 .execution-title{font-size:.79rem;font-weight:650;white-space:nowrap}
 .execution-summary{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.77rem;color:var(--app-text-muted);text-align:right}
 .execution-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;padding:.75rem;border-top:1px solid var(--app-border-muted)}
-.execution-fields label{display:flex;flex-direction:column;align-items:stretch;gap:.3rem;font-size:.79rem;font-weight:500;color:var(--app-text-secondary)}
+.execution-fields label{display:flex;flex-direction:column;align-items:stretch;gap:.3rem;font-size:.72rem;font-weight:500;color:var(--app-text-muted)}
 .execution-fields input,.execution-fields select{width:100%;height:2.35rem;min-width:0;border:1px solid var(--app-border-strong);border-radius:6px;background:var(--app-surface);color:var(--app-text);padding:0 .65rem;font-size:.84rem}
 .execution-fields input:focus,.execution-fields select:focus{outline:none;border-color:var(--app-primary);box-shadow:0 0 0 3px var(--app-primary-soft)}
 @media(max-width:600px){.execution-costs summary{align-items:flex-start;flex-wrap:wrap}.execution-summary{flex-basis:100%;margin-left:1.7rem;text-align:left}.execution-fields{grid-template-columns:1fr}}
@@ -148,4 +131,7 @@ function run() { if (!form.symbol || !form.name) { step.value = 0; message.value
 .criteria .delay input{width:100%}
 .bt-page{padding-inline:var(--page-gutter);box-sizing:border-box}
 .topbar{padding-inline:0}
+.builder section.market-section{border:0;background:transparent;overflow:visible}
+.criteria input,.criteria select,.risk input,.risk select{color:#000;font-weight:700}
+.risk-error{color:var(--app-negative,#dc2626);font-size:.68rem;font-weight:500}.risk input[aria-invalid="true"]{border-color:var(--app-negative,#dc2626)}
 </style>
