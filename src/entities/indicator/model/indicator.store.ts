@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { fetchIntradayChart, fetchIntradayList, intradayId, intradayPeriodChange, intradaySparkline, parseIntradayId, fetchIntradayWatchlist, saveIntradayWatchlist, type IntradaySource } from '../api/intraday.api'
 import {
   fetchIndicatorDetail,
   fetchIndicatorInfoRows,
@@ -14,6 +15,7 @@ import { normalizeIndicatorRows } from './indicator.adapter'
 import { inferIndicatorSourceFromDetail, isKnownIndicatorSource } from './indicator.source'
 import { compareSortValues, indicatorSortValue } from './indicator.values'
 import { INDICATOR_PAGE_SIZE } from './indicator.table'
+import { intradayMarketElapsedMs, isIntradayMarketOpen } from './intraday.market-time'
 import type { IndicatorTableColumnKind } from './indicator.table'
 import type {
   Indicator,
@@ -37,8 +39,15 @@ interface IndicatorState {
   sortDirection: IndicatorSortDirection
   page: number
   itemsBySource: Record<string, Indicator[]>
+  intradayWatchOverrides: Record<string, boolean>
+  intradayWatchTickers: string[]
+  intradayWatchUrl: string | null
+  intradayWatchLoaded: boolean
+  intradayWatchRecord: Record<string, any>
   loadingBySource: Record<string, boolean>
+  refreshingBySource: Record<string, boolean>
   loadedBySource: Record<string, boolean>
+  intradayFetchedAt: Record<string, number>
   trendLoadedByBatch: Record<string, boolean>
   trendLoadingByBatch: Record<string, boolean>
   detailsById: Record<string, IndicatorDetail>
@@ -121,8 +130,15 @@ export const useIndicatorStore = defineStore('indicator', {
     sortDirection: 'asc',
     page: 1,
     itemsBySource: {},
+    intradayWatchOverrides: {},
+    intradayWatchTickers: [],
+    intradayWatchUrl: null,
+    intradayWatchLoaded: false,
+    intradayWatchRecord: {},
     loadingBySource: {},
+    refreshingBySource: {},
     loadedBySource: {},
+    intradayFetchedAt: {},
     trendLoadedByBatch: {},
     trendLoadingByBatch: {},
     detailsById: {},
@@ -139,7 +155,7 @@ export const useIndicatorStore = defineStore('indicator', {
   }),
   getters: {
     groups: () => indicatorGroups,
-    activeGroup: (state) => indicatorGroups.find((group) => group.id === state.activeGroupId) ?? indicatorGroups[1],
+    activeGroup: (state) => indicatorGroups.find((group) => group.id === state.activeGroupId) ?? indicatorGroups.find((group) => group.id === 'stock')!,
     activeSubgroups(): ReturnType<typeof indicatorGroups[number]['subgroups']['slice']> {
       return this.activeGroup.subgroups
     },
@@ -180,6 +196,7 @@ export const useIndicatorStore = defineStore('indicator', {
         const matchesQuery =
           !query ||
           item.name.toLowerCase().includes(query) ||
+          item.marketSymbol?.toLowerCase().includes(query) ||
           item.group.toLowerCase().includes(query) ||
           item.subgroup.toLowerCase().includes(query)
         const matchesGroup = !state.groupFilter || item.group === state.groupFilter || item.subgroup === state.groupFilter
@@ -278,13 +295,75 @@ export const useIndicatorStore = defineStore('indicator', {
       if (this.loadedBySource[source] || this.loadingBySource[source]) return
       this.loadingBySource[source] = true
       try {
-        this.itemsBySource[source] = await fetchIndicatorList(source)
+        let watchlist: Awaited<ReturnType<typeof fetchIntradayWatchlist>> | undefined
+        if (source === 'intraday-watchlist' || (source === 'intraday' && !this.intradayWatchLoaded)) {
+          watchlist = await fetchIntradayWatchlist()
+          this.intradayWatchTickers = watchlist.tickers
+          this.intradayWatchUrl = watchlist.url
+          this.intradayWatchRecord = watchlist.record
+          this.intradayWatchLoaded = true
+        }
+        if (source === 'intraday' || source === 'intraday-watchlist') {
+          watchlist ??= { tickers: this.intradayWatchTickers, url: this.intradayWatchUrl, record: this.intradayWatchRecord }
+        }
+        const items = source.startsWith('intraday')
+          ? await fetchIntradayList(source as IntradaySource, watchlist)
+          : await fetchIndicatorList(source)
+        this.itemsBySource[source] = source.startsWith('intraday')
+          ? items
+              .filter((item) => source !== 'intraday-watchlist' || this.intradayWatchOverrides[item.marketSymbol ?? ''] !== false)
+              .map((item) => {
+                const override = this.intradayWatchOverrides[item.marketSymbol ?? '']
+                return override === undefined ? item : { ...item, favorite: override }
+              })
+          : items
         this.loadedBySource[source] = true
+        if (source.startsWith('intraday')) {
+          const fetchedAt = Date.now()
+          this.intradayFetchedAt[source] = fetchedAt
+        }
         // Favorites are fetched once on app mount, before any list has loaded, so the
         // overlay has to be re-applied to each list as it arrives.
         if (this.favoritesLoaded) this.applyFavoriteFlags()
       } finally {
         this.loadingBySource[source] = false
+      }
+    },
+    async refreshIntradayList(source: IntradaySource, now = Date.now()) {
+      const interval = source === 'intraday-charts' ? 30 * 60_000 : 5 * 60_000
+      if (!isIntradayMarketOpen(now) || !this.loadedBySource[source] || intradayMarketElapsedMs(this.intradayFetchedAt[source] ?? now, now) < interval || this.refreshingBySource[source] || this.loadingBySource[source]) return false
+      this.refreshingBySource[source] = true
+      try {
+        const watchlist = source === 'intraday-charts' ? undefined : await fetchIntradayWatchlist()
+        const items = await fetchIntradayList(source, watchlist)
+        if (watchlist) {
+          this.intradayWatchTickers = watchlist.tickers
+          this.intradayWatchUrl = watchlist.url
+          this.intradayWatchRecord = watchlist.record
+          this.intradayWatchLoaded = true
+        }
+        const existing = new Map((this.itemsBySource[source] ?? []).map((item) => [item.id, item]))
+        const mergedItems = source === 'intraday-watchlist'
+          ? [...items, ...(this.itemsBySource[source] ?? []).filter((item) => this.intradayWatchOverrides[item.marketSymbol ?? ''] === true && !items.some((next) => next.marketSymbol === item.marketSymbol))]
+          : items
+        const refreshedItems = mergedItems
+          .filter((item) => source !== 'intraday-watchlist' || this.intradayWatchOverrides[item.marketSymbol ?? ''] !== false)
+          .map((item) => ({
+            ...item,
+            favorite: this.intradayWatchOverrides[item.marketSymbol ?? ''] ?? item.favorite,
+            trendLines: source === 'intraday' ? existing.get(item.id)?.trendLines ?? item.trendLines : item.trendLines,
+            raw: source === 'intraday' && item.raw?.intraday_change === undefined
+              ? { ...item.raw, intraday_change: existing.get(item.id)?.raw?.intraday_change ?? null }
+              : item.raw,
+          }))
+        if (JSON.stringify(refreshedItems) !== JSON.stringify(this.itemsBySource[source])) this.itemsBySource[source] = refreshedItems
+        this.intradayFetchedAt[source] = now
+        if (source === 'intraday') {
+          for (const item of items) this.trendLoadedByBatch[item.id] = false
+        }
+        return true
+      } finally {
+        this.refreshingBySource[source] = false
       }
     },
     async ensureDetail(id: string) {
@@ -293,8 +372,65 @@ export const useIndicatorStore = defineStore('indicator', {
       this.detailsById[id] = detail
       return detail
     },
+    async toggleIntradayWatch(symbol: string, _context: 'list' | 'detail' = 'list') {
+      const watchlist = this.intradayWatchLoaded
+        ? { tickers: this.intradayWatchTickers, url: this.intradayWatchUrl }
+        : await fetchIntradayWatchlist()
+      const tickers = new Set(watchlist.tickers)
+      for (const [ticker, favorite] of Object.entries(this.intradayWatchOverrides)) {
+        if (favorite) tickers.add(ticker)
+        else tickers.delete(ticker)
+      }
+      const current = this.itemsBySource.intraday?.find((item) => item.marketSymbol === symbol)
+        ?? this.itemsBySource['intraday-watchlist']?.find((item) => item.marketSymbol === symbol)
+      if (current && this.intradayWatchOverrides[symbol] === undefined) {
+        if (current.favorite) tickers.add(symbol)
+        else tickers.delete(symbol)
+      }
+      const favorite = !tickers.has(symbol)
+      if (favorite) tickers.add(symbol)
+      else tickers.delete(symbol)
+      const next = [...tickers]
+      await saveIntradayWatchlist(watchlist.url, next)
+      this.intradayWatchTickers = next
+      this.intradayWatchUrl = watchlist.url
+      this.intradayWatchLoaded = true
+      this.intradayWatchOverrides[symbol] = favorite
+      for (const source of ['intraday', 'intraday-watchlist'] as const) {
+        this.itemsBySource[source] = (this.itemsBySource[source] ?? []).map((item) =>
+          item.marketSymbol === symbol ? { ...item, favorite } : item,
+        )
+      }
+      if (!favorite) {
+        this.itemsBySource['intraday-watchlist'] = (this.itemsBySource['intraday-watchlist'] ?? []).filter((item) => item.marketSymbol !== symbol)
+      } else if (this.loadedBySource['intraday-watchlist'] && !this.itemsBySource['intraday-watchlist']?.some((item) => item.marketSymbol === symbol)) {
+        const item = this.itemsBySource.intraday?.find((row) => row.marketSymbol === symbol)
+        if (item) this.itemsBySource['intraday-watchlist'] = [
+          ...(this.itemsBySource['intraday-watchlist'] ?? []),
+          { ...item, id: intradayId('intraday-watchlist', symbol), sourceList: 'intraday-watchlist', subgroup: 'intraday-watchlist', favorite: true },
+        ]
+      }
+    },
     async ensureTrendsForIndicators(indicators: Indicator[]) {
-      const urls = Array.from(new Set(indicators.map((indicator) => indicator.id).filter(Boolean)))
+      const intraday = indicators.filter((indicator) => parseIntradayId(indicator.id)?.source === 'intraday')
+      const pending = intraday.filter((item) => !this.trendLoadedByBatch[item.id] && !this.trendLoadingByBatch[item.id])
+      for (let offset = 0; offset < pending.length; offset += 8) {
+        await Promise.all(pending.slice(offset, offset + 8).map(async (item) => {
+          this.trendLoadingByBatch[item.id] = true
+          try {
+            const data = await fetchIntradayChart('intraday', item.marketSymbol ?? '')
+            const trendLines = data ? intradaySparkline(data, 'intraday') : []
+            const intradayChange = data ? intradayPeriodChange(data, 'intraday') : null
+            this.itemsBySource.intraday = (this.itemsBySource.intraday ?? []).map((row) => row.id === item.id ? { ...row, trendLines, raw: { ...row.raw, intraday_change: intradayChange } } : row)
+            this.trendLoadedByBatch[item.id] = true
+          } catch {
+            // A missing chart leaves this row without a preview; the list stays usable.
+          } finally {
+            this.trendLoadingByBatch[item.id] = false
+          }
+        }))
+      }
+      const urls = Array.from(new Set(indicators.map((indicator) => indicator.id).filter((id) => id && !parseIntradayId(id))))
       const batchKey = JSON.stringify(urls)
       if (!urls.length || this.trendLoadedByBatch[batchKey] || this.trendLoadingByBatch[batchKey]) return
 
@@ -324,9 +460,13 @@ export const useIndicatorStore = defineStore('indicator', {
       this.page = 1
     },
     setGroup(groupId: string) {
-      const group = indicatorGroups.find((item) => item.id === groupId) ?? indicatorGroups[1]
+      const group = indicatorGroups.find((item) => item.id === groupId) ?? indicatorGroups.find((item) => item.id === 'stock')!
       this.activeGroupId = group.id
       this.activeSubgroupId = group.subgroups[0].id
+      if (group.id === 'intraday') {
+        this.timeFrameFilter = ''
+        this.sentimentFilter = ''
+      }
       this.page = 1
     },
     /**
@@ -344,6 +484,10 @@ export const useIndicatorStore = defineStore('indicator', {
 
       this.activeSection = 'indicators'
       this.activeGroupId = entry.group.id
+      if (entry.group.id === 'intraday') {
+        this.timeFrameFilter = ''
+        this.sentimentFilter = ''
+      }
       this.activeSubgroupId = entry.subgroup.id
       this.page = 1
       return true
@@ -456,6 +600,7 @@ export const useIndicatorStore = defineStore('indicator', {
     applyFavoriteFlags() {
       const ids = favoriteIds(this.favoriteIndicators)
       for (const source of Object.keys(this.itemsBySource)) {
+        if (source.startsWith('intraday')) continue
         this.itemsBySource[source] = this.itemsBySource[source].map((item) =>
           item.favorite === ids.has(item.id.toLowerCase()) ? item : { ...item, favorite: ids.has(item.id.toLowerCase()) },
         )

@@ -2,6 +2,16 @@ import type { IndicatorGroup } from './indicator.types'
 
 export const indicatorGroups: IndicatorGroup[] = [
   {
+    id: 'intraday', label: 'Intraday',
+    description: 'Live intraday sentiment, charts, and your intraday watchlist.',
+    source: 'intraday', views: 3, icon: 'clock',
+    subgroups: [
+      { id: 'intraday', label: 'S&P 1500 Intraday Optix', source: 'intraday', fullName: 'S&P 1500 Intraday Optix' },
+      { id: 'intraday-charts', label: 'Intraday Charts', source: 'intraday-charts', fullName: 'Intraday Charts' },
+      { id: 'intraday-watchlist', label: 'Intraday Watchlist', source: 'intraday-watchlist', fullName: 'Intraday Watchlist' },
+    ],
+  },
+  {
     id: 'stock-sentiment',
     label: 'Stock Market Sentiment Indicators',
     description: 'Browse and analyze stock market sentiment indicators by index, crypto, and active ETFs.',

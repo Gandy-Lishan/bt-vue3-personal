@@ -230,6 +230,37 @@ function optixDescription(universeName: string) {
 }
 
 const tableMetaBySource: Record<string, IndicatorTableMeta> = {
+  intraday: {
+    description: '5-minute Intraday Optix readings for S&P 1500 stocks.',
+    columns: [
+      { key: 'chart_name', label: 'Name', kind: 'name', minWidth: 260 },
+      { key: 'symbol', label: 'Symbol', kind: 'text', minWidth: 140 },
+      { key: 'close', label: 'Close', kind: 'number', decimals: 2, minWidth: 110 },
+      { key: 'optix', label: 'Optix', kind: 'number', decimals: 2, minWidth: 140 },
+      { key: 'last_update', label: 'Time (ET)', kind: 'text', minWidth: 170 },
+      { key: 'trend', label: 'Trend (1D)', kind: 'sparkline', minWidth: 150 },
+    ], showFavorite: false, showLegend: false,
+  },
+  'intraday-charts': {
+    description: 'Intraday charts with up to five days of history.',
+    columns: [
+      { key: 'chart_name', label: 'Chart', kind: 'name', minWidth: 330 },
+      { key: 'last_value', label: 'Value', kind: 'number', decimals: 2, minWidth: 120 },
+      { key: 'last_update', label: 'Time (ET)', kind: 'text', minWidth: 170 },
+      { key: 'trend', label: 'Trend (1D)', kind: 'sparkline', minWidth: 150 },
+    ], showFavorite: false, showLegend: false,
+  },
+  'intraday-watchlist': {
+    description: 'Your saved intraday symbols.',
+    columns: [
+      { key: 'chart_name', label: 'Name', kind: 'name', minWidth: 260 },
+      { key: 'symbol', label: 'Symbol', kind: 'text', minWidth: 140 },
+      { key: 'close', label: 'Close', kind: 'number', decimals: 2, minWidth: 110 },
+      { key: 'optix', label: 'Optix', kind: 'number', decimals: 2, minWidth: 140 },
+      { key: 'last_update', label: 'Time (ET)', kind: 'text', minWidth: 170 },
+      { key: 'trend', label: 'Trend (1D)', kind: 'sparkline', minWidth: 150 },
+    ], showFavorite: false, showLegend: false,
+  },
   stock_complete_list: {
     ...indicatorDescription('the stock market'),
     columns: defaultIndicatorColumns,
