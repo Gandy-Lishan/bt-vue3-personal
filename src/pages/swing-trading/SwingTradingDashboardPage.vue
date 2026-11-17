@@ -341,7 +341,7 @@
       </nav>
 
       <div v-if="activeTab === 'overview'" class="tab-content">
-        <div class="table-wrap">
+        <div class="table-wrap holdings-table-wrap">
           <table class="data-table holdings-table">
             <thead>
               <tr>
@@ -379,7 +379,8 @@
                       :aria-label="`${isHoldingExpanded(row) ? 'Collapse' : 'Expand'} ${row.symbol} indicator links`"
                       @click="toggleHoldingDetails(row)"
                     >
-                      <i class="fa" :class="isHoldingExpanded(row) ? 'fa-chevron-down' : 'fa-chevron-right'" aria-hidden="true"></i>
+                      <svg v-if="isHoldingExpanded(row)" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
                     </button>
                     <span class="status-chip" :class="{ warning: isHoldingSellTomorrowRow(row) }">
                       {{ getHoldingStatusLabel(row) }}
@@ -700,6 +701,10 @@
 
       <div v-else-if="activeTab === 'history'" class="tab-content">
         <div class="history-toolbar">
+          <div class="history-toolbar-filters">
+            <input v-model.trim="historyTickerSearch" type="search" class="history-search" placeholder="Search ticker" aria-label="Search trade history by ticker" @input="resetHistoryPage">
+            <button type="button" class="history-chart-button" :disabled="!filteredHistoryRows.length" @click="historyChartVisible = true">View Trades on Chart</button>
+          </div>
           <button
             type="button"
             class="history-download-button"
@@ -732,8 +737,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!historyRows.length">
-                <td :colspan="historyColumns.length" class="empty-cell">No Data</td>
+              <tr v-if="!filteredHistoryRows.length">
+                <td :colspan="historyColumns.length" class="empty-cell">{{ historyRows.length ? 'No matching trades' : 'No Data' }}</td>
               </tr>
               <tr v-for="row in visibleHistoryRows" :key="`history-${row.index}-${row.symbol}-${row.entryDate}`">
                 <td>{{ row.index }}</td>
@@ -755,14 +760,15 @@
           </table>
         </div>
         <IndicatorPagination
-          v-if="historyRows.length > historyPageSize"
+          v-if="filteredHistoryRows.length > historyPageSize"
           class="pagination-row"
           :page="historyPage"
           :page-count="historyPageCount"
-          :total="historyRows.length"
+          :total="filteredHistoryRows.length"
           item-label="trades"
           @change="goToHistoryPage"
         />
+        <TradeHistoryChartModal v-if="historyChartVisible" :rows="filteredHistoryRows" @close="historyChartVisible = false" />
       </div>
 
       <div v-else class="tab-content">
@@ -1021,6 +1027,7 @@ import {
 import { getCookieData } from '@/shared/auth/permission'
 import { getSwingSignalDescription, getSwingSignalLabel } from '@/entities/swing-trading/model/swing-signal-descriptions'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
+import TradeHistoryChartModal from './ui/TradeHistoryChartModal.vue'
 import AppDataTable from '@/shared/ui/AppDataTable.vue'
 import { useTheme } from '@/shared/theme/theme'
 
@@ -1598,7 +1605,7 @@ const getLineChartHoverState = vm => {
 
 export default {
   name: 'SwingTradingDashboard',
-  components: { AppDataTable, IndicatorPagination },
+  components: { AppDataTable, IndicatorPagination, TradeHistoryChartModal },
   data() {
     return {
       tabs,
@@ -1639,6 +1646,8 @@ export default {
       historyPage: 1,
       historyPageSize: 12,
       historyPageInput: '',
+      historyTickerSearch: '',
+      historyChartVisible: false,
       expandedHoldingRows: {},
       compareSort: {
         key: '',
@@ -1911,15 +1920,19 @@ export default {
     historyRows() {
       return Array.isArray(this.currentDetail.history) ? this.currentDetail.history : []
     },
+    filteredHistoryRows() {
+      const query = this.historyTickerSearch.trim().toUpperCase()
+      return query ? this.historyRows.filter(row => String(row.symbol || '').toUpperCase().includes(query)) : this.historyRows
+    },
     sortedHistoryRows() {
-      return this.getSortedTableRows(this.historyRows, this.historyColumns, this.historySort)
+      return this.getSortedTableRows(this.filteredHistoryRows, this.historyColumns, this.historySort)
     },
     visibleHistoryRows() {
       const start = (this.historyPage - 1) * this.historyPageSize
       return this.sortedHistoryRows.slice(start, start + this.historyPageSize)
     },
     historyPageCount() {
-      return Math.max(Math.ceil(this.historyRows.length / this.historyPageSize), 1)
+      return Math.max(Math.ceil(this.filteredHistoryRows.length / this.historyPageSize), 1)
     },
     historyPageItems() {
       const total = this.historyPageCount
@@ -2006,6 +2019,8 @@ export default {
   watch: {
     currentStrategyId() {
       this.resetHistoryPage()
+      this.historyTickerSearch = ''
+      this.historyChartVisible = false
       this.resetHoldingSort()
       this.resetEmailSetupConfirmation()
       this.shareCalculatorCashTouched = false
@@ -5521,9 +5536,8 @@ export default {
 
 .swing-strategy-dashboard {
   min-height: 100vh;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 32px 24px 80px;
+  width: 100%;
+  padding: 32px var(--page-gutter) 80px;
   background: linear-gradient(135deg, var(--sw-page-grad-a) 0%, var(--sw-page-grad-b) 100%);
   color: var(--sw-ink-body);
   font-family: Arial, Helvetica, sans-serif;
@@ -7332,9 +7346,17 @@ export default {
 
 .history-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
 }
+
+.history-toolbar-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.history-search { min-height: 34px; min-width: 190px; padding: 0 10px; border: 1px solid var(--sw-border-strong); border-radius: 6px; background: var(--sw-surface); color: var(--sw-ink); font: inherit; }
+.history-chart-button { min-height: 34px; padding: 0 12px; border: 1px solid var(--sw-primary); border-radius: 6px; background: var(--sw-surface); color: var(--sw-primary); font: inherit; font-weight: 700; cursor: pointer; }
+.history-chart-button:disabled { opacity: .5; cursor: not-allowed; }
 
 .history-download-button {
   display: inline-flex;
@@ -7788,10 +7810,8 @@ details[open] .faq-question::before {
 /* Visual parity with swing_trading_strategy_dashboard (7).html */
 .swing-strategy-dashboard {
   box-sizing: border-box;
-  width: auto;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 32px 24px;
+  width: 100%;
+  padding: 32px var(--page-gutter);
   background: linear-gradient(135deg, var(--sw-page-grad-a) 0%, var(--sw-page-grad-b) 100%);
   color: var(--sw-ink-body);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -8200,11 +8220,26 @@ details[open] .faq-question::before {
 .holdings-table .expand-row-button {
   width: 22px;
   height: 22px;
-  margin-right: 3px;
+  margin-right: 12px;
+  vertical-align: middle;
+  border: 0;
+  background: transparent;
+  color: var(--sw-primary-strong);
+}
+
+.holdings-table .expand-row-button svg {
+  color: var(--sw-primary-strong);
+  stroke: var(--sw-primary-strong);
+}
+
+.holdings-table .expand-row-button:hover,
+.holdings-table .expand-row-button.expanded {
+  border: 0;
+  background: transparent;
 }
 
 .holdings-table .status-chip {
-  max-width: calc(100% - 28px);
+  max-width: calc(100% - 40px);
   padding: 3px 7px;
   font-size: 11px;
   line-height: 1.15;
@@ -8704,7 +8739,7 @@ details[open] .faq-question::before {
 }
 
 .guide-panel {
-  width: min(640px, calc(100% - 32px));
+  width: min(900px, calc(100% - 32px));
   padding: 32px;
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
@@ -9164,6 +9199,16 @@ details[open] .faq-question::before {
   border: 1px solid var(--app-border-muted);
   border-radius: 6px;
   background: var(--app-surface);
+}
+
+.holdings-table-wrap {
+  overflow-x: hidden;
+}
+
+@media (max-width: 1180px) {
+  .holdings-table-wrap {
+    overflow-x: auto;
+  }
 }
 
 .share-calculator-table-wrap {
