@@ -40,13 +40,63 @@ import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
 import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
 import IndicatorTrendChart from './ui/IndicatorTrendChart.vue'
+import { fetchIntradayChart, intradayChartRows, parseIntradayId } from '@/entities/indicator/api/intraday.api'
 
 const route = useRoute()
 const router = useRouter()
 const store = useIndicatorStore()
 
 const indicatorId = computed(() => String(route.params.id ?? ''))
-const detail = computed(() => store.detailsById[indicatorId.value])
+const intradayEntry = computed(() => parseIntradayId(indicatorId.value))
+function intradayDataForEntry(entry: NonNullable<ReturnType<typeof parseIntradayId>>) {
+  const item = store.itemsBySource[entry.source]?.find((row) => row.marketSymbol === entry.symbol)
+  if (entry.source === 'intraday-charts' && item?.raw?.dashboardChart) return Promise.resolve(item.raw.dashboardChart)
+  if (entry.source === 'intraday-watchlist' && item?.raw?.records) return Promise.resolve({ records: item.raw.records })
+  return fetchIntradayChart(entry.source, entry.symbol)
+}
+// Keep the last known row on screen: unstarred Watchlist symbols are dropped from
+// the list, but the open detail page should stay put until the user navigates away.
+const intradayItem = computed(() => {
+  const item = store.itemsBySource[intradayEntry.value?.source ?? '']?.find(item => item.id === indicatorId.value)
+  if (item) lastIntradayItem.value = item
+  if (item) return item
+  const last = lastIntradayItem.value
+  if (!last || last.id !== indicatorId.value) return null
+  const favorite = store.intradayWatchOverrides[last.marketSymbol ?? '']
+  return favorite === undefined ? last : { ...last, favorite }
+})
+const lastIntradayItem = ref<Indicator | null>(null)
+const intradayDetail = computed<IndicatorDetail | undefined>(() => {
+  const item = intradayItem.value
+  if (!item) return undefined
+  return {
+    id: item.id, title: item.name, group: 'Intraday', timeFrame: item.timeFrame, updateSchedule: 'Intraday',
+    source: 'Sentimentrader', currentValue: item.currentValue, change: 0, updatedAt: item.updatedAt,
+    sentiment: item.sentiment, sentimentScore: item.sentimentScore,
+    description: '', interpretation: '', construction: '', constructionHtml: '', currentReading: '',
+    related: [], relatedCharts: [], constituentConditions: [], research: [], blogResults: [],
+    thresholdRows: [], returnSegments: [], showReturns: false, trendLines: [], benchmarkTrend: [],
+    type: item.type, marketSymbol: item.marketSymbol, sourceList: item.sourceList,
+    pess: 20, opt: 80, raw: item.raw,
+  }
+})
+const dailyOptixMessage = ref('')
+async function openDailyOptix() {
+  const symbol = intradayEntry.value?.symbol
+  if (!symbol) return
+  dailyOptixMessage.value = ''
+  try {
+    await store.ensureList('sp_1500_complete_list')
+    const daily = store.itemsBySource.sp_1500_complete_list?.find(item =>
+      item.marketSymbol?.toLowerCase() === symbol.toLowerCase()
+      || String(item.raw?.market_symbol ?? item.raw?.symbol ?? '').toLowerCase() === symbol.toLowerCase()
+      || item.id.toLowerCase() === symbol.toLowerCase(),
+    )
+    if (!daily) { dailyOptixMessage.value = `Daily Optix is unavailable for ${symbol}.`; return }
+    await router.push({ name: 'indicator-detail', params: { id: daily.id }, query: { list: 'sp1500' } })
+  } catch { dailyOptixMessage.value = 'Unable to load daily Optix.' }
+}
+const detail = computed(() => intradayDetail.value ?? store.detailsById[indicatorId.value])
 const isTrendScoreDetail = computed(() => route.name === 'trend-score-detail')
 const isHistoricalVolatilityDetail = computed(() => route.name === 'historical-volatility-detail')
 const isStandaloneDetail = computed(() => isTrendScoreDetail.value || isHistoricalVolatilityDetail.value)
@@ -190,6 +240,7 @@ interface ChartLineCandidate {
 }
 
 const detailTabs = computed(() => {
+  if (intradayEntry.value) return []
   const tabs: Array<{ id: IndicatorDetailTab; label: string }> = [
     { id: 'detail', label: 'Indicator Detail' },
   ]
@@ -257,8 +308,9 @@ const showCftcNotice = computed(() => hasCftcDataNotice(indicatorId.value))
 
 // Read the star from the favorites list rather than the row flag: arriving from My
 // Favorites or a related chart means no row for this indicator is loaded at all.
-const isFavorite = computed(() =>
-  store.favoriteIndicators.some((favorite) => favorite.url.toLowerCase() === indicatorId.value.toLowerCase()),
+const isFavorite = computed(() => intradayEntry.value
+  ? Boolean(intradayItem.value?.favorite)
+  : store.favoriteIndicators.some((favorite) => favorite.url.toLowerCase() === indicatorId.value.toLowerCase()),
 )
 const breadcrumbGroupLabel = computed(() => {
   if (store.activeGroup.id === 'stock' && store.activeSubgroup.id !== 'stock') {
@@ -300,6 +352,12 @@ const detailMeta = computed(() => {
   const item = detail.value
   if (!item) return []
 
+  if (intradayEntry.value) return [
+    { label: 'Time Frame', value: '5-Minute' },
+    { label: 'Source', value: 'Sentimentrader' },
+    { label: 'Last Updated', value: item.updatedAt || '—' },
+  ]
+
   return [
     { label: 'Time Frame', value: detailTimeFrame(item) },
     { label: 'Update Schedule', value: detailUpdateSchedule(item) },
@@ -330,6 +388,7 @@ const latestChartDate = computed(() => {
 })
 
 const lastCloseValue = computed(() => {
+  if (intradayEntry.value) return intradayItem.value?.raw?.close ?? null
   const item = detail.value
   const row = latestStandardChartRow.value
   if (!item || !row) return null
@@ -361,6 +420,8 @@ const extremeLevels = computed(() => {
 const primarySummaryStats = computed<IndicatorSummaryStat[]>(() => {
   const item = detail.value
   if (!item) return []
+
+  if (intradayEntry.value) return [{ label: intradayEntry.value.source === 'intraday-charts' ? 'Current' : 'Intraday Optix', value: formatIndicatorNumber(intradayItem.value?.raw?.last_value) }]
 
   const lineStats = doubleLineSummaryStats(item)
   if (lineStats.length === 2) return lineStats
@@ -807,12 +868,22 @@ function openIndicator(indicator: Indicator | { url: string }) {
 
 function toggleFavorite() {
   const id = activeIndicator.value?.id ?? detail.value?.id
+  if (intradayEntry.value) {
+    const entry = intradayEntry.value
+    void store.toggleIntradayWatch(entry.symbol, 'detail').catch(() => store.pushToast('Unable to update intraday watchlist.'))
+    return
+  }
   if (id) {
     void store.toggleFavorite(id)
   }
 }
 
 function toggleSidebarFavorite(id: string) {
+  const intraday = parseIntradayId(id)
+  if (intraday) {
+    void store.toggleIntradayWatch(intraday.symbol, 'detail').catch(() => store.pushToast('Unable to update intraday watchlist.'))
+    return
+  }
   void store.toggleFavorite(id)
 }
 
@@ -874,7 +945,7 @@ async function downloadCsv() {
   csvMessage.value = ''
   try {
     let rows = Array.isArray(chartRows.value) ? chartRows.value : []
-    try {
+    if (!intradayEntry.value) try {
       rows = await fetchIndicatorDownloadData(detail.value.id)
     } catch (error) {
       console.log('用户无 indicator api 权限', error)
@@ -1039,6 +1110,37 @@ watch(
   async (id) => {
     if (!id) return
 
+    if (parseIntradayId(id)) {
+      const requestId = ++chartRequestId
+      detailMessage.value = ''
+      dailyOptixMessage.value = ''
+      chartRows.value = []
+      chartError.value = ''
+      isChartLoading.value = true
+      const entry = parseIntradayId(id)!
+      store.setListKey(entry.source)
+      try {
+        await store.ensureCurrentList()
+        const data = await intradayDataForEntry(entry)
+        if (requestId === chartRequestId) {
+          if (!data || data.empty) chartError.value = 'No intraday data is available for this symbol.'
+          else chartRows.value = intradayChartRows(data, entry.source)
+        }
+      } catch (error) {
+        if (requestId === chartRequestId) {
+          const message = error instanceof Error ? error.message : 'Unable to load intraday data.'
+          if (!store.loadedBySource[entry.source]) detailMessage.value = message
+          else chartError.value = message
+        }
+      } finally {
+        if (requestId === chartRequestId) {
+          isChartLoading.value = false
+          void checkIntradayDetailRefresh()
+        }
+      }
+      return
+    }
+
     const requestId = ++chartRequestId
     activeTab.value = 'detail'
     showReturnSegments.value = false
@@ -1106,6 +1208,34 @@ watch(
   },
   { immediate: true },
 )
+
+let intradayRefreshTimer: ReturnType<typeof setInterval> | null = null
+let lastIntradayRefreshErrorAt = 0
+async function checkIntradayDetailRefresh() {
+  const entry = intradayEntry.value
+  if (document.hidden || !entry || isChartLoading.value) return
+  try {
+    if (!await store.refreshIntradayList(entry.source)) return
+    const data = await intradayDataForEntry(entry)
+    if (intradayEntry.value?.symbol !== entry.symbol || intradayEntry.value?.source !== entry.source || !data || data.empty) return
+    const updated = intradayChartRows(data, entry.source)
+    if (JSON.stringify(updated) !== JSON.stringify(chartRows.value)) chartRows.value = updated
+  } catch {
+    if (Date.now() - lastIntradayRefreshErrorAt > 5 * 60_000) {
+      store.pushToast('Unable to refresh intraday data. The last available chart remains visible.')
+      lastIntradayRefreshErrorAt = Date.now()
+    }
+  }
+}
+function onIntradayVisibilityChange() { if (!document.hidden) void checkIntradayDetailRefresh() }
+onMounted(() => {
+  intradayRefreshTimer = setInterval(() => { void checkIntradayDetailRefresh() }, 30_000)
+  document.addEventListener('visibilitychange', onIntradayVisibilityChange)
+})
+onBeforeUnmount(() => {
+  if (intradayRefreshTimer) clearInterval(intradayRefreshTimer)
+  document.removeEventListener('visibilitychange', onIntradayVisibilityChange)
+})
 
 watch(
   () => [detail.value?.id, activeTab.value, showReturnSegments.value, chartRowsLength(chartRows.value)],
@@ -1175,7 +1305,8 @@ watch(
             <IndicatorCategorySwitcher @change="listSearchQuery = ''" />
           </template>
           <template #action="{ item }">
-            <span v-if="item.favoriteLocked" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span v-if="intradayEntry?.source === 'intraday-charts'" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span v-else-if="item.favoriteLocked" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <button
               v-else
               class="mt-0.5 shrink-0 transition"
@@ -1222,6 +1353,7 @@ watch(
             <div class="indicator-summary__header">
               <h3 class="indicator-summary__title">{{ detail.title }}</h3>
               <button
+                v-if="intradayEntry?.source !== 'intraday-charts'"
                 class="indicator-summary__favorite"
                 :class="{ 'indicator-summary__favorite--active': isFavorite }"
                 type="button"
@@ -1239,7 +1371,7 @@ watch(
                 <span class="indicator-summary-pill__label">{{ meta.label }}:</span>
                 <span class="indicator-summary-pill__value">{{ meta.value }}</span>
               </span>
-              <span class="indicator-summary-pill">
+              <span v-if="!intradayEntry" class="indicator-summary-pill">
                 <IndicatorSentimentMeter :score="detail.sentimentScore" />
                 <span class="indicator-summary-pill__text" :class="sentimentTextClass(detail.sentimentScore)">
                   {{ sentimentLabelFromScore(detail.sentimentScore) }}
@@ -1262,7 +1394,7 @@ watch(
                   </span>
                 </p>
               </div>
-              <div class="indicator-stat-card">
+              <div v-if="intradayEntry?.source !== 'intraday-charts'" class="indicator-stat-card">
                 <p class="indicator-stat-card__label">LAST CLOSE</p>
                 <p class="indicator-stat-card__value">{{ formatIndicatorNumber(lastCloseValue) }}</p>
               </div>
@@ -1285,10 +1417,12 @@ watch(
             :error="chartError"
             :is-mobile="isMobile"
             @download="downloadCsv"
+            @view-daily="openDailyOptix"
           />
+          <p v-if="dailyOptixMessage" role="status" class="text-right text-sm text-[var(--app-text-secondary)]">{{ dailyOptixMessage }}</p>
           <p v-if="csvMessage" class="text-right text-sm font-medium text-[var(--app-text-muted)]">{{ csvMessage }}</p>
 
-          <section class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
+          <section v-if="!intradayEntry" class="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)]">
             <CftcDataNotice v-if="showCftcNotice" />
 
             <div class="flex min-w-0 overflow-x-auto border-b border-[var(--app-border)] px-4">
@@ -1620,28 +1754,26 @@ watch(
 
                   <!-- Item list -->
                   <div class="space-y-0">
-                    <RouterLink
+                    <div
                       v-for="item in sidebarNavItems"
                       :key="item.id"
-                      :to="item.to"
                       class="flex items-center gap-2 border-b border-[var(--app-border-muted)] px-3 py-2.5 text-sm leading-5"
                       :class="item.active ? 'border-l-4 border-l-[var(--app-primary)] bg-[var(--app-primary-soft)] pl-2 font-semibold' : 'text-[var(--app-text)] hover:bg-[var(--app-surface-soft)]'"
-                      @click="isSidebarSheetOpen = false"
                     >
-                      <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+                      <RouterLink :to="item.to" class="min-w-0 flex-1 truncate" @click="isSidebarSheetOpen = false">{{ item.label }}</RouterLink>
                       <!-- Favorite star -->
-                      <span v-if="item.favoriteLocked" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span v-if="intradayEntry?.source === 'intraday-charts' || item.favoriteLocked" class="h-4 w-4 shrink-0" aria-hidden="true" />
                       <button
                         v-else
                         class="shrink-0 transition"
                         :class="item.favorite ? 'text-[var(--app-favorite)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-favorite)]'"
                         type="button"
                         :title="favoriteActionLabel(Boolean(item.favorite))"
-                        @click.prevent="toggleSidebarFavorite(item.id)"
+                        @click.stop="toggleSidebarFavorite(item.id)"
                       >
                         <Star :size="16" :fill="item.favorite ? 'var(--app-favorite)' : 'transparent'" />
                       </button>
-                    </RouterLink>
+                    </div>
                     <p v-if="!sidebarNavItems.length" class="py-4 text-center text-sm text-[var(--app-text-muted)]">
                       {{ emptySidebarMessage }}
                     </p>
