@@ -75,10 +75,10 @@ describe('permission helpers', () => {
     expect(getRoutePermissionDecision('/indicators').allowed).toBe(true)
   })
 
-  it('redirects unauthenticated routes to the local unauthorized page', () => {
+  it('redirects unauthenticated routes to the login page', () => {
     expect(getRoutePermissionDecision('/indicators', [], false)).toEqual({
       allowed: false,
-      redirectPath: '/404',
+      redirectPath: '/login',
     })
   })
 })
