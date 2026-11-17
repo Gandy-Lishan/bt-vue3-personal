@@ -30,6 +30,8 @@ import IndicatorPageHeader from './ui/IndicatorPageHeader.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
 import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
+import IntradayDescription from './ui/IntradayDescription.vue'
+import { parseIntradayId, type IntradaySource } from '@/entities/indicator/api/intraday.api'
 
 const store = useIndicatorStore()
 const router = useRouter()
@@ -75,6 +77,7 @@ const currentDescription = computed(() => {
 
 const visibleGroups = computed(() => store.groups.filter((group) => group.id !== 'all'))
 const showSubgroups = computed(() => store.activeSection === 'indicators')
+const isIntradayList = computed(() => store.activeSection === 'indicators' && store.activeGroupId === 'intraday')
 const summaryGroupCount = computed(() => visibleGroups.value.filter((group) => group.id !== 'overview').length)
 const tableMeta = computed(() => getIndicatorTableMeta(store.activeSource))
 const tableDescriptionParagraphs = computed(() =>
@@ -122,6 +125,15 @@ function selectGroup(group: IndicatorGroup) {
 function openIndicator(indicator: Indicator) {
   store.rememberIndicatorSource(indicator.id, indicator.sourceList)
   router.push({ name: 'indicator-detail', params: { id: indicator.id }, query: { list: store.listKey } })
+}
+
+function toggleFavorite(id: string) {
+  const intraday = parseIntradayId(id)
+  if (intraday) {
+    void store.toggleIntradayWatch(intraday.symbol).catch(() => store.pushToast('Unable to update intraday watchlist.'))
+    return
+  }
+  void store.toggleFavorite(id)
 }
 
 watch(
@@ -174,11 +186,29 @@ function handleSortSelect(event: Event) {
 
 watch(
   () => [store.activeSection, store.activeGroupId, store.activeSubgroupId],
-  () => {
-    void store.ensureCurrentList()
+  async () => {
+    await store.ensureCurrentList()
+    void checkIntradayRefresh()
   },
   { immediate: true },
 )
+
+let lastIntradayRefreshErrorAt = 0
+async function checkIntradayRefresh() {
+  if (document.hidden || !isIntradayList.value) return
+  const source = store.activeSource as IntradaySource
+  try {
+    if (await store.refreshIntradayList(source)) await store.ensureTrendsForIndicators(store.pagedItems)
+  } catch {
+    if (Date.now() - lastIntradayRefreshErrorAt > 5 * 60_000) {
+      store.pushToast('Unable to refresh intraday data. The last available values remain visible.')
+      lastIntradayRefreshErrorAt = Date.now()
+    }
+  }
+}
+
+let intradayRefreshTimer: ReturnType<typeof setInterval> | null = null
+function onVisibilityChange() { if (!document.hidden) void checkIntradayRefresh() }
 
 watch(
   () => [store.searchQuery, store.groupFilter, store.timeFrameFilter, store.sentimentFilter],
@@ -211,12 +241,16 @@ function updateMobileState() {
 }
 
 onMounted(() => {
+  intradayRefreshTimer = setInterval(() => { void checkIntradayRefresh() }, 30_000)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   mobileQuery = window.matchMedia('(max-width: 767px)')
   updateMobileState()
   mobileQuery.addEventListener('change', updateMobileState)
 })
 
 onUnmounted(() => {
+  if (intradayRefreshTimer) clearInterval(intradayRefreshTimer)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   mobileQuery?.removeEventListener('change', updateMobileState)
 })
 
@@ -308,21 +342,21 @@ watch(isMobile, (mobile) => {
           </template>
 
           <template #summary>
-              <span class="indicator-summary-pill">
+              <span v-if="!isIntradayList" class="indicator-summary-pill">
                 <span class="indicator-summary-pill__dot bg-rose-500" />
                 <span class="indicator-summary-pill__text">
                   <span class="indicator-summary-pill__value">{{ store.optimisticCount }}</span>
                   <span class="indicator-summary-pill__label"> optimistic</span>
                 </span>
               </span>
-              <span class="indicator-summary-pill">
+              <span v-if="!isIntradayList" class="indicator-summary-pill">
                 <span class="indicator-summary-pill__dot bg-emerald-500" />
                 <span class="indicator-summary-pill__text">
                   <span class="indicator-summary-pill__value">{{ store.pessimisticCount }}</span>
                   <span class="indicator-summary-pill__label"> pessimistic</span>
                 </span>
               </span>
-              <span class="indicator-summary-pill">
+              <span v-if="!isIntradayList" class="indicator-summary-pill">
                 <span class="indicator-summary-pill__text">
                   <span class="indicator-summary-pill__value">{{ summaryGroupCount }}</span>
                   <span class="indicator-summary-pill__label"> Groups</span>
@@ -359,18 +393,18 @@ watch(isMobile, (mobile) => {
 
           <!-- Desktop Filters (xl and above) -->
           <template #filters>
-            <div class="hidden xl:grid gap-2 xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto] px-4 py-3">
+            <div class="hidden xl:grid gap-2 px-4 py-3" :class="isIntradayList ? 'xl:grid-cols-[minmax(260px,1fr)_minmax(220px,0.4fr)_auto]' : 'xl:grid-cols-[minmax(260px,1.7fr)_minmax(160px,0.75fr)_minmax(190px,0.85fr)_minmax(220px,0.95fr)_auto_auto]'">
               <label class="flex h-9 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5">
                 <Search :size="16" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
                 <input v-model="store.searchQuery" class="w-full bg-transparent text-[0.8125rem] outline-none" placeholder="Search indicators..." />
               </label>
-              <select v-model="store.timeFrameFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
+              <select v-if="!isIntradayList" v-model="store.timeFrameFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
                 <option value="">All Time Frames</option>
                 <option>Short</option>
                 <option>Medium</option>
                 <option>Long</option>
               </select>
-              <select v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
+              <select v-if="!isIntradayList" v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
                 <option value="">All Sentiment Types</option>
                 <option value="pessimistic">Pessimistic</option>
                 <option value="neutral">Neutral</option>
@@ -396,6 +430,7 @@ watch(isMobile, (mobile) => {
                 Reset
               </button>
               <button
+                v-if="store.activeGroupId !== 'intraday' || store.activeSection !== 'indicators'"
                 class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--app-border)] disabled:hover:text-[var(--app-text-secondary)]"
                 type="button"
                 :disabled="!store.totalIndicators"
@@ -429,13 +464,13 @@ watch(isMobile, (mobile) => {
 
               <!-- Expanded filters -->
               <div v-if="isMobileFiltersOpen" class="space-y-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
-                <select v-model="store.timeFrameFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
+                <select v-if="!isIntradayList" v-model="store.timeFrameFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
                   <option value="">所有时间框架</option>
                   <option>Short</option>
                   <option>Medium</option>
                   <option>Long</option>
                 </select>
-                <select v-model="store.sentimentFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
+                <select v-if="!isIntradayList" v-model="store.sentimentFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
                   <option value="">所有情绪类型</option>
                   <option value="pessimistic">Pessimistic</option>
                   <option value="neutral">Neutral</option>
@@ -462,6 +497,7 @@ watch(isMobile, (mobile) => {
                     重置
                   </button>
                   <button
+                    v-if="store.activeGroupId !== 'intraday' || store.activeSection !== 'indicators'"
                     @click="downloadListCsv"
                     class="flex flex-1 h-10 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-sm text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                     type="button"
@@ -500,11 +536,12 @@ watch(isMobile, (mobile) => {
               :loading="store.isCurrentSourceLoading"
               :columns="tableMeta.columns"
               compact
-              :show-favorite="tableMeta.showFavorite !== false"
+              :animate-updates="isIntradayList"
+              :show-favorite="store.activeGroupId === 'intraday' ? store.activeSource !== 'intraday-charts' : tableMeta.showFavorite !== false"
               :sort-key="store.sortKey"
               :sort-direction="store.sortDirection"
               @open="openIndicator"
-              @favorite="store.toggleFavorite"
+              @favorite="toggleFavorite"
               @sort="store.setSort"
             />
             <IndicatorCardGrid
@@ -512,8 +549,13 @@ watch(isMobile, (mobile) => {
               :indicators="store.pagedItems"
               :loading="store.isCurrentSourceLoading"
               :columns="tableMeta.columns"
+              :show-favorite="store.activeGroupId === 'intraday' ? store.activeSource !== 'intraday-charts' : tableMeta.showFavorite !== false"
+              :show-sentiment="!isIntradayList"
+              :secondary-metric-column="isIntradayList ? { key: 'intraday_change', label: 'Change', kind: 'change', decimals: 2 } : undefined"
+              :secondary-metric-label="isIntradayList ? (store.activeSource === 'intraday-charts' ? 'Change (30m)' : 'Change (5m)') : 'Change (1d)'"
+              :animate-updates="isIntradayList"
               @open="openIndicator"
-              @favorite="store.toggleFavorite"
+              @favorite="toggleFavorite"
             />
           </div>
 
@@ -634,7 +676,7 @@ watch(isMobile, (mobile) => {
         @click.self="isDescriptionOpen = false"
       >
         <section
-          class="max-h-[86vh] w-full max-w-3xl overflow-hidden rounded-lg bg-[var(--app-surface)] text-[var(--app-text)] shadow-2xl"
+          class="max-h-[86vh] w-full max-w-4xl overflow-hidden rounded-lg bg-[var(--app-surface)] text-[var(--app-text)] shadow-2xl"
           role="dialog"
           aria-modal="true"
           aria-labelledby="indicator-description-title"
@@ -657,7 +699,8 @@ watch(isMobile, (mobile) => {
           </header>
 
           <div class="max-h-[calc(86vh-92px)] overflow-y-auto px-5 py-4 text-sm leading-6 text-[var(--app-text-secondary)]">
-            <div class="space-y-3">
+            <IntradayDescription v-if="store.activeSection === 'indicators' && store.activeGroupId === 'intraday'" :charts="store.activeSource === 'intraday-charts'" />
+            <div v-else class="space-y-3">
               <p v-for="paragraph in tableDescriptionParagraphs" :key="paragraph">
                 {{ paragraph }}
               </p>

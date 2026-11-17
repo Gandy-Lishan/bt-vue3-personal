@@ -5,6 +5,22 @@ import { getIndicatorTableMeta } from '@/entities/indicator/model/indicator.tabl
 import IndicatorCardGrid from '@/pages/indicators/ui/IndicatorCardGrid.vue'
 
 describe('IndicatorCardGrid', () => {
+  it('animates only changed intraday card data after refresh', async () => {
+    const [indicator] = normalizeIndicatorRows([{ url: 'aso', chart_name: 'ASO', last_value: 60, last_update: '2026-11-13 10:00', sentiment: 4 }], 'intraday')
+    const columns = getIndicatorTableMeta('intraday').columns
+    const wrapper = mount(IndicatorCardGrid, { props: {
+      indicators: [{ ...indicator, raw: { ...indicator.raw, intraday_change: 2 }, trendLines: [[58, 60]] }],
+      columns, animateUpdates: true, showSentiment: false,
+      secondaryMetricColumn: { key: 'intraday_change', label: 'Change', kind: 'change', decimals: 2 },
+      secondaryMetricLabel: 'Change (5m)',
+    } })
+    expect(wrapper.text()).toContain('Change (5m)')
+    expect(wrapper.findAll('.card-data-updated')).toHaveLength(0)
+    await wrapper.setProps({ indicators: [{ ...indicator, raw: { ...indicator.raw, last_value: 64, intraday_change: 4 }, currentValue: 64, trendLines: [[58, 60, 64]] }] })
+    expect(wrapper.findAll('.card-data-updated')).toHaveLength(3)
+    expect(wrapper.text()).toContain('4.00')
+    wrapper.unmount()
+  })
   it('uses Most Popular date-only formatting in card view', () => {
     const [indicator] = normalizeIndicatorRows(
       [

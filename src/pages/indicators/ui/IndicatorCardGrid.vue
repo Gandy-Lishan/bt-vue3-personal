@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ArrowDown, ArrowUp, Star } from '@lucide/vue'
 import { favoriteActionLabel } from '@/entities/indicator/model/indicator.favorites'
 import { sentimentLabelFromScore, sentimentTextClass } from '@/entities/indicator/model/indicator.sentiment'
@@ -33,6 +33,7 @@ const props = withDefaults(defineProps<{
   footerMetricColumn?: IndicatorTableColumn
   footerMetricLabel?: string
   layout?: 'responsive' | 'two-column'
+  animateUpdates?: boolean
 }>(), {
   showFavorite: true,
   showSentiment: true,
@@ -52,6 +53,42 @@ const currentValueColumn: IndicatorTableColumn = { key: 'last_value', label: 'Va
 const changeColumn: IndicatorTableColumn = { key: 'last_change', label: 'Change', kind: 'change' }
 const primaryMetricColumn = computed(() => props.primaryMetricColumn ?? currentValueColumn)
 const secondaryMetricColumn = computed(() => props.secondaryMetricColumn ?? changeColumn)
+const changedFields = ref<Record<string, string[]>>({})
+const previousValues = new Map<string, { primary: string; secondary: string; trend: string; updated: string }>()
+let clearAnimationTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => props.indicators.map((item) => ({
+    id: item.id,
+    primary: cardNumberValue(item, primaryMetricColumn.value),
+    secondary: cardNumberValue(item, secondaryMetricColumn.value),
+    trend: JSON.stringify(item.trendLines),
+    updated: item.updatedAt,
+  })),
+  (values) => {
+    const changed: Record<string, string[]> = {}
+    for (const { id, ...value } of values) {
+      const previous = previousValues.get(id)
+      if (props.animateUpdates && previous) {
+        const fields = (Object.keys(value) as Array<keyof typeof value>).filter((field) => value[field] !== previous[field])
+        if (fields.length) changed[id] = fields
+      }
+      previousValues.set(id, value)
+    }
+    if (Object.keys(changed).length) {
+      changedFields.value = changed
+      if (clearAnimationTimer) clearTimeout(clearAnimationTimer)
+      clearAnimationTimer = setTimeout(() => { changedFields.value = {} }, 1400)
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => { if (clearAnimationTimer) clearTimeout(clearAnimationTimer) })
+
+function wasUpdated(id: string, field: string) {
+  return changedFields.value[id]?.includes(field) ?? false
+}
 
 function cardNumberValue(indicator: Indicator, column: IndicatorTableColumn) {
   const displayed = displayIndicatorValue(indicator, column)
@@ -160,11 +197,11 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
       </div>
 
       <div class="mt-4 grid grid-cols-[minmax(74px,0.9fr)_minmax(74px,0.9fr)_minmax(120px,1fr)] items-end gap-4">
-        <div>
+        <div :class="{ 'card-data-updated': wasUpdated(indicator.id, 'primary') }">
           <p class="text-xs text-[var(--app-text-muted)]">{{ primaryMetricLabel }}</p>
           <p class="text-lg font-bold leading-6 text-[var(--app-text)]">{{ cardNumberValue(indicator, primaryMetricColumn) }}</p>
         </div>
-        <div>
+        <div :class="{ 'card-data-updated': wasUpdated(indicator.id, 'secondary') }">
           <p class="text-xs text-[var(--app-text-muted)]">{{ secondaryMetricLabel }}</p>
           <p
             class="text-lg font-bold"
@@ -173,7 +210,7 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
             {{ cardNumberValue(indicator, secondaryMetricColumn) }}
           </p>
         </div>
-        <div class="flex justify-end">
+        <div class="flex justify-end" :class="{ 'card-data-updated': wasUpdated(indicator.id, 'trend') }">
           <IndicatorSparkline :series="indicator.trendLines" :tone="indicatorTrendTone(indicator)" :width="145" :height="46" />
         </div>
       </div>
@@ -193,7 +230,7 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
           </span>
         </div>
         <span v-else aria-hidden="true" />
-        <div v-if="showUpdated" class="flex shrink-0 items-center gap-3 text-xs text-[var(--app-text-muted)]">
+        <div v-if="showUpdated" class="flex shrink-0 items-center gap-3 text-xs text-[var(--app-text-muted)]" :class="{ 'card-data-updated': wasUpdated(indicator.id, 'updated') }">
           <span>Updated {{ updatedLabel(indicator, columns) }}</span>
         </div>
       </div>
@@ -202,6 +239,14 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
 </template>
 
 <style scoped>
+.card-data-updated { animation: card-data-flash 1.4s ease-out; border-radius: 4px; }
+@keyframes card-data-flash {
+  0% { background: var(--app-primary-soft); transform: translateY(-2px); }
+  100% { background: transparent; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-data-updated { animation: none; }
+}
 .indicator-card-grid--two-column {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   grid-template-rows: repeat(3, minmax(0, 1fr));

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ArrowDown, ArrowUp, ArrowUpDown, Star } from '@lucide/vue'
 import { favoriteActionLabel } from '@/entities/indicator/model/indicator.favorites'
 import {
@@ -23,6 +23,7 @@ const props = withDefaults(defineProps<{
   sortDirection?: IndicatorSortDirection
   compact?: boolean
   fitContainer?: boolean
+  animateUpdates?: boolean
 }>(), {
   showFavorite: true,
   sortKey: '',
@@ -37,6 +38,31 @@ defineEmits<{
 }>()
 
 const tableColspan = computed(() => props.columns.length + (props.showFavorite ? 1 : 0))
+const changedCells = ref<string[]>([])
+const previousCells = new Map<string, string>()
+let clearAnimationTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => props.indicators.flatMap((item) => props.columns.map((column) => ({
+    key: `${item.id}:${column.key}`,
+    value: column.kind === 'sparkline' ? JSON.stringify(item.trendLines) : displayValue(item, column),
+  }))),
+  (cells) => {
+    const changed: string[] = []
+    for (const cell of cells) {
+      const previous = previousCells.get(cell.key)
+      if (props.animateUpdates && previous !== undefined && previous !== cell.value) changed.push(cell.key)
+      previousCells.set(cell.key, cell.value)
+    }
+    if (changed.length) {
+      changedCells.value = changed
+      if (clearAnimationTimer) clearTimeout(clearAnimationTimer)
+      clearAnimationTimer = setTimeout(() => { changedCells.value = [] }, 1400)
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => { if (clearAnimationTimer) clearTimeout(clearAnimationTimer) })
 
 function displayValue(indicator: Indicator, column: IndicatorTableColumn) {
   return displayIndicatorValue(indicator, column)
@@ -224,7 +250,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
                 v-for="column in props.columns"
                 :key="column.key"
                 class="box-border py-2.5"
-                :class="[props.compact ? 'px-2' : 'px-3', props.fitContainer ? 'overflow-hidden text-ellipsis whitespace-nowrap' : '', alignClass(column), changeTone(indicator, column)]"
+                :class="[props.compact ? 'px-2' : 'px-3', props.fitContainer ? 'overflow-hidden text-ellipsis whitespace-nowrap' : '', alignClass(column), changeTone(indicator, column), { 'table-data-updated': changedCells.includes(`${indicator.id}:${column.key}`) }]"
               >
                 <button
                   v-if="column.kind === 'name'"
@@ -270,3 +296,14 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
     </div>
   </div>
 </template>
+
+<style scoped>
+.table-data-updated { animation: table-data-flash 1.4s ease-out; }
+@keyframes table-data-flash {
+  0% { background: var(--app-primary-soft); }
+  100% { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-data-updated { animation: none; }
+}
+</style>
