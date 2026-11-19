@@ -306,10 +306,10 @@ export const useIndicatorStore = defineStore('indicator', {
         if (source === 'intraday' || source === 'intraday-watchlist') {
           watchlist ??= { tickers: this.intradayWatchTickers, url: this.intradayWatchUrl, record: this.intradayWatchRecord }
         }
-        const items = source.startsWith('intraday')
+        const items = source.startsWith('intraday') || source === 'etf-intraday'
           ? await fetchIntradayList(source as IntradaySource, watchlist)
           : await fetchIndicatorList(source)
-        this.itemsBySource[source] = source.startsWith('intraday')
+        this.itemsBySource[source] = source.startsWith('intraday') || source === 'etf-intraday'
           ? items
               .filter((item) => source !== 'intraday-watchlist' || this.intradayWatchOverrides[item.marketSymbol ?? ''] !== false)
               .map((item) => {
@@ -318,7 +318,7 @@ export const useIndicatorStore = defineStore('indicator', {
               })
           : items
         this.loadedBySource[source] = true
-        if (source.startsWith('intraday')) {
+        if (source.startsWith('intraday') || source === 'etf-intraday') {
           const fetchedAt = Date.now()
           this.intradayFetchedAt[source] = fetchedAt
         }
@@ -334,7 +334,7 @@ export const useIndicatorStore = defineStore('indicator', {
       if (!isIntradayMarketOpen(now) || !this.loadedBySource[source] || intradayMarketElapsedMs(this.intradayFetchedAt[source] ?? now, now) < interval || this.refreshingBySource[source] || this.loadingBySource[source]) return false
       this.refreshingBySource[source] = true
       try {
-        const watchlist = source === 'intraday-charts' ? undefined : await fetchIntradayWatchlist()
+        const watchlist = source === 'intraday-charts' || source === 'etf-intraday' ? undefined : await fetchIntradayWatchlist()
         const items = await fetchIntradayList(source, watchlist)
         if (watchlist) {
           this.intradayWatchTickers = watchlist.tickers
@@ -600,7 +600,7 @@ export const useIndicatorStore = defineStore('indicator', {
     applyFavoriteFlags() {
       const ids = favoriteIds(this.favoriteIndicators)
       for (const source of Object.keys(this.itemsBySource)) {
-        if (source.startsWith('intraday')) continue
+        if (source.startsWith('intraday') || source === 'etf-intraday') continue
         this.itemsBySource[source] = this.itemsBySource[source].map((item) =>
           item.favorite === ids.has(item.id.toLowerCase()) ? item : { ...item, favorite: ids.has(item.id.toLowerCase()) },
         )

@@ -16,6 +16,7 @@ import type { IndicatorTableColumn } from '@/entities/indicator/model/indicator.
 import type { Indicator } from '@/entities/indicator/model/indicator.types'
 import IndicatorSentimentMeter from './IndicatorSentimentMeter.vue'
 import IndicatorSparkline from './IndicatorSparkline.vue'
+import { isGuestLockedIndicator } from '@/entities/indicator/model/indicator.guest'
 
 const props = withDefaults(defineProps<{
   indicators: Indicator[]
@@ -34,6 +35,7 @@ const props = withDefaults(defineProps<{
   footerMetricLabel?: string
   layout?: 'responsive' | 'two-column'
   animateUpdates?: boolean
+  guestMode?: boolean
 }>(), {
   showFavorite: true,
   showSentiment: true,
@@ -53,7 +55,7 @@ const currentValueColumn: IndicatorTableColumn = { key: 'last_value', label: 'Va
 const changeColumn: IndicatorTableColumn = { key: 'last_change', label: 'Change', kind: 'change' }
 const primaryMetricColumn = computed(() => props.primaryMetricColumn ?? currentValueColumn)
 const secondaryMetricColumn = computed(() => props.secondaryMetricColumn ?? changeColumn)
-const changedFields = ref<Record<string, string[]>>({})
+const changedFields = ref<Record<string, Partial<Record<'primary' | 'secondary', 'up' | 'down'>>>>({})
 const previousValues = new Map<string, { primary: string; secondary: string; trend: string; updated: string }>()
 let clearAnimationTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -66,12 +68,18 @@ watch(
     updated: item.updatedAt,
   })),
   (values) => {
-    const changed: Record<string, string[]> = {}
+    const changed: Record<string, Partial<Record<'primary' | 'secondary', 'up' | 'down'>>> = {}
     for (const { id, ...value } of values) {
       const previous = previousValues.get(id)
       if (props.animateUpdates && previous) {
-        const fields = (Object.keys(value) as Array<keyof typeof value>).filter((field) => value[field] !== previous[field])
-        if (fields.length) changed[id] = fields
+        for (const field of ['primary', 'secondary'] as const) {
+          const before = parseIndicatorNumber(previous[field])
+          const after = parseIndicatorNumber(value[field])
+          if (before !== null && after !== null && before !== after) {
+            changed[id] ??= {}
+            changed[id][field] = after > before ? 'up' : 'down'
+          }
+        }
       }
       previousValues.set(id, value)
     }
@@ -86,11 +94,13 @@ watch(
 
 onBeforeUnmount(() => { if (clearAnimationTimer) clearTimeout(clearAnimationTimer) })
 
-function wasUpdated(id: string, field: string) {
-  return changedFields.value[id]?.includes(field) ?? false
+function flashClass(id: string, field: 'primary' | 'secondary') {
+  const direction = changedFields.value[id]?.[field]
+  return direction ? `data-flash-${direction}` : ''
 }
 
 function cardNumberValue(indicator: Indicator, column: IndicatorTableColumn) {
+  if (props.guestMode && isGuestLockedIndicator(indicator.id)) return '🔒'
   const displayed = displayIndicatorValue(indicator, column)
   const numeric = parseIndicatorNumber(displayed)
   if (numeric === null) return displayed
@@ -125,6 +135,7 @@ function updatedLabel(indicator: Indicator, columns: IndicatorTableColumn[]) {
 }
 
 function secondaryMetricClass(indicator: Indicator, column: IndicatorTableColumn) {
+  if (props.guestMode && isGuestLockedIndicator(indicator.id)) return 'text-[var(--app-text-muted)]'
   if (column.kind !== 'change') return 'text-[var(--app-text)]'
   const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
   if (value !== null && value < 0) return 'text-[var(--app-negative)]'
@@ -133,6 +144,7 @@ function secondaryMetricClass(indicator: Indicator, column: IndicatorTableColumn
 }
 
 function changeArrow(indicator: Indicator, column: IndicatorTableColumn) {
+  if (props.guestMode && isGuestLockedIndicator(indicator.id)) return null
   if (!column.showChangeArrow) return null
   const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
   if (value === null || value === 0) return null
@@ -140,6 +152,7 @@ function changeArrow(indicator: Indicator, column: IndicatorTableColumn) {
 }
 
 function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
+  if (props.guestMode && isGuestLockedIndicator(indicator.id)) return '🔒'
   if (column.showChangeArrow) {
     const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
     if (value !== null && value !== 0) {
@@ -197,21 +210,22 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
       </div>
 
       <div class="mt-4 grid grid-cols-[minmax(74px,0.9fr)_minmax(74px,0.9fr)_minmax(120px,1fr)] items-end gap-4">
-        <div :class="{ 'card-data-updated': wasUpdated(indicator.id, 'primary') }">
+        <div>
           <p class="text-xs text-[var(--app-text-muted)]">{{ primaryMetricLabel }}</p>
-          <p class="text-lg font-bold leading-6 text-[var(--app-text)]">{{ cardNumberValue(indicator, primaryMetricColumn) }}</p>
+          <p class="mt-2 text-lg font-bold leading-6 text-[var(--app-text)]"><span class="data-flash-number" :class="flashClass(indicator.id, 'primary')">{{ cardNumberValue(indicator, primaryMetricColumn) }}</span></p>
         </div>
-        <div :class="{ 'card-data-updated': wasUpdated(indicator.id, 'secondary') }">
+        <div>
           <p class="text-xs text-[var(--app-text-muted)]">{{ secondaryMetricLabel }}</p>
           <p
-            class="text-lg font-bold"
+            class="mt-2 text-lg font-bold"
             :class="secondaryMetricClass(indicator, secondaryMetricColumn)"
           >
-            {{ cardNumberValue(indicator, secondaryMetricColumn) }}
+            <span class="data-flash-number" :class="flashClass(indicator.id, 'secondary')">{{ cardNumberValue(indicator, secondaryMetricColumn) }}</span>
           </p>
         </div>
-        <div class="flex justify-end" :class="{ 'card-data-updated': wasUpdated(indicator.id, 'trend') }">
-          <IndicatorSparkline :series="indicator.trendLines" :tone="indicatorTrendTone(indicator)" :width="145" :height="46" />
+        <div class="flex justify-end">
+          <span v-if="guestMode" class="text-sm text-[var(--app-text-muted)]" title="Sign in and subscribe to view recent charts">🔒</span>
+          <IndicatorSparkline v-else :series="indicator.trendLines" :tone="indicatorTrendTone(indicator)" :width="145" :height="46" />
         </div>
       </div>
 
@@ -224,13 +238,14 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
           </span>
         </div>
         <div v-else-if="showSentiment" class="flex min-w-0 items-center gap-3">
-          <IndicatorSentimentMeter :score="indicator.sentimentScore" />
-          <span class="truncate text-xs font-medium" :class="sentimentTextClass(indicator.sentimentScore)">
+          <span v-if="guestMode && isGuestLockedIndicator(indicator.id)" class="text-xs text-[var(--app-text-muted)]">🔒 Sentiment</span>
+          <IndicatorSentimentMeter v-else :score="indicator.sentimentScore" />
+          <span v-if="!guestMode || !isGuestLockedIndicator(indicator.id)" class="truncate text-xs font-medium" :class="sentimentTextClass(indicator.sentimentScore)">
             {{ sentimentLabelFromScore(indicator.sentimentScore) }}
           </span>
         </div>
         <span v-else aria-hidden="true" />
-        <div v-if="showUpdated" class="flex shrink-0 items-center gap-3 text-xs text-[var(--app-text-muted)]" :class="{ 'card-data-updated': wasUpdated(indicator.id, 'updated') }">
+        <div v-if="showUpdated" class="flex shrink-0 items-center gap-3 text-xs text-[var(--app-text-muted)]">
           <span>Updated {{ updatedLabel(indicator, columns) }}</span>
         </div>
       </div>
@@ -239,13 +254,13 @@ function footerMetricText(indicator: Indicator, column: IndicatorTableColumn) {
 </template>
 
 <style scoped>
-.card-data-updated { animation: card-data-flash 1.4s ease-out; border-radius: 4px; }
-@keyframes card-data-flash {
-  0% { background: var(--app-primary-soft); transform: translateY(-2px); }
-  100% { background: transparent; transform: translateY(0); }
-}
+.data-flash-number { display: inline-block; border-radius: 3px; padding: 1px 2px; margin: -1px -2px; font-variant-numeric: tabular-nums; }
+.data-flash-up { animation: data-flash-up 1.3s ease-out; }
+.data-flash-down { animation: data-flash-down 1.3s ease-out; }
+@keyframes data-flash-up { 0%, 22% { background: var(--app-value-flash-up); box-shadow: 0 0 0 3px var(--app-value-flash-up); } 100% { background: transparent; box-shadow: 0 0 0 3px transparent; } }
+@keyframes data-flash-down { 0%, 22% { background: var(--app-value-flash-down); box-shadow: 0 0 0 3px var(--app-value-flash-down); } 100% { background: transparent; box-shadow: 0 0 0 3px transparent; } }
 @media (prefers-reduced-motion: reduce) {
-  .card-data-updated { animation: none; }
+  .data-flash-up, .data-flash-down { animation: none; }
 }
 .indicator-card-grid--two-column {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;

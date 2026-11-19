@@ -2,6 +2,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  Activity,
   CalendarRange,
   ChartCandlestick,
   ChartSpline,
@@ -21,6 +22,7 @@ import {
 import { indicatorCsvFilename, indicatorCsvTable } from '@/entities/indicator/model/indicator.csv'
 import { useIndicatorStore } from '@/entities/indicator/model/indicator.store'
 import { getIndicatorTableMeta } from '@/entities/indicator/model/indicator.table'
+import { latestSourceDate } from '@/entities/indicator/model/indicator.source-note'
 import { downloadCsv, toCsv } from '@/shared/utils/csv'
 import ListPagePanel from '@/shared/ui/ListPagePanel.vue'
 import type { IndicatorTableColumn, IndicatorTableColumnKind } from '@/entities/indicator/model/indicator.table'
@@ -32,10 +34,14 @@ import IndicatorPagination from './ui/IndicatorPagination.vue'
 import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
 import IntradayDescription from './ui/IntradayDescription.vue'
 import { parseIntradayId, type IntradaySource } from '@/entities/indicator/api/intraday.api'
+import { isGuestSession } from '@/shared/auth/permission'
+import { ensureGuestFeaturedIndicators } from '@/entities/indicator/model/indicator.guest'
 
 const store = useIndicatorStore()
 const router = useRouter()
 const route = useRoute()
+const guestMode = isGuestSession()
+if (guestMode && ['number', 'change', 'sentiment', 'sparkline'].includes(store.sortKind ?? '')) store.clearSort()
 const isDescriptionOpen = ref(false)
 const isMobileSidebarOpen = ref(false)
 const isMobileFiltersOpen = ref(false)
@@ -50,7 +56,7 @@ const iconMap = {
   dashboard: LayoutDashboard,
   chart: ChartCandlestick,
   bar: ChartSpline,
-  clock: CircleDollarSign,
+  activity: Activity,
   database: Scale,
   sliders: Network,
   calendar: CalendarRange,
@@ -80,6 +86,12 @@ const showSubgroups = computed(() => store.activeSection === 'indicators')
 const isIntradayList = computed(() => store.activeSection === 'indicators' && store.activeGroupId === 'intraday')
 const summaryGroupCount = computed(() => visibleGroups.value.filter((group) => group.id !== 'overview').length)
 const tableMeta = computed(() => getIndicatorTableMeta(store.activeSource))
+const sourceDate = computed(() => latestSourceDate(store.sourceItems))
+const guestTrendLabel = computed(() => {
+  const trendColumn = tableMeta.value.columns.find((column) => column.kind === 'sparkline')
+  const period = trendColumn?.label.match(/\(([^)]+)\)/)?.[1]
+  return period === '1D' ? '1D trend' : `${period ?? '30D'} trends`
+})
 const tableDescriptionParagraphs = computed(() =>
   Array.isArray(tableMeta.value.description) ? tableMeta.value.description : [tableMeta.value.description],
 )
@@ -90,7 +102,7 @@ const descriptionDialogTitle = computed(() =>
   shouldShowLegend.value ? 'Table Description and Optimism/Pessimism Legend' : 'Table Description',
 )
 const descriptionButtonLabel = computed(() => (shouldShowLegend.value ? 'Description & Legend' : 'Table Description'))
-const sortableColumns = computed(() => tableMeta.value.columns.filter((column) => isSortableColumn(column)))
+const sortableColumns = computed(() => tableMeta.value.columns.filter((column) => isSortableColumn(column) && (!guestMode || !['number', 'change', 'sentiment', 'sparkline'].includes(column.kind ?? ''))))
 const activeSortValue = computed(() => {
   if (!store.sortKey || !sortableColumns.value.some((column) => column.key === store.sortKey)) return ''
   return `${store.sortKey}:${store.sortDirection}`
@@ -112,6 +124,10 @@ const featuredSections: Array<{ id: Exclude<IndicatorSection, 'indicators'>; lab
 ]
 
 function selectSection(section: IndicatorSection) {
+  if (guestMode && section === 'favorites') {
+    if (window.confirm('Sign in to view your Favorites?')) void router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
   store.setSection(section)
   isMobileSidebarOpen.value = false
 }
@@ -128,6 +144,10 @@ function openIndicator(indicator: Indicator) {
 }
 
 function toggleFavorite(id: string) {
+  if (guestMode) {
+    if (window.confirm('Sign in to save this indicator to Favorites?')) void router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
   const intraday = parseIntradayId(id)
   if (intraday) {
     void store.toggleIntradayWatch(intraday.symbol).catch(() => store.pushToast('Unable to update intraday watchlist.'))
@@ -139,18 +159,28 @@ function toggleFavorite(id: string) {
 watch(
   () => route.query.list,
   (key) => {
-    if (typeof key === 'string' && key) store.setListKey(key)
+    if (guestMode && key === 'favorites') void router.replace({ path: '/login', query: { redirect: route.fullPath } })
+    else if (typeof key === 'string' && key) store.setListKey(key)
+    else {
+      store.setSection('indicators')
+      store.setGroup('intraday')
+    }
   },
   { immediate: true },
 )
 
 function downloadListCsv() {
+  if (guestMode) return
   const { headers, rows } = indicatorCsvTable(store.sortedItems, tableMeta.value.columns)
   if (!rows.length) return
 
   const isoDate = new Date().toISOString().slice(0, 10)
   downloadCsv(indicatorCsvFilename(currentFullTableName.value, isoDate), toCsv(headers, rows))
 }
+
+watch(() => store.itemsBySource.intraday, (items) => {
+  if (guestMode && items?.length) ensureGuestFeaturedIndicators(items)
+}, { immediate: true })
 
 function setPage(page: number) {
   store.page = Math.max(1, Math.min(page, store.pageCount))
@@ -342,14 +372,14 @@ watch(isMobile, (mobile) => {
           </template>
 
           <template #summary>
-              <span v-if="!isIntradayList" class="indicator-summary-pill">
+              <span v-if="!isIntradayList && !guestMode" class="indicator-summary-pill">
                 <span class="indicator-summary-pill__dot bg-rose-500" />
                 <span class="indicator-summary-pill__text">
                   <span class="indicator-summary-pill__value">{{ store.optimisticCount }}</span>
                   <span class="indicator-summary-pill__label"> optimistic</span>
                 </span>
               </span>
-              <span v-if="!isIntradayList" class="indicator-summary-pill">
+              <span v-if="!isIntradayList && !guestMode" class="indicator-summary-pill">
                 <span class="indicator-summary-pill__dot bg-emerald-500" />
                 <span class="indicator-summary-pill__text">
                   <span class="indicator-summary-pill__value">{{ store.pessimisticCount }}</span>
@@ -404,7 +434,7 @@ watch(isMobile, (mobile) => {
                 <option>Medium</option>
                 <option>Long</option>
               </select>
-              <select v-if="!isIntradayList" v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
+              <select v-if="!isIntradayList && !guestMode" v-model="store.sentimentFilter" class="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 text-[0.8125rem] text-[var(--app-text-secondary)]">
                 <option value="">All Sentiment Types</option>
                 <option value="pessimistic">Pessimistic</option>
                 <option value="neutral">Neutral</option>
@@ -430,7 +460,7 @@ watch(isMobile, (mobile) => {
                 Reset
               </button>
               <button
-                v-if="store.activeGroupId !== 'intraday' || store.activeSection !== 'indicators'"
+                v-if="!guestMode && (store.activeGroupId !== 'intraday' || store.activeSection !== 'indicators')"
                 class="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-[0.8125rem] text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary-hover)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--app-border)] disabled:hover:text-[var(--app-text-secondary)]"
                 type="button"
                 :disabled="!store.totalIndicators"
@@ -470,7 +500,7 @@ watch(isMobile, (mobile) => {
                   <option>Medium</option>
                   <option>Long</option>
                 </select>
-                <select v-if="!isIntradayList" v-model="store.sentimentFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
+                <select v-if="!isIntradayList && !guestMode" v-model="store.sentimentFilter" class="w-full h-10 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-sm text-[var(--app-text-secondary)]">
                   <option value="">所有情绪类型</option>
                   <option value="pessimistic">Pessimistic</option>
                   <option value="neutral">Neutral</option>
@@ -497,7 +527,7 @@ watch(isMobile, (mobile) => {
                     重置
                   </button>
                   <button
-                    v-if="store.activeGroupId !== 'intraday' || store.activeSection !== 'indicators'"
+                    v-if="!guestMode && (store.activeGroupId !== 'intraday' || store.activeSection !== 'indicators')"
                     @click="downloadListCsv"
                     class="flex flex-1 h-10 items-center justify-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] text-sm text-[var(--app-text-secondary)] transition hover:border-[var(--app-primary)] hover:text-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                     type="button"
@@ -530,6 +560,9 @@ watch(isMobile, (mobile) => {
           </template>
 
           <div class="px-4 pb-4">
+            <div v-if="guestMode" class="mb-3 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-2 text-sm text-[var(--app-text-secondary)]">
+              <p><span class="mr-4 font-semibold text-[var(--app-primary)]">GUEST PREVIEW</span>All indicator names are public. Selected indicators show the latest value; other recent readings and {{ guestTrendLabel }} require a subscription.</p>
+            </div>
             <IndicatorListTable
               v-if="store.viewMode === 'table'"
               :indicators="store.pagedItems"
@@ -540,6 +573,7 @@ watch(isMobile, (mobile) => {
               :show-favorite="store.activeGroupId === 'intraday' ? store.activeSource !== 'intraday-charts' : tableMeta.showFavorite !== false"
               :sort-key="store.sortKey"
               :sort-direction="store.sortDirection"
+              :guest-mode="guestMode"
               @open="openIndicator"
               @favorite="toggleFavorite"
               @sort="store.setSort"
@@ -554,6 +588,7 @@ watch(isMobile, (mobile) => {
               :secondary-metric-column="isIntradayList ? { key: 'intraday_change', label: 'Change', kind: 'change', decimals: 2 } : undefined"
               :secondary-metric-label="isIntradayList ? (store.activeSource === 'intraday-charts' ? 'Change (30m)' : 'Change (5m)') : 'Change (1d)'"
               :animate-updates="isIntradayList"
+              :guest-mode="guestMode"
               @open="openIndicator"
               @favorite="toggleFavorite"
             />
@@ -567,6 +602,7 @@ watch(isMobile, (mobile) => {
               item-label="indicators"
               @change="setPage"
             />
+            <p v-if="store.viewMode === 'table' && store.sourceItems.length" class="mt-2 text-[10px] leading-4 text-[var(--app-text-muted)] opacity-35">Source: supplied SentimenTrader screenshot<span v-if="sourceDate"> dated {{ sourceDate }}</span>. This prototype reproduces the {{ store.pagedItems.length }} visible rows, not all {{ store.sourceItems.length }} indicator records.</p>
           </template>
         </ListPagePanel>
       </div>

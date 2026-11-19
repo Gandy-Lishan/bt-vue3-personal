@@ -4,9 +4,10 @@ export const indicatorGroups: IndicatorGroup[] = [
   {
     id: 'intraday', label: 'Intraday',
     description: 'Live intraday sentiment, charts, and your intraday watchlist.',
-    source: 'intraday', views: 3, icon: 'clock',
+    source: 'intraday', views: 4, icon: 'activity',
     subgroups: [
       { id: 'intraday', label: 'S&P 1500 Intraday Optix', source: 'intraday', fullName: 'S&P 1500 Intraday Optix' },
+      { id: 'etf-intraday', label: 'ETF Intraday Optix', source: 'etf-intraday', fullName: 'ETF Intraday Optix' },
       { id: 'intraday-charts', label: 'Intraday Charts', source: 'intraday-charts', fullName: 'Intraday Charts' },
       { id: 'intraday-watchlist', label: 'Intraday Watchlist', source: 'intraday-watchlist', fullName: 'Intraday Watchlist' },
     ],

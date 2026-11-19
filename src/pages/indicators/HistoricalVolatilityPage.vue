@@ -33,6 +33,7 @@ import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
 import IndicatorPageHeader from './ui/IndicatorPageHeader.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
+import { latestSourceDate } from '@/entities/indicator/model/indicator.source-note'
 
 const route = useRoute()
 const router = useRouter()
@@ -94,6 +95,7 @@ const isLoading = computed(() => Boolean(store.loadingBySource[requestSource.val
 const sourceRows = computed(() => {
   return (store.itemsBySource[requestSource.value] ?? []).map(withVolatilityDiff)
 })
+const sourceDate = computed(() => latestSourceDate(sourceRows.value))
 
 const sectorOptions = computed(() => {
   const sectors = new Set<string>()
@@ -479,6 +481,7 @@ watch(isMobile, (mobile) => {
               item-label="assets"
               @change="table.setPage"
             />
+            <p v-if="store.viewMode === 'table' && sourceRows.length" class="mt-2 text-[10px] leading-4 text-[var(--app-text-muted)] opacity-35">Source: supplied SentimenTrader screenshot<span v-if="sourceDate"> dated {{ sourceDate }}</span>. This prototype reproduces the {{ table.pagedRows.value.length }} visible rows, not all {{ sourceRows.length }} indicator records.</p>
           </div>
         </section>
       </div>

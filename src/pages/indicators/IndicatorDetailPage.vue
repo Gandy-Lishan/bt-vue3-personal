@@ -41,10 +41,13 @@ import IndicatorPagination from './ui/IndicatorPagination.vue'
 import IndicatorSentimentMeter from './ui/IndicatorSentimentMeter.vue'
 import IndicatorTrendChart from './ui/IndicatorTrendChart.vue'
 import { fetchIntradayChart, intradayChartRows, parseIntradayId } from '@/entities/indicator/api/intraday.api'
+import { isGuestSession } from '@/shared/auth/permission'
+import { guestChartPreview, isGuestLockedIndicator } from '@/entities/indicator/model/indicator.guest'
 
 const route = useRoute()
 const router = useRouter()
 const store = useIndicatorStore()
+const guestMode = isGuestSession()
 
 const indicatorId = computed(() => String(route.params.id ?? ''))
 const intradayEntry = computed(() => parseIntradayId(indicatorId.value))
@@ -82,18 +85,20 @@ const intradayDetail = computed<IndicatorDetail | undefined>(() => {
 })
 const dailyOptixMessage = ref('')
 async function openDailyOptix() {
+  if (guestMode) { promptGuestLogin(); return }
   const symbol = intradayEntry.value?.symbol
   if (!symbol) return
   dailyOptixMessage.value = ''
   try {
-    await store.ensureList('sp_1500_complete_list')
-    const daily = store.itemsBySource.sp_1500_complete_list?.find(item =>
+    const dailySource = intradayEntry.value?.source === 'etf-intraday' ? 'etf_complete_list' : 'sp_1500_complete_list'
+    await store.ensureList(dailySource)
+    const daily = store.itemsBySource[dailySource]?.find(item =>
       item.marketSymbol?.toLowerCase() === symbol.toLowerCase()
       || String(item.raw?.market_symbol ?? item.raw?.symbol ?? '').toLowerCase() === symbol.toLowerCase()
       || item.id.toLowerCase() === symbol.toLowerCase(),
     )
     if (!daily) { dailyOptixMessage.value = `Daily Optix is unavailable for ${symbol}.`; return }
-    await router.push({ name: 'indicator-detail', params: { id: daily.id }, query: { list: 'sp1500' } })
+    await router.push({ name: 'indicator-detail', params: { id: daily.id }, query: { list: dailySource === 'etf_complete_list' ? 'etf-sentiment' : 'sp1500' } })
   } catch { dailyOptixMessage.value = 'Unable to load daily Optix.' }
 }
 const detail = computed(() => intradayDetail.value ?? store.detailsById[indicatorId.value])
@@ -135,6 +140,17 @@ const listSearchQuery = ref('')
 const activeTab = ref<IndicatorDetailTab>('detail')
 const showReturnSegments = ref(false)
 const chartRows = ref<IndicatorChartData>([])
+const visibleChartRows = computed(() => guestMode ? guestChartPreview(chartRows.value) : chartRows.value)
+const guestCurrentLocked = computed(() => guestMode && isGuestLockedIndicator(indicatorId.value))
+const visibleChartDetail = computed(() => {
+  if (!guestMode || !detail.value) return detail.value
+  return { ...detail.value, currentValue: Number.NaN, change: Number.NaN, opt: null, pess: null,
+    raw: { ...detail.value.raw, last_value: null, last_change: null, intraday_change: null, close: null } }
+})
+
+function promptGuestLogin() {
+  if (window.confirm('Sign in to save Favorites or view the latest indicator data?')) void router.push({ path: '/login', query: { redirect: route.fullPath } })
+}
 const isChartLoading = ref(false)
 const chartError = ref('')
 const detailMessage = ref('')
@@ -244,6 +260,7 @@ const detailTabs = computed(() => {
   const tabs: Array<{ id: IndicatorDetailTab; label: string }> = [
     { id: 'detail', label: 'Indicator Detail' },
   ]
+  if (guestMode) return tabs
   if (detail.value?.blogResults.length) {
     tabs.push({ id: 'research', label: 'Research & Blog Posts' })
   }
@@ -436,6 +453,33 @@ const primarySummaryStats = computed<IndicatorSummaryStat[]>(() => {
     },
   ]
 })
+
+const intradayStatFlash = ref<Record<'optix' | 'close', 'up' | 'down' | null>>({ optix: null, close: null })
+let intradayStatFlashTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => ({ id: intradayEntry.value ? indicatorId.value : '', optix: primarySummaryStats.value[0]?.value, close: formatIndicatorNumber(lastCloseValue.value) }),
+  (current, previous) => {
+    if (!current.id || !previous?.id || current.id !== previous.id) {
+      intradayStatFlash.value = { optix: null, close: null }
+      return
+    }
+    const flash = { optix: null, close: null } as Record<'optix' | 'close', 'up' | 'down' | null>
+    for (const key of ['optix', 'close'] as const) {
+      const before = parseIndicatorNumber(previous[key])
+      const after = parseIndicatorNumber(current[key])
+      if (before !== null && after !== null && before !== after) flash[key] = after > before ? 'up' : 'down'
+    }
+    intradayStatFlash.value = flash
+    if (intradayStatFlashTimer) clearTimeout(intradayStatFlashTimer)
+    intradayStatFlashTimer = setTimeout(() => { intradayStatFlash.value = { optix: null, close: null } }, 1400)
+  },
+)
+onBeforeUnmount(() => { if (intradayStatFlashTimer) clearTimeout(intradayStatFlashTimer) })
+
+function intradayStatFlashClass(key: 'optix' | 'close') {
+  const direction = intradayStatFlash.value[key]
+  return direction ? `data-flash-${direction}` : ''
+}
 
 const returnSegmentColumns = computed(() => {
   const columns = new Set<string>()
@@ -867,6 +911,7 @@ function openIndicator(indicator: Indicator | { url: string }) {
 }
 
 function toggleFavorite() {
+  if (guestMode) { promptGuestLogin(); return }
   const id = activeIndicator.value?.id ?? detail.value?.id
   if (intradayEntry.value) {
     const entry = intradayEntry.value
@@ -879,6 +924,7 @@ function toggleFavorite() {
 }
 
 function toggleSidebarFavorite(id: string) {
+  if (guestMode) { promptGuestLogin(); return }
   const intraday = parseIntradayId(id)
   if (intraday) {
     void store.toggleIntradayWatch(intraday.symbol, 'detail').catch(() => store.pushToast('Unable to update intraday watchlist.'))
@@ -934,6 +980,7 @@ function chartRowsLength(data: IndicatorChartData) {
 }
 
 async function downloadCsv() {
+  if (guestMode) { promptGuestLogin(); return }
   if (!detail.value || isDownloadingCsv.value) return
 
   if (isSeasonalityIndicator(detail.value)) {
@@ -1371,7 +1418,7 @@ watch(
                 <span class="indicator-summary-pill__label">{{ meta.label }}:</span>
                 <span class="indicator-summary-pill__value">{{ meta.value }}</span>
               </span>
-              <span v-if="!intradayEntry" class="indicator-summary-pill">
+              <span v-if="!intradayEntry && !guestCurrentLocked" class="indicator-summary-pill">
                 <IndicatorSentimentMeter :score="detail.sentimentScore" />
                 <span class="indicator-summary-pill__text" :class="sentimentTextClass(detail.sentimentScore)">
                   {{ sentimentLabelFromScore(detail.sentimentScore) }}
@@ -1382,10 +1429,10 @@ watch(
             <div class="indicator-summary__stats">
               <div v-for="stat in primarySummaryStats" :key="stat.label" class="indicator-stat-card">
                 <p class="indicator-stat-card__label">{{ stat.label }}</p>
-                <p class="indicator-stat-card__value" :class="stat.valueClass">
-                  {{ stat.value }}
+                <p class="indicator-stat-card__value" :class="guestCurrentLocked ? '' : stat.valueClass">
+                  <span :class="intradayEntry && !guestMode ? ['indicator-stat-flash-number', intradayStatFlashClass('optix')] : ''">{{ guestCurrentLocked ? '🔒' : stat.value }}</span>
                   <span
-                    v-if="stat.direction"
+                    v-if="stat.direction && !guestCurrentLocked"
                     class="indicator-stat-card__direction"
                     :class="`indicator-stat-card__direction--${stat.direction}`"
                   >
@@ -1396,14 +1443,14 @@ watch(
               </div>
               <div v-if="intradayEntry?.source !== 'intraday-charts'" class="indicator-stat-card">
                 <p class="indicator-stat-card__label">LAST CLOSE</p>
-                <p class="indicator-stat-card__value">{{ formatIndicatorNumber(lastCloseValue) }}</p>
+                <p class="indicator-stat-card__value"><span :class="intradayEntry && !guestMode ? ['indicator-stat-flash-number', intradayStatFlashClass('close')] : ''">{{ guestMode ? '🔒' : formatIndicatorNumber(lastCloseValue) }}</span></p>
               </div>
               <div class="indicator-stat-card indicator-stat-card--extremes">
                 <div class="indicator-extreme-list">
                   <div v-for="level in extremeLevels" :key="level.label" class="indicator-extreme-row">
                     <span class="indicator-extreme-dot" :class="`indicator-extreme-dot--${level.tone}`" />
                     <span class="indicator-extreme-label">{{ level.label }}</span>
-                    <span class="indicator-extreme-value">{{ level.value }}</span>
+                    <span class="indicator-extreme-value">{{ guestMode ? '🔒' : level.value }}</span>
                   </div>
                 </div>
               </div>
@@ -1411,14 +1458,16 @@ watch(
           </section>
 
           <IndicatorTrendChart
-            :detail="detail"
-            :rows="chartRows"
+            :detail="visibleChartDetail!"
+            :rows="visibleChartRows"
             :loading="isChartLoading"
             :error="chartError"
             :is-mobile="isMobile"
+            :guest-mode="guestMode"
             @download="downloadCsv"
             @view-daily="openDailyOptix"
           />
+          <p v-if="guestMode" class="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-3 text-sm text-[var(--app-text-secondary)]">Preview shows historical data from three years ago up to three months ago. <RouterLink class="font-semibold text-[var(--app-primary)] underline" :to="{ path: '/login', query: { redirect: route.fullPath } }">Sign in</RouterLink> and subscribe to view recent values and charts.</p>
           <p v-if="dailyOptixMessage" role="status" class="text-right text-sm text-[var(--app-text-secondary)]">{{ dailyOptixMessage }}</p>
           <p v-if="csvMessage" class="text-right text-sm font-medium text-[var(--app-text-muted)]">{{ csvMessage }}</p>
 
@@ -1447,7 +1496,7 @@ watch(
                 <div class="indicator-rich-text text-sm leading-6 text-[var(--app-text-secondary)]" v-html="detail.constructionHtml || detail.construction" />
               </section>
 
-              <section v-if="detail.showReturns && detail.thresholdRows.length" class="mt-6 border-t border-[var(--app-border)] pt-5">
+              <section v-if="!guestMode && detail.showReturns && detail.thresholdRows.length" class="mt-6 border-t border-[var(--app-border)] pt-5">
                 <h3 class="mb-3 text-base font-semibold text-[var(--app-text)]">Threshold Return Analysis</h3>
 
                 <!-- Desktop: table -->
@@ -1951,6 +2000,13 @@ watch(
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
+
+.indicator-stat-flash-number { display: inline-block; border-radius: 3px; padding: 1px 2px; margin: -1px -2px; font-variant-numeric: tabular-nums; }
+.data-flash-up { animation: data-flash-up 1.3s ease-out; }
+.data-flash-down { animation: data-flash-down 1.3s ease-out; }
+@keyframes data-flash-up { 0%, 22% { background: var(--app-value-flash-up); box-shadow: 0 0 0 3px var(--app-value-flash-up); } 100% { background: transparent; box-shadow: 0 0 0 3px transparent; } }
+@keyframes data-flash-down { 0%, 22% { background: var(--app-value-flash-down); box-shadow: 0 0 0 3px var(--app-value-flash-down); } 100% { background: transparent; box-shadow: 0 0 0 3px transparent; } }
+@media (prefers-reduced-motion: reduce) { .data-flash-up, .data-flash-down { animation: none; } }
 
 .indicator-stat-card__direction {
   display: inline-flex;

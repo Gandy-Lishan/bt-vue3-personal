@@ -40,6 +40,7 @@ import IndicatorCardGrid from './ui/IndicatorCardGrid.vue'
 import IndicatorPageHeader from './ui/IndicatorPageHeader.vue'
 import IndicatorListTable from './ui/IndicatorListTable.vue'
 import IndicatorPagination from './ui/IndicatorPagination.vue'
+import { latestSourceDate } from '@/entities/indicator/model/indicator.source-note'
 import SectorTrendSummaryTable from './ui/SectorTrendSummaryTable.vue'
 
 const route = useRoute()
@@ -131,6 +132,7 @@ const sourceRows = computed(() => {
   if (isSummary.value) return []
   return store.itemsBySource[requestSource.value] ?? []
 })
+const sourceDate = computed(() => latestSourceDate(sourceRows.value))
 
 const sectorOptions = computed(() => {
   const sectors = new Set<string>()
@@ -531,6 +533,7 @@ watch(isMobile, (mobile) => {
               item-label="trend scores"
               @change="table.setPage"
             />
+            <p v-if="store.viewMode === 'table' && sourceRows.length" class="mt-2 text-[10px] leading-4 text-[var(--app-text-muted)] opacity-35">Source: supplied SentimenTrader screenshot<span v-if="sourceDate"> dated {{ sourceDate }}</span>. This prototype reproduces the {{ table.pagedRows.value.length }} visible rows, not all {{ sourceRows.length }} indicator records.</p>
           </template>
         </ListPagePanel>
       </div>

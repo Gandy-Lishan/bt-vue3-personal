@@ -15,9 +15,10 @@ describe('IndicatorCardGrid', () => {
       secondaryMetricLabel: 'Change (5m)',
     } })
     expect(wrapper.text()).toContain('Change (5m)')
-    expect(wrapper.findAll('.card-data-updated')).toHaveLength(0)
+    expect(wrapper.findAll('.data-flash-up, .data-flash-down')).toHaveLength(0)
     await wrapper.setProps({ indicators: [{ ...indicator, raw: { ...indicator.raw, last_value: 64, intraday_change: 4 }, currentValue: 64, trendLines: [[58, 60, 64]] }] })
-    expect(wrapper.findAll('.card-data-updated')).toHaveLength(3)
+    expect(wrapper.findAll('.data-flash-up')).toHaveLength(2)
+    expect(wrapper.findAll('.data-flash-down')).toHaveLength(0)
     expect(wrapper.text()).toContain('4.00')
     wrapper.unmount()
   })

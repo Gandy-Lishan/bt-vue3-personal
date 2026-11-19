@@ -50,6 +50,31 @@ describe('Intraday indicator lists', () => {
     expect(store.itemsBySource['intraday-watchlist'][0].updatedAt).toBe('2026-11-13 10:05')
   })
 
+  it('creates an empty watchlist after an API 404, then saves the first favorite with PUT', async () => {
+    const calls: Array<{ method: string; path: string; tickers?: string }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      const method = init?.method ?? 'GET'
+      if (path.includes('watchlist')) {
+        calls.push({ method, path, tickers: init?.body instanceof FormData ? String(init.body.get('tickers')) : undefined })
+        if (method === 'GET') return json({ code: 404, data: '' })
+        if (method === 'POST') return json({ code: 200, url: 'created-watchlist', data: {} })
+        return json({ code: 200, data: {} })
+      }
+      return json({ data: { items: [{ symbol: 'ASO', name: 'ASO', optix: 62 }] } })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const store = useIndicatorStore()
+    await store.ensureList('intraday')
+    expect(store.intradayWatchUrl).toBe('created-watchlist')
+    await store.toggleIntradayWatch('ASO')
+    expect(calls).toEqual([
+      { method: 'GET', path: '/dev/watchlist_app/watchlist?category=5m', tickers: undefined },
+      { method: 'POST', path: '/dev/watchlist_app/watchlist', tickers: '[]' },
+      { method: 'PUT', path: '/dev/watchlist_app/watchlist?url=created-watchlist', tickers: '["ASO"]' },
+    ])
+  })
+
   it('formats intraday timestamps without shifting the API clock time', () => {
     expect(formatIntradayTime('2026-11-13 10:05 ET')).toBe('2026-11-13 10:05')
     expect(formatIntradayTime('2026-11-13T10:05:30Z')).toBe('2026-11-13 10:05')

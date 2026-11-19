@@ -44,11 +44,13 @@ const props = withDefaults(
     loading?: boolean
     error?: string
     isMobile?: boolean
+    guestMode?: boolean
   }>(),
   {
     loading: false,
     error: '',
     isMobile: false,
+    guestMode: false,
   },
 )
 
@@ -81,7 +83,7 @@ function updateCompactChartState() {
 }
 
 const standardRows = computed(() => (Array.isArray(props.rows) ? props.rows : []))
-const isIntradayChart = computed(() => props.detail.sourceList?.startsWith('intraday') ?? false)
+const isIntradayChart = computed(() => props.detail.sourceList?.startsWith('intraday') || props.detail.sourceList === 'etf-intraday')
 const isIntradayPreset = computed(() => props.detail.sourceList === 'intraday-charts')
 const seasonalityData = computed(() => (isIndicatorSeasonalityChartData(props.rows) ? props.rows : null))
 const isSeasonalityChart = computed(() => {
@@ -824,6 +826,15 @@ function renderChart() {
     },
     xAxis: {
       ...sharedXAxis(theme),
+      ...(props.guestMode ? {
+        max: Date.now(),
+        plotBands: [{
+          from: new Date(new Date().setMonth(new Date().getMonth() - 3)).getTime(),
+          to: Date.now(),
+          color: 'rgba(128, 128, 128, 0.13)',
+          label: { text: '🔒 Recent 3 months', style: { color: textColor } },
+        }],
+      } : {}),
       labels: {
         format: "{value:%b '%y}",
         style: { color: textColor, fontSize: chartFontSize(11) },
@@ -1055,7 +1066,7 @@ onBeforeUnmount(() => {
             @click="emit('viewDaily')"
           >
             <BarChart3 :size="15" />
-            View Daily {{ marketSymbol() }} Optix
+            {{ detail.sourceList === 'etf-intraday' ? 'View Most Active ETF Sentiment' : `View Daily ${marketSymbol()} Optix` }}
           </button>
           <button
             v-if="!isSeasonalityChart"
@@ -1148,7 +1159,7 @@ onBeforeUnmount(() => {
             type="button"
             @click="emit('viewDaily')"
           >
-            <BarChart3 :size="14" /> View Daily {{ marketSymbol() }} Optix
+            <BarChart3 :size="14" /> {{ detail.sourceList === 'etf-intraday' ? 'View Most Active ETF Sentiment' : `View Daily ${marketSymbol()} Optix` }}
           </button>
           <button
             v-if="!isSeasonalityChart"

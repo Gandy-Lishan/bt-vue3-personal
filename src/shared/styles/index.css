@@ -43,6 +43,8 @@
   --app-primary-shadow: rgba(45, 140, 255, 0.28);
   --app-positive: #047857;
   --app-negative: #be123c;
+  --app-value-flash-up: #d4f1e5;
+  --app-value-flash-down: #f9dfe6;
   /* Favourited star. Yellow reads as "saved" at a glance, where the brand blue does not. */
   --app-favorite: #eab308;
   --app-report-bar-bg: linear-gradient(110deg, #ffbc16, #ffc833);
@@ -126,6 +128,8 @@
   --app-primary-shadow: rgba(97, 180, 255, 0.22);
   --app-positive: #34d399;
   --app-negative: #fb7185;
+  --app-value-flash-up: #174a3b;
+  --app-value-flash-down: #562637;
   --app-favorite: #facc15;
   --app-report-bar-bg: linear-gradient(110deg, #5e4507, #7a5a08);
   --app-report-bar-text: #fff3c4;

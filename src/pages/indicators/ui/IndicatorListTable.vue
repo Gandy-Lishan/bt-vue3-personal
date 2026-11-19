@@ -13,6 +13,7 @@ import type { IndicatorTableColumn } from '@/entities/indicator/model/indicator.
 import type { Indicator, IndicatorSortDirection } from '@/entities/indicator/model/indicator.types'
 import IndicatorSentimentMeter from './IndicatorSentimentMeter.vue'
 import IndicatorSparkline from './IndicatorSparkline.vue'
+import { isGuestLockedIndicator } from '@/entities/indicator/model/indicator.guest'
 
 const props = withDefaults(defineProps<{
   indicators: Indicator[]
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<{
   compact?: boolean
   fitContainer?: boolean
   animateUpdates?: boolean
+  guestMode?: boolean
 }>(), {
   showFavorite: true,
   sortKey: '',
@@ -38,7 +40,7 @@ defineEmits<{
 }>()
 
 const tableColspan = computed(() => props.columns.length + (props.showFavorite ? 1 : 0))
-const changedCells = ref<string[]>([])
+const changedCells = ref<Record<string, 'up' | 'down'>>({})
 const previousCells = new Map<string, string>()
 let clearAnimationTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -48,24 +50,39 @@ watch(
     value: column.kind === 'sparkline' ? JSON.stringify(item.trendLines) : displayValue(item, column),
   }))),
   (cells) => {
-    const changed: string[] = []
+    const changed: Record<string, 'up' | 'down'> = {}
     for (const cell of cells) {
       const previous = previousCells.get(cell.key)
-      if (props.animateUpdates && previous !== undefined && previous !== cell.value) changed.push(cell.key)
+      const before = previous === undefined ? null : parseIndicatorNumber(previous)
+      const after = parseIndicatorNumber(cell.value)
+      if (props.animateUpdates && before !== null && after !== null && before !== after) changed[cell.key] = after > before ? 'up' : 'down'
       previousCells.set(cell.key, cell.value)
     }
-    if (changed.length) {
+    if (Object.keys(changed).length) {
       changedCells.value = changed
       if (clearAnimationTimer) clearTimeout(clearAnimationTimer)
-      clearAnimationTimer = setTimeout(() => { changedCells.value = [] }, 1400)
+      clearAnimationTimer = setTimeout(() => { changedCells.value = {} }, 1400)
     }
   },
   { immediate: true },
 )
 onBeforeUnmount(() => { if (clearAnimationTimer) clearTimeout(clearAnimationTimer) })
 
+function flashClass(indicator: Indicator, column: IndicatorTableColumn) {
+  if (props.guestMode) return ''
+  const direction = changedCells.value[`${indicator.id}:${column.key}`]
+  return direction ? `data-flash-${direction}` : ''
+}
+
 function displayValue(indicator: Indicator, column: IndicatorTableColumn) {
+  if (guestCellLocked(indicator, column)) return '🔒'
   return displayIndicatorValue(indicator, column)
+}
+
+function guestCellLocked(indicator: Indicator, column: IndicatorTableColumn) {
+  if (!props.guestMode) return false
+  if (column.kind === 'sparkline') return true
+  return isGuestLockedIndicator(indicator.id) && ['number', 'change', 'sentiment'].includes(column.kind ?? '')
 }
 
 function alignClass(_column: IndicatorTableColumn) {
@@ -77,7 +94,7 @@ function justifyClass(_column: IndicatorTableColumn) {
 }
 
 function isSortable(column: IndicatorTableColumn) {
-  return column.kind !== 'sparkline'
+  return column.kind !== 'sparkline' && (!props.guestMode || !['number', 'change', 'sentiment'].includes(column.kind ?? ''))
 }
 
 function columnMinWidth(column: IndicatorTableColumn) {
@@ -145,6 +162,7 @@ function linkHref(indicator: Indicator) {
 }
 
 function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
+  if (guestCellLocked(indicator, column)) return ''
   if (column.kind !== 'change') return ''
   const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
   if (value !== null && value < 0) return 'text-[var(--app-negative)]'
@@ -153,6 +171,7 @@ function changeTone(indicator: Indicator, column: IndicatorTableColumn) {
 }
 
 function changeArrow(indicator: Indicator, column: IndicatorTableColumn) {
+  if (guestCellLocked(indicator, column)) return null
   if (!column.showChangeArrow) return null
   const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
   if (value === null || value === 0) return null
@@ -160,6 +179,7 @@ function changeArrow(indicator: Indicator, column: IndicatorTableColumn) {
 }
 
 function directionalDisplayValue(indicator: Indicator, column: IndicatorTableColumn) {
+  if (guestCellLocked(indicator, column)) return '🔒'
   if (!column.showChangeArrow) return displayValue(indicator, column)
 
   const value = parseIndicatorNumber(indicatorRawValue(indicator, column.key))
@@ -250,7 +270,7 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
                 v-for="column in props.columns"
                 :key="column.key"
                 class="box-border py-2.5"
-                :class="[props.compact ? 'px-2' : 'px-3', props.fitContainer ? 'overflow-hidden text-ellipsis whitespace-nowrap' : '', alignClass(column), changeTone(indicator, column), { 'table-data-updated': changedCells.includes(`${indicator.id}:${column.key}`) }]"
+                :class="[props.compact ? 'px-2' : 'px-3', props.fitContainer ? 'overflow-hidden text-ellipsis whitespace-nowrap' : '', alignClass(column), changeTone(indicator, column)]"
               >
                 <button
                   v-if="column.kind === 'name'"
@@ -272,7 +292,9 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
                   </a>
                   <span v-else>{{ displayValue(indicator, column) }}</span>
                 </template>
+                <span v-else-if="column.kind === 'sentiment' && guestCellLocked(indicator, column)" title="Sign in and subscribe to view sentiment">🔒</span>
                 <IndicatorSentimentMeter v-else-if="column.kind === 'sentiment'" :score="indicator.sentimentScore" :compact="props.compact || props.fitContainer" />
+                <span v-else-if="column.kind === 'sparkline' && props.guestMode" title="Sign in and subscribe to view recent charts">🔒</span>
                 <IndicatorSparkline
                   v-else-if="column.kind === 'sparkline'"
                   :series="indicator.trendLines"
@@ -285,9 +307,9 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
                   :class="justifyClass(column)"
                 >
                   <component :is="changeArrow(indicator, column)" v-if="changeArrow(indicator, column)" :size="13" aria-hidden="true" />
-                  <span>{{ directionalDisplayValue(indicator, column) }}</span>
+                  <span class="data-flash-number" :class="flashClass(indicator, column)">{{ directionalDisplayValue(indicator, column) }}</span>
                 </span>
-                <span v-else>{{ displayValue(indicator, column) }}</span>
+                <span v-else class="data-flash-number" :class="flashClass(indicator, column)">{{ displayValue(indicator, column) }}</span>
               </td>
             </tr>
           </template>
@@ -298,12 +320,12 @@ function directionalDisplayValue(indicator: Indicator, column: IndicatorTableCol
 </template>
 
 <style scoped>
-.table-data-updated { animation: table-data-flash 1.4s ease-out; }
-@keyframes table-data-flash {
-  0% { background: var(--app-primary-soft); }
-  100% { background: transparent; }
-}
+.data-flash-number { display: inline-block; border-radius: 3px; padding: 1px 2px; margin: -1px -2px; font-variant-numeric: tabular-nums; }
+.data-flash-up { animation: data-flash-up 1.3s ease-out; }
+.data-flash-down { animation: data-flash-down 1.3s ease-out; }
+@keyframes data-flash-up { 0%, 22% { background: var(--app-value-flash-up); box-shadow: 0 0 0 3px var(--app-value-flash-up); } 100% { background: transparent; box-shadow: 0 0 0 3px transparent; } }
+@keyframes data-flash-down { 0%, 22% { background: var(--app-value-flash-down); box-shadow: 0 0 0 3px var(--app-value-flash-down); } 100% { background: transparent; box-shadow: 0 0 0 3px transparent; } }
 @media (prefers-reduced-motion: reduce) {
-  .table-data-updated { animation: none; }
+  .data-flash-up, .data-flash-down { animation: none; }
 }
 </style>

@@ -3,6 +3,7 @@ import { normalizeIndicatorDetail, normalizeIndicatorRows } from '../model/indic
 import { normalizeIndicatorSeasonalityChartData } from '../model/indicator.chart'
 import { normalizeIndicatorTrendPayload, type IndicatorTrendMap } from '../model/indicator.trends'
 import type { Indicator, IndicatorChartData, IndicatorChartDataRow, IndicatorDetail, IndicatorRawRow } from '../model/indicator.types'
+import { testStDataEndpoint } from '@/shared/api/tools.api'
 
 const requestMap = new Map<string, string>([
   ['country_breadth_overview', 'country_breadth_overview/'],
@@ -140,9 +141,10 @@ function extractChartData(payload: unknown): IndicatorChartData {
   return normalizeIndicatorSeasonalityChartData(nestedData) ?? []
 }
 
-export async function fetchIndicatorList(source: string, signal?: AbortSignal): Promise<Indicator[]> {
+export async function fetchIndicatorList(source: string, signal?: AbortSignal, useTestBackend = false): Promise<Indicator[]> {
   try {
-    const payload = await fetchJson<unknown>(`/dev/st_data/${requestUrlForSource(source)}`, signal)
+    const path = requestUrlForSource(source)
+    const payload = await fetchJson<unknown>(useTestBackend ? testStDataEndpoint(path) : `/dev/st_data/${path}`, signal)
     return normalizeIndicatorRows(extractRows(payload, source), source)
   } catch {
     return []

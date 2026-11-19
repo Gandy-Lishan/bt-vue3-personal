@@ -1,14 +1,18 @@
 import type { Indicator, IndicatorChartDataRow } from '../model/indicator.types'
 
-export type IntradaySource = 'intraday' | 'intraday-charts' | 'intraday-watchlist'
+export type IntradaySource = 'intraday' | 'etf-intraday' | 'intraday-charts' | 'intraday-watchlist'
 type Json = Record<string, any>
+const intradayStDataBase = import.meta.env.DEV ? '/research-intraday-st-data' : '/dev/st_data'
+const intradayStDataRequest = (path: string) => intradayRequest(`${intradayStDataBase}/${path}`, {
+  headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+})
 
 export function intradayId(source: IntradaySource, symbol: string) {
   return `intraday:${source}:${symbol}`
 }
 
 export function parseIntradayId(id: string): { source: IntradaySource; symbol: string } | null {
-  const match = /^intraday:(intraday|intraday-charts|intraday-watchlist):(.+)$/.exec(id)
+  const match = /^intraday:(intraday|etf-intraday|intraday-charts|intraday-watchlist):(.+)$/.exec(id)
   return match ? { source: match[1] as IntradaySource, symbol: match[2] } : null
 }
 
@@ -40,20 +44,32 @@ export function formatIntradayTime(value: unknown): string {
 }
 
 export async function fetchIntradayWatchlist() {
+  const path = '/dev/watchlist_app/watchlist?category=5m'
+  async function createEmptyWatchlist() {
+    const created = await saveIntradayWatchlist(null, [])
+    const url = created.url ?? created.data?.url
+    if (typeof url === 'string' && url) return { record: {}, tickers: [] as string[], url }
+    const loaded = await intradayRequest(path)
+    const loadedUrl = loaded.url ?? loaded.data?.url
+    if (loaded.code === 404 || typeof loadedUrl !== 'string' || !loadedUrl) throw new Error('Unable to create intraday watchlist.')
+    return { record: {}, tickers: [] as string[], url: loadedUrl }
+  }
+  let payload: Json
   try {
-    const payload = await intradayRequest('/dev/watchlist_app/watchlist?category=5m')
-    const data = payload.data ?? payload
-    const record = (Array.isArray(data) ? data[0] : data) ?? {}
-    let rawTickers = record.tickers
-    if (typeof rawTickers === 'string') {
-      try { rawTickers = JSON.parse(rawTickers) } catch { rawTickers = [] }
-    }
-    const tickers: string[] = Array.isArray(rawTickers) ? rawTickers : Object.keys(record).filter(key => intradayRecords(record[key]?.records).length)
-    return { record, tickers, url: payload.url ?? record.url ?? null }
+    payload = await intradayRequest(path)
   } catch (error) {
-    if (error instanceof Error && error.message.includes('(404)')) return { record: {}, tickers: [], url: null }
+    if (error instanceof Error && error.message.includes('(404)')) return createEmptyWatchlist()
     throw error
   }
+  if (payload.code === 404) return createEmptyWatchlist()
+  const data = payload.data ?? payload
+  const record = (Array.isArray(data) ? data[0] : data) ?? {}
+  let rawTickers = record.tickers
+  if (typeof rawTickers === 'string') {
+    try { rawTickers = JSON.parse(rawTickers) } catch { rawTickers = [] }
+  }
+  const tickers: string[] = Array.isArray(rawTickers) ? rawTickers : Object.keys(record).filter(key => intradayRecords(record[key]?.records).length)
+  return { record, tickers, url: payload.url ?? record.url ?? null }
 }
 
 export async function saveIntradayWatchlist(url: string | null, tickers: string[]) {
@@ -61,7 +77,7 @@ export async function saveIntradayWatchlist(url: string | null, tickers: string[
   form.append('category', '5m')
   form.append('tickers', JSON.stringify(tickers))
   form.append('columns', '[]')
-  await intradayRequest(url ? `/dev/watchlist_app/watchlist?url=${encodeURIComponent(url)}` : '/dev/watchlist_app/watchlist', { method: url ? 'PUT' : 'POST', body: form })
+  return intradayRequest(url ? `/dev/watchlist_app/watchlist?url=${encodeURIComponent(url)}` : '/dev/watchlist_app/watchlist', { method: url ? 'PUT' : 'POST', body: form })
 }
 
 function indicator(source: IntradaySource, symbol: string, name: string, value: unknown, date: unknown, raw: Json): Indicator {
@@ -77,7 +93,7 @@ function indicator(source: IntradaySource, symbol: string, name: string, value: 
 
 export async function fetchIntradayList(source: IntradaySource, knownWatchlist?: Awaited<ReturnType<typeof fetchIntradayWatchlist>>): Promise<Indicator[]> {
   if (source === 'intraday-charts') {
-    const payload = (await intradayRequest('/dev/st_data/intraday_charts')).data
+    const payload = (await intradayStDataRequest('intraday_charts')).data
     if (!Array.isArray(payload?.charts)) throw new Error('Invalid intraday charts response.')
     return payload.charts.map((chart: Json) => {
       const row = indicator(source, String(chart.chart_id), String(chart.title), chart.last_value, formatIntradayTime(chart.last_updated), { ...chart, dashboardChart: chart })
@@ -86,7 +102,7 @@ export async function fetchIntradayList(source: IntradaySource, knownWatchlist?:
       return row
     })
   }
-  const watchlist = knownWatchlist ?? await fetchIntradayWatchlist()
+  const watchlist = source === 'etf-intraday' ? { tickers: [] as string[], record: {}, url: null } : knownWatchlist ?? await fetchIntradayWatchlist()
   if (source === 'intraday-watchlist') {
     return watchlist.tickers.flatMap(symbol => {
       const ticker = watchlist.record[symbol]
@@ -102,7 +118,7 @@ export async function fetchIntradayList(source: IntradaySource, knownWatchlist?:
       return [row]
     })
   }
-  const payload = (await intradayRequest('/dev/st_data/sp_1500_intraday')).data
+  const payload = (await intradayStDataRequest(source === 'etf-intraday' ? 'etf_intraday' : 'sp_1500_intraday')).data
   if (!Array.isArray(payload?.items)) throw new Error('Invalid intraday response.')
   return payload.items.map((item: Json) => {
     const row = indicator(source, String(item.symbol), item.name ?? item.symbol, item.optix, formatIntradayTime(item.date), { ...item, favorite: watchlist.tickers.includes(item.symbol) })
@@ -113,14 +129,14 @@ export async function fetchIntradayList(source: IntradaySource, knownWatchlist?:
 
 export async function fetchIntradayChart(source: IntradaySource, symbol: string) {
   if (source === 'intraday-charts') {
-    const payload = (await intradayRequest('/dev/st_data/intraday_charts')).data
+    const payload = (await intradayStDataRequest('intraday_charts')).data
     return payload.charts?.find((chart: Json) => String(chart.chart_id) === symbol) ?? null
   }
   if (source === 'intraday-watchlist') {
     const watchlist = await fetchIntradayWatchlist()
     return { records: intradayRecords(watchlist.record[symbol]?.records) }
   }
-  return (await intradayRequest(`/dev/st_data/intraday_chart?symbol=${encodeURIComponent(symbol)}`)).data
+  return (await intradayStDataRequest(`intraday_chart?symbol=${encodeURIComponent(symbol)}`)).data
 }
 
 function intradayTimestamp(value: unknown): number {
