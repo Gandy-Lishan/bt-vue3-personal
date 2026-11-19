@@ -5,16 +5,13 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import { loadEnv, type PluginOption, type ProxyOptions } from 'vite'
 import { lightIndicatorTicketPlugin } from './server/light-indicator-ticket.ts'
+import { GUEST_SESSION_COOKIE } from './src/shared/auth/guestSession.ts'
 
 const stApiTargets = {
   prod: 'https://bt2api.sentimentrader.com',
   dev: 'https://devbt2api.sentimentrader.com',
   local: 'http://localhost:5001',
 } as const
-//const defaultDevSentimenSession = ''
-
-const defaultDevSentimenSession =
-  'IJLN7EhBuOXvsdvgYt7rLyYvp4GSk2hXdln69TOIHHgCIpzJIACssjQOW7bWH20fpw0OiGw0poJIV2Nzvk3FatVlMwKuU6zTMuorJTgFps1U8Hf6ux9GVpeoQR1iivqwN2hd9ZIY8qo4NiJD0KNh11JZNTcxiPKBDRcdvrCIKT6n6fP4p8m0vZCRGExnFzlNyGOMAg6L0P8uxwaORgH6lTcesVlyOUjwVPoejA8q5vu9+2Ua1ZC0EPtbgoyLBrCWduhPJnynwcIMq74y1JTK49iuJXZZ1xi0lq9R6vfCbfwQ6yKaPTUk5SLPIURdC+tXAgClauHMEAJ19C5IihySD7gIQ6luZFfq6GdHssy0ebkiQoEoX8ymUzMdH4a8jX583j6RaCOWJ+L9xfq8bbQ7vFSysWWZ6nzD3EbCdqKT7Kfvx5pSii2XwuP42aqx/k1nf26ufCqzOnUj4olrtCt/Tg=='
 
 
 function trimTrailingSlash(value: string) {
@@ -22,7 +19,7 @@ function trimTrailingSlash(value: string) {
 }
 
 function resolveStApiTarget(value?: string) {
-  if (!value) return stApiTargets.prod
+  if (!value) return stApiTargets.dev
   if (value in stApiTargets) return stApiTargets[value as keyof typeof stApiTargets]
   return trimTrailingSlash(value)
 }
@@ -32,7 +29,14 @@ function rewritePrefix(prefix: string) {
 }
 
 function resolveDevSentimenSession(env: Record<string, string>) {
-  return env.DEV_SENTIMEN_SESSION || env.VITE_DEV_SENTIMEN_SESSION || defaultDevSentimenSession
+  const profile = env.DEV_SESSION_PROFILE
+  if (profile) {
+    if (profile.toLowerCase() === 'guest') return GUEST_SESSION_COOKIE
+    const selected = env[`DEV_SESSION_${profile.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`]
+    if (!selected) throw new Error(`Unknown DEV_SESSION_PROFILE: ${profile}`)
+    return selected
+  }
+  return env.DEV_SENTIMEN_SESSION || env.VITE_DEV_SENTIMEN_SESSION || ''
 }
 
 function devSentimenCookieHeader(sentimenSession: string) {
@@ -40,10 +44,13 @@ function devSentimenCookieHeader(sentimenSession: string) {
 }
 
 function configureDevelopmentCookieProxy(proxy: Parameters<NonNullable<ProxyOptions['configure']>>[0], sentimenSession: string) {
-  proxy.on('proxyReq', (proxyRequest: ClientRequest) => {
-    if (sentimenSession) {
-      proxyRequest.setHeader('Cookie', devSentimenCookieHeader(sentimenSession))
-    }
+  proxy.on('proxyReq', (proxyRequest: ClientRequest, request) => {
+    const incomingCookie = request.headers.cookie || ''
+    const fallback = sentimenSession && !/(?:^|;\s*)sentimen_session=/.test(incomingCookie)
+      ? devSentimenCookieHeader(sentimenSession)
+      : ''
+    const cookie = [incomingCookie, fallback].filter(Boolean).join('; ')
+    if (cookie) proxyRequest.setHeader('Cookie', cookie)
   })
 }
 
@@ -88,6 +95,27 @@ export default defineConfig(({ mode }) => {
   )
 
   const proxy: Record<string, ProxyOptions> = {
+    '/research-intraday-st-data': {
+      target: stApiTargets.dev,
+      changeOrigin: true,
+      rewrite: (path) => path.replace(/^\/research-intraday-st-data/, '/st_data'),
+      configure(proxy) {
+        proxy.on('proxyReq', (proxyRequest: ClientRequest, request) => {
+          const cookie = env.DEV_SESSION_RESEARCH
+            ? `sentimen_session=${env.DEV_SESSION_RESEARCH}`
+            : request.headers.cookie
+          if (cookie) proxyRequest.setHeader('Cookie', cookie)
+        })
+      },
+    },
+    '/tools-st-data': {
+      target: stApiTargets.dev,
+      changeOrigin: true,
+      rewrite: (path) => path.replace(/^\/tools-st-data/, '/st_data'),
+      configure(proxy) {
+        configureDevelopmentCookieProxy(proxy, env.DEV_SESSION_RESEARCH || devSentimenSession)
+      },
+    },
     '/prod-st-data': {
       target: stApiTargets.prod,
       changeOrigin: true,
@@ -171,6 +199,7 @@ export default defineConfig(({ mode }) => {
     // 【Vue2→Vue3 兼容】ChartIQ 原版文件使用 process.env.VUE_APP_*
     define: {
       'process.env': JSON.stringify(browserProcessEnv),
+      'import.meta.env.VITE_DEV_SENTIMEN_SESSION': JSON.stringify(mode === 'development' ? devSentimenSession : ''),
       // 【Vue2→Vue3 兼容】ChartIQ components.js 用 __TREE_SHAKE__ 做 import guard，必须设为 false
       __TREE_SHAKE__: false,
     },
