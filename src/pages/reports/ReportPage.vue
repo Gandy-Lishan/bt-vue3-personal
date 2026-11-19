@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AlertCircle, LoaderCircle, RotateCcw, Search, Star } from '@lucide/vue'
 import { fetchReportFavorites, fetchReportLibrary } from '@/entities/report/api/report.api'
+import { isWeeklyEmailOnly } from '@/shared/auth/permission'
 import type { ReportLibraryItem, ReportViewMode } from '@/entities/report/model/report.types'
 import IndicatorPagination from '@/pages/indicators/ui/IndicatorPagination.vue'
 import ListPageHeader from '@/shared/ui/ListPageHeader.vue'
@@ -41,6 +42,7 @@ const filterGroups = [
 
 const route = useRoute()
 const router = useRouter()
+const weeklyEmailOnly = isWeeklyEmailOnly()
 const currentYear = new Date().getFullYear()
 const archiveYears = Array.from({ length: currentYear - 2012 + 1 }, (_, index) => currentYear - index)
 const reportPlaceholderImage = 'https://cdn.prod.website-files.com/650486dd4239644e595569c1/650486dd4239644e59556a2e_ST%20Placeholder%203.jpg'
@@ -82,6 +84,7 @@ const filteredReports = computed(() => {
 })
 
 async function searchReports(targetPage = 1) {
+  if (weeklyEmailOnly) return
   if (activeTag.value === 'My Favorites') return
   const searchTerm = query.value.trim()
   submittedQuery.value = searchTerm
@@ -115,6 +118,7 @@ async function searchReports(targetPage = 1) {
 }
 
 function requestQuery(targetPage: number) {
+  if (weeklyEmailOnly) return { page: targetPage, userLevel: 'tradingedge' }
   const productCategories: Record<string, string> = {
     'Free for Public': 'public',
     SentimentEdge: 'sentimentedge',
@@ -137,6 +141,10 @@ function routePage() {
 
 function applyRouteFilters() {
   page.value = routePage()
+  if (weeklyEmailOnly) {
+    activeTag.value = 'TradingEdge'
+    return
+  }
   if (route.path.toLowerCase().replace(/\/$/, '') === '/mr/favorites') {
     activeTag.value = 'My Favorites'
     return
@@ -296,8 +304,8 @@ function resetFilters() {
   <div class="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
     <main class="px-[var(--page-gutter)] pb-8 pt-8">
       <ListPageHeader
-        title="Search our Library"
-        description="Explore our vast report library, a resource packed with data-driven insights and expert market perspectives."
+        :title="weeklyEmailOnly ? 'TradingEdge Reports' : 'Search our Library'"
+        :description="weeklyEmailOnly ? 'TradingEdge weekly reports.' : 'Explore our vast report library, a resource packed with data-driven insights and expert market perspectives.'"
         :view-mode="viewMode"
         table-view-label="List"
         :ads="[]"
@@ -305,7 +313,7 @@ function resetFilters() {
       />
 
       <ListPagePanel title="Report Library" :description="`${filteredReports.length} reports available`" hide-header>
-        <template #filters>
+        <template v-if="!weeklyEmailOnly" #filters>
           <div class="report-filter-groups" aria-label="Report categories">
             <section v-for="group in visibleFilterGroups" :key="group.title" class="report-filter-group">
               <h3>{{ group.title }}</h3>
@@ -326,7 +334,7 @@ function resetFilters() {
           </div>
         </template>
 
-        <form class="flex flex-wrap items-center gap-2 border-y border-[var(--app-border)] p-4" role="search" @submit.prevent="searchReports(1)">
+        <form v-if="!weeklyEmailOnly" class="flex flex-wrap items-center gap-2 border-y border-[var(--app-border)] p-4" role="search" @submit.prevent="searchReports(1)">
           <label v-if="activeTag !== 'My Favorites'" class="flex h-9 min-w-0 flex-1 basis-64 items-center rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 transition focus-within:border-[var(--app-primary)]">
             <Search :size="17" class="mr-2 shrink-0 text-[var(--app-text-muted)]" />
             <input

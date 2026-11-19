@@ -16,6 +16,7 @@ import {
   UserRound,
 } from '@lucide/vue'
 import { fetchReportDetail, fetchReportLibrary, setReportFavorite } from '@/entities/report/api/report.api'
+import { isWeeklyEmailOnly } from '@/shared/auth/permission'
 import type { ReportDetail, ReportLibraryItem } from '@/entities/report/model/report.types'
 
 const route = useRoute()
@@ -91,6 +92,7 @@ const backButtonLabel = computed(() => {
 })
 
 function detailLibraryQuery(detail: ReportDetail) {
+  if (isWeeklyEmailOnly()) return { page: 1, userLevel: 'tradingedge' }
   const source = sourceLabel.value || detail.category
   const page = positiveInteger(route.query.page) ?? 1
   if (source === 'Daily Report') {
@@ -318,6 +320,7 @@ watch(slug, () => void loadReport())
           <LockKeyhole :size="30" />
           <h2>This report is for members</h2>
           <p>Your current plan does not include access to this report.</p>
+          <RouterLink :to="{ path: '/login', query: { redirect: route.fullPath } }">Sign in to view this report</RouterLink>
         </div>
       </article>
 
@@ -337,11 +340,10 @@ watch(slug, () => void loadReport())
 
 <style scoped>
 .report-detail-page { min-height: 100vh; padding: 1.5rem var(--page-gutter) 3rem; background: var(--app-bg); color: var(--app-text); }
-.report-detail-layout { display: grid; grid-template-columns: minmax(0, 2.5fr) minmax(280px, 1fr); gap: 1.875rem; max-width: 1170px; margin: 0 auto; align-items: start; }
-.report-detail-page--daily .report-detail-layout { max-width: none; }
+.report-detail-layout { display: grid; grid-template-columns: minmax(0, 2.5fr) minmax(280px, 1fr); gap: 1.875rem; width: 100%; margin: 0 auto; align-items: start; }
 .report-toolbar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid var(--app-border); border-radius: .75rem; padding: .5rem .85rem; background: var(--app-surface); box-shadow: 0 8px 24px rgb(15 23 42 / 5%); }
 .report-article { min-width: 0; overflow: visible; border: 1px solid var(--app-border); border-radius: .75rem; padding: 1.25rem 1.4rem; background: var(--app-surface); box-shadow: 0 8px 24px rgb(15 23 42 / 5%); }
-.report-previous-research { position: static; min-width: 0; border: 1px solid var(--app-border); border-radius: .75rem; padding: 1.15rem; background: var(--app-surface); box-shadow: 0 8px 24px rgb(15 23 42 / 5%); }
+.report-previous-research { position: sticky; top: 1rem; min-width: 0; max-height: calc(100vh - 2rem); overflow-y: auto; border: 1px solid var(--app-border); border-radius: .75rem; padding: 1.15rem; background: var(--app-surface); box-shadow: 0 8px 24px rgb(15 23 42 / 5%); }
 .report-product-banner { display: flex; align-items: center; margin: -1.25rem -1.4rem 1.25rem; overflow: hidden; border-radius: .7rem .7rem 0 0; background: #fbc01f; }
 .report-product-banner img { display: block; width: min(100%, 564px); height: auto; }
 .report-back { display: flex; width: fit-content; min-height: 36px; align-items: center; gap: .4rem; border: 0; padding: 0 .15rem; color: var(--app-primary); background: transparent; font-size: .75rem; font-weight: 700; }
@@ -430,6 +432,7 @@ watch(slug, () => void loadReport())
 .report-access-gate { display: grid; min-height: 360px; place-items: center; align-content: center; padding: 2rem; text-align: center; }
 .report-access-gate h2 { margin-top: .75rem; font-size: 1.25rem; font-weight: 800; }
 .report-access-gate p { margin-top: .35rem; color: var(--app-text-muted); font-size: .85rem; }
+.report-access-gate a { margin-top: 1rem; border-radius: .45rem; padding: .65rem 1rem; color: white; background: var(--app-primary); font-size: .8rem; font-weight: 700; text-decoration: none; }
 .report-actions { display: grid; gap: .45rem; margin-top: .9rem; }
 .report-actions button { display: flex; min-height: 34px; align-items: center; justify-content: center; gap: .45rem; border: 1px solid var(--app-border); border-radius: .4rem; color: var(--app-text-secondary); background: var(--app-surface-soft); font-size: .75rem; font-weight: 700; }
 .report-actions button:hover { border-color: var(--app-primary); color: var(--app-primary); }
@@ -445,7 +448,7 @@ watch(slug, () => void loadReport())
 .report-state h1 { font-size: 1.4rem; font-weight: 800; }
 .report-state p { max-width: 500px; color: var(--app-text-muted); font-size: .85rem; }
 .report-state button { margin-top: .5rem; border-radius: .45rem; padding: .65rem 1rem; color: white; background: var(--app-primary); font-size: .8rem; font-weight: 700; }
-@media (max-width: 900px) { .report-detail-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .report-detail-layout { grid-template-columns: minmax(0, 1fr); } .report-previous-research { position: static; max-height: none; overflow-y: visible; } }
 @media (max-width: 760px) { .report-detail-page { padding: .75rem var(--page-gutter) 2rem; } .report-toolbar { gap: .55rem; } .report-article { padding: 1rem; } .report-product-banner { margin: -1rem -1rem 1rem; } .report-forecasts header { justify-content: flex-start; padding-right: 5.5rem; } }
 @media print {
   :global(body *) { visibility: hidden !important; }
