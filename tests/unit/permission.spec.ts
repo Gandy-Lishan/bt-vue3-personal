@@ -5,6 +5,9 @@ import {
   getCookieData,
   getCurrentAccessLevels,
   getRoutePermissionDecision,
+  canAccessNavigationItem,
+  ensureGuestSessionCookie,
+  isGuestSession,
   normalizeAccessLevels,
   prepareLegacyAuthCookies,
 } from '@/shared/auth/permission'
@@ -44,16 +47,36 @@ describe('permission helpers', () => {
 
     expect(getRoutePermissionDecision('/MR/sentimentedge', ['datalite'], true)).toEqual({
       allowed: false,
-      redirectPath: '/',
+      redirectPath: '/login',
     })
     expect(getRoutePermissionDecision('/indicators', ['reports'], true)).toEqual({
       allowed: false,
-      redirectPath: '/MR/sentimentedge',
+      redirectPath: '/login',
     })
     expect(getRoutePermissionDecision('/indicators', ['corelite'], true)).toEqual({
       allowed: false,
-      redirectPath: '/MR/sentimentedge',
+      redirectPath: '/login',
     })
+  })
+
+  it('gives everything, premium, and research identical access to all guarded pages', () => {
+    for (const level of ['everything', 'premium', 'research']) {
+      for (const path of ['/indicators', '/MR/sentimentedge', '/notifications', '/scannerai', '/research/spotlights/risk-on-off']) {
+        expect(getRoutePermissionDecision(path, [level], true).allowed).toBe(true)
+      }
+      expect(canAccessNavigationItem('/external', ['ai-admin'], true, [level], true)).toBe(true)
+    }
+  })
+
+  it('limits weekly-email to TradingEdge listings and checked report details', () => {
+    for (const level of ['weekly-email', 'tradingedge']) {
+      expect(getRoutePermissionDecision('/MR/tradingedge', [level], true).allowed).toBe(true)
+      expect(getRoutePermissionDecision('/MR/blog/report-slug', [level], true).allowed).toBe(true)
+      for (const path of ['/', '/MR/reports', '/MR/modeledge', '/MR/tradingedge/other', '/indicators']) {
+        expect(getRoutePermissionDecision(path, [level], true)).toEqual({ allowed: false, redirectPath: '/login' })
+      }
+    }
+    expect(canAccessNavigationItem('/MR/tradingedge', ['weekly-email'], false, ['weekly-email'], true)).toBe(true)
   })
 
   it('allows report accounts into their limited report and sample backtest pages', () => {
@@ -61,18 +84,19 @@ describe('permission helpers', () => {
     expect(getRoutePermissionDecision('/backtester/list/sample', ['reports'], true).allowed).toBe(true)
     expect(getRoutePermissionDecision('/backtester/list/history', ['reports'], true)).toEqual({
       allowed: false,
-      redirectPath: '/backtester/list/sample',
+      redirectPath: '/login',
     })
   })
 
-  it('keeps the old userid fallback cookie behavior without granting explicit levels', () => {
+  it('keeps the old userid fallback cookie without granting page access', () => {
     window.history.replaceState(null, '', '/indicators?userid=system&backtestID=bt-1')
 
     prepareLegacyAuthCookies()
 
     expect(document.cookie).toContain(`${DEVBT2_USER_ID_COOKIE}=system`)
     expect(localStorage.getItem('backtestID')).toBe('bt-1')
-    expect(getRoutePermissionDecision('/indicators').allowed).toBe(true)
+    expect(getRoutePermissionDecision('/indicators')).toEqual({ allowed: false, redirectPath: '/login' })
+    expect(getRoutePermissionDecision('/indicators', ['unknown'], true)).toEqual({ allowed: false, redirectPath: '/login' })
   })
 
   it('redirects unauthenticated routes to the login page', () => {
@@ -80,5 +104,20 @@ describe('permission helpers', () => {
       allowed: false,
       redirectPath: '/login',
     })
+  })
+
+  it('installs the visitor session only when no real session exists', () => {
+    ensureGuestSessionCookie()
+    expect(isGuestSession()).toBe(true)
+    expect(getCookieData()?.username).toBe('guest@sentimentrader.com')
+    const visitorCookie = document.cookie
+    ensureGuestSessionCookie()
+    expect(document.cookie).toBe(visitorCookie)
+
+    clearCookie(SENTIMEN_SESSION_COOKIE)
+    document.cookie = `${SENTIMEN_SESSION_COOKIE}=${encodeURIComponent(testSentimenSession)}; path=/`
+    ensureGuestSessionCookie()
+    expect(isGuestSession()).toBe(false)
+    expect(getCookieData()?.username).toBe('hao@sentimentrader.com')
   })
 })

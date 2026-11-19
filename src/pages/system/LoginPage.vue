@@ -2,9 +2,6 @@
   <main class="flex min-h-screen items-center justify-center bg-[var(--app-bg)]">
     <section class="w-full max-w-md rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-8 shadow-lg">
       <h1 class="text-center text-2xl font-semibold text-[var(--app-text)]">Sign in to your account</h1>
-      <p class="mt-2 text-center text-sm text-[var(--app-text-secondary)]">
-        Or <RouterLink :to="pricingLink" class="text-[var(--app-primary)] underline hover:opacity-80">try our research, analysis and tools for 14 days for free</RouterLink>
-      </p>
 
       <form class="mt-6 space-y-4" @submit.prevent="onLogin">
         <div>
@@ -69,12 +66,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { login } from '@/shared/api/stApi'
 import { getCookieData, getCurrentAccessLevels } from '@/shared/auth/permission'
 
 const router = useRouter()
-const route = useRoute()
 const loading = ref(false)
 const formError = ref('')
 const showPassword = ref(false)
@@ -82,12 +78,6 @@ const showPassword = ref(false)
 const form = reactive({ email: '', password: '' })
 const errors = reactive<Record<string, string>>({})
 
-const redirectTarget = computed(() => route.query.redirect as string | undefined)
-const pricingLink = computed(() => {
-  return redirectTarget.value
-    ? { path: '/pricing', query: { redirect: redirectTarget.value } }
-    : '/pricing'
-})
 
 function validateEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)

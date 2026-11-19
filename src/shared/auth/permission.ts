@@ -1,5 +1,6 @@
 import type { Router } from 'vue-router'
 import CryptoJS from 'crypto-js'
+import { GUEST_SESSION_COOKIE } from './guestSession'
 
 export interface SentimenSessionData {
   username?: string
@@ -133,6 +134,14 @@ export function getCurrentUsername() {
   return getCookieData()?.username || readCookie(DEVBT2_USER_ID_COOKIE)
 }
 
+export function isGuestSession() {
+  return getCookieData()?.username === 'guest@sentimentrader.com'
+}
+
+export function ensureGuestSessionCookie() {
+  if (!readCookie(SENTIMEN_SESSION_COOKIE)) writeCookie(SENTIMEN_SESSION_COOKIE, GUEST_SESSION_COOKIE)
+}
+
 export function hasAnyAccess(accessLevels: string[], requiredLevels: string[]) {
   return requiredLevels.some((requiredLevel) =>
     accessLevels.some((accessLevel) => accessLevel.includes(requiredLevel.toLowerCase())),
@@ -141,6 +150,10 @@ export function hasAnyAccess(accessLevels: string[], requiredLevels: string[]) {
 
 function hasFullAccess(accessLevels: string[]) {
   return hasAnyAccess(accessLevels, fullAccessLevels)
+}
+
+export function isWeeklyEmailOnly(accessLevels = getCurrentAccessLevels()) {
+  return hasAnyAccess(accessLevels, ['weekly-email', 'tradingedge']) && !hasFullAccess(accessLevels)
 }
 
 export function hasAuthenticatedCookie() {
@@ -177,27 +190,32 @@ export function getRoutePermissionDecision(
   const normalizedPath = normalizePath(path)
 
   if (normalizedPath === '/404') return { allowed: true }
+  // Guest access is evaluated by each page; the shared cookie's "everything"
+  // access level must not be treated as a paid subscription.
+  if (isGuestSession()) return { allowed: true }
   if (!isAuthenticated) return { allowed: false, redirectPath: '/login' }
-  if (!accessLevels.length) return { allowed: true }
+  if (!accessLevels.length) return { allowed: false, redirectPath: '/login' }
+  if (hasFullAccess(accessLevels)) return { allowed: true }
+
+  if (isWeeklyEmailOnly(accessLevels)) {
+    return normalizedPath.replace(/\/$/, '') === '/mr/tradingedge' || normalizedPath.startsWith('/mr/blog/')
+      ? { allowed: true }
+      : { allowed: false, redirectPath: '/login' }
+  }
 
   if (normalizedPath.includes('/notifications')) {
     return hasAnyAccess(accessLevels, notificationAccessLevels)
       ? { allowed: true }
-      : { allowed: false, redirectPath: '/' }
+      : { allowed: false, redirectPath: '/login' }
   }
 
-  if (hasFullAccess(accessLevels)) return { allowed: true }
-
   if (hasAnyAccess(accessLevels, ['datalite'])) {
-    return normalizedPath.includes('/mr') ? { allowed: false, redirectPath: '/' } : { allowed: true }
+    return normalizedPath.includes('/mr') ? { allowed: false, redirectPath: '/login' } : { allowed: true }
   }
 
   if (hasAnyAccess(accessLevels, ['reports'])) {
     if (reportsUserCanAccess(normalizedPath)) return { allowed: true }
-    return {
-      allowed: false,
-      redirectPath: normalizedPath.includes('/backtester') ? '/backtester/list/sample' : '/MR/sentimentedge',
-    }
+    return { allowed: false, redirectPath: '/login' }
   }
 
   if (hasAnyAccess(accessLevels, ['corelite'])) {
@@ -206,10 +224,10 @@ export function getRoutePermissionDecision(
       normalizedPath.includes('/swing_trading') ||
       normalizedPath.includes('/scannerai')
       ? { allowed: true }
-      : { allowed: false, redirectPath: '/MR/sentimentedge' }
+      : { allowed: false, redirectPath: '/login' }
   }
 
-  return { allowed: true }
+  return { allowed: false, redirectPath: '/login' }
 }
 
 export function canAccessNavigationItem(path: string, requiredLevels?: string[], external = false, overrideAccessLevels?: string[], overrideIsAuthenticated?: boolean) {
@@ -217,8 +235,9 @@ export function canAccessNavigationItem(path: string, requiredLevels?: string[],
   const isAuthenticated = overrideIsAuthenticated ?? hasAuthenticatedCookie()
 
   if (requiredLevels?.length) {
+    if (isGuestSession()) return true
     if (!isAuthenticated) return false
-    if (!accessLevels.length) return true
+    if (!accessLevels.length) return false
     if (hasFullAccess(accessLevels)) return true
     return hasAnyAccess(accessLevels, requiredLevels)
   }
@@ -242,10 +261,15 @@ export function prepareLegacyAuthCookies() {
 }
 
 export function ensureDevelopmentSessionCookie() {
-  if (!import.meta.env.DEV || !isBrowser() || readCookie(SENTIMEN_SESSION_COOKIE)) return
+  if (!import.meta.env.DEV || !isBrowser()) return
 
   const devCookie = import.meta.env.VITE_DEV_SENTIMEN_SESSION
-  if (devCookie) writeCookie(SENTIMEN_SESSION_COOKIE, devCookie)
+  if (!devCookie) return
+  const selectionKey = 'dev-selected-session-cookie'
+  if (localStorage.getItem(selectionKey) !== devCookie || !readCookie(SENTIMEN_SESSION_COOKIE)) {
+    writeCookie(SENTIMEN_SESSION_COOKIE, devCookie)
+    localStorage.setItem(selectionKey, devCookie)
+  }
 }
 
 export function syncBacktestUserStorage() {
@@ -256,11 +280,17 @@ export function syncBacktestUserStorage() {
 export function installRouterPermissionGuard(router: Router) {
   router.beforeEach((to) => {
     ensureDevelopmentSessionCookie()
+    ensureGuestSessionCookie()
     prepareLegacyAuthCookies()
     syncBacktestUserStorage()
 
     // Public routes don't need auth check
     if ((to.meta as Record<string, unknown>)?.public) return true
+
+    if (isWeeklyEmailOnly() && to.path.toLowerCase().replace(/\/$/, '') === '/mr/tradingedge' &&
+      typeof to.query.tag === 'string' && to.query.tag.toLowerCase() !== 'tradingedge') {
+      return { path: '/login', query: { redirect: to.fullPath }, replace: true }
+    }
 
     const decision = getRoutePermissionDecision(to.path)
     if (decision.allowed) return true
@@ -271,5 +301,17 @@ export function installRouterPermissionGuard(router: Router) {
       query: to.fullPath === '/' ? undefined : { redirect: to.fullPath },
       replace: true,
     }
+  })
+
+  router.beforeResolve(async (to) => {
+    if (to.name !== 'report-detail' || !isWeeklyEmailOnly()) return true
+    try {
+      const { fetchReportDetail } = await import('@/entities/report/api/report.api')
+      const detail = await fetchReportDetail(String(to.params.slug ?? ''))
+      if (detail.category.toLowerCase() === 'tradingedge' || detail.userLevel.toLowerCase() === 'tradingedge') return true
+    } catch {
+      // A failed lookup cannot establish that this report is TradingEdge.
+    }
+    return { path: '/login', query: { redirect: to.fullPath }, replace: true }
   })
 }

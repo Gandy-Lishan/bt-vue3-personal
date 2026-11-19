@@ -45,6 +45,11 @@ const router = createRouter({
       component: () => import('@/pages/search/SearchPage.vue'),
     },
     {
+      path: '/notifications',
+      name: 'notifications',
+      component: () => import('@/pages/notifications/NotificationsPage.vue'),
+    },
+    {
       path: '/MR/blog/:slug',
       name: 'report-detail',
       component: () => import('@/pages/reports/ReportDetailPage.vue'),
