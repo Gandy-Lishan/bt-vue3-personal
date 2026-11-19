@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Activity, AlignLeft, BarChart3, CalendarDays, Download, Globe2, Grid3X3, RefreshCw, Search, Shield, SlidersHorizontal, TrendingUp } from '@lucide/vue'
-import { fetchResearchPage } from './research.api'
 import { findResearchPage, pagesForGroup, researchGroupLabels, researchPages } from './research.catalog'
 import RiskOnOffContent from './RiskOnOffContent.vue'
 import MarketEnvironmentContent from './MarketEnvironmentContent.vue'
@@ -20,18 +19,34 @@ import OptixHeatmapContent from './OptixHeatmapContent.vue'
 import RankChartsContent from './RankChartsContent.vue'
 import LayersIcon from './LayersIcon.vue'
 import type { ResearchGroup, ResearchPageData, ResearchSeries } from './research.types'
+import { fetchMarketEnvironment, fetchRiskOnOffResearch } from './risk-on-off.api'
+import { fetchTctmResearch } from './tctm.api'
+import { fetchMarketBreadth, type MarketBreadthRow } from './market-breadth.api'
+import { fetchSpotlight, type SpotlightIndicator } from './spotlight.api'
+import { isGuestSession } from '@/shared/auth/permission'
+import GuestPreview from './GuestPreview.vue'
 
 const route = useRoute()
 const loading = ref(false)
 const error = ref('')
 const data = ref<ResearchPageData | null>(null)
+const breadthRows = ref<MarketBreadthRow[]>([])
+const bondIndicators = ref<SpotlightIndicator[]>([])
+const energyIndicators = ref<SpotlightIndicator[]>([])
+const goldIndicators = ref<SpotlightIndicator[]>([])
+const macroIndicators = ref<SpotlightIndicator[]>([])
 const query = ref('')
 const range = ref('3M')
 const view = ref<'charts' | 'table'>('charts')
+const riskPeriod = ref<21 | 63 | 126>(63)
+const environmentPeriod = ref<21 | 63 | 126>(63)
+const tacticalPeriod = ref<21 | 63 | 126>(63)
 let controller: AbortController | null = null
 
 const group = computed(() => String(route.params.group) as ResearchGroup)
 const slug = computed(() => String(route.params.page))
+const isGuest = computed(() => { route.fullPath; return isGuestSession() })
+const livePages = new Set(['intraday-monitor', 'seasonality-calendar', 'global-breadth-overview', 'market-sentiment-overview', 'optix-heatmap', 'rank-charts'])
 const page = computed(() => findResearchPage(group.value, slug.value))
 const navigationGroups: ResearchGroup[] = ['spotlights', 'intraday', 'market-analytics']
 const filteredSeries = computed(() => {
@@ -70,19 +85,77 @@ function toneClass(value: string) {
 async function load() {
   if (!page.value) return
   controller?.abort()
-  controller = new AbortController()
-  loading.value = true
-  error.value = ''
-  try {
-    data.value = await fetchResearchPage(page.value.slug, controller.signal)
-  } catch (reason) {
-    if (!(reason instanceof DOMException && reason.name === 'AbortError')) error.value = 'Unable to load this research page.'
-  } finally {
-    loading.value = false
+  if (slug.value === 'risk-on-off' || slug.value === 'market-environment' || slug.value === 'tactical-composite-trend-model') {
+    controller = new AbortController()
+    const signal = controller.signal
+    loading.value = true
+    error.value = ''
+    data.value = null
+    try {
+      data.value = slug.value === 'risk-on-off'
+        ? await fetchRiskOnOffResearch(riskPeriod.value, signal)
+        : slug.value === 'market-environment'
+          ? await fetchMarketEnvironment(environmentPeriod.value, signal)
+          : await fetchTctmResearch(tacticalPeriod.value, signal)
+    }
+    catch (reason) { if (!signal.aborted) error.value = reason instanceof Error ? reason.message : 'Unable to load composite data' }
+    finally { if (!signal.aborted) loading.value = false }
+    return
   }
+  if (slug.value === 'market-breadth') {
+    controller = new AbortController()
+    const signal = controller.signal
+    loading.value = true
+    error.value = ''
+    data.value = null
+    breadthRows.value = []
+    try {
+      breadthRows.value = await fetchMarketBreadth(signal)
+      data.value = { metrics: [], series: [], tables: [], updatedAt: 'Live API data' }
+    } catch (reason) {
+      if (!signal.aborted) error.value = reason instanceof Error ? reason.message : 'Unable to load Market Breadth data'
+    } finally {
+      if (!signal.aborted) loading.value = false
+    }
+    return
+  }
+  if (slug.value === 'bonds' || slug.value === 'energy' || slug.value === 'gold' || slug.value === 'macro') {
+    controller = new AbortController()
+    const signal = controller.signal
+    loading.value = true
+    error.value = ''
+    data.value = null
+    const spotlightKey = slug.value
+    if (spotlightKey === 'bonds') bondIndicators.value = []
+    else if (spotlightKey === 'energy') energyIndicators.value = []
+    else if (spotlightKey === 'gold') goldIndicators.value = []
+    else macroIndicators.value = []
+    try {
+      const indicators = await fetchSpotlight(spotlightKey, signal)
+      if (spotlightKey === 'bonds') bondIndicators.value = indicators
+      else if (spotlightKey === 'energy') energyIndicators.value = indicators
+      else if (spotlightKey === 'gold') goldIndicators.value = indicators
+      else macroIndicators.value = indicators
+      data.value = { metrics: [], series: [], tables: [], updatedAt: 'Live API data' }
+    } catch (reason) {
+      if (!signal.aborted) error.value = reason instanceof Error ? reason.message : 'Unable to load Spotlight data'
+    } finally {
+      if (!signal.aborted) loading.value = false
+    }
+    return
+  }
+  if (livePages.has(slug.value)) {
+    data.value = { metrics: [], series: [], tables: [], updatedAt: 'Live API data' }
+    loading.value = false
+    error.value = ''
+    return
+  }
+  data.value = null
+  loading.value = false
+  error.value = 'This page has no matching live data endpoint in the supplied Tools API.'
 }
 
-watch([group, slug], () => { query.value = ''; void load() }, { immediate: true })
+watch([group, slug, riskPeriod, environmentPeriod, tacticalPeriod], () => { query.value = ''; void load() }, { immediate: true })
 onBeforeUnmount(() => controller?.abort())
 </script>
 
@@ -119,20 +192,21 @@ onBeforeUnmount(() => controller?.abort())
             <button type="button" class="inline-flex min-h-9 items-center gap-2 rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 text-xs font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-surface-hover)]" @click="load"><RefreshCw :size="14" /> Refresh</button>
           </div>
           <p class="mt-4 max-w-6xl text-[.8125rem] leading-6 text-[var(--app-text-muted)]">{{ page.intro }}</p>
+          <GuestPreview v-if="isGuest" :slug="slug" />
         </header>
 
         <p v-if="error" class="mb-4 rounded-md border border-[var(--app-negative)] bg-[var(--app-surface)] px-4 py-3 text-sm text-[var(--app-negative)]">{{ error }} <button type="button" class="font-bold underline" @click="load">Try again</button></p>
         <div v-if="loading" class="grid min-h-[360px] place-items-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-sm text-[var(--app-text-muted)]">Loading {{ page.title }}…</div>
 
         <template v-else-if="data">
-          <RiskOnOffContent v-if="slug === 'risk-on-off'" :data="data" />
-          <MarketEnvironmentContent v-else-if="slug === 'market-environment'" :data="data" />
-          <TacticalCompositeContent v-else-if="slug === 'tactical-composite-trend-model'" :data="data" />
-          <MarketBreadthContent v-else-if="slug === 'market-breadth'" />
-          <BondsContent v-else-if="slug === 'bonds'" />
-          <EnergyContent v-else-if="slug === 'energy'" />
-          <GoldContent v-else-if="slug === 'gold'" />
-          <MacroContent v-else-if="slug === 'macro'" />
+          <RiskOnOffContent v-if="slug === 'risk-on-off'" :data="data" :period="riskPeriod" @update:period="riskPeriod = $event" />
+          <MarketEnvironmentContent v-else-if="slug === 'market-environment'" :data="data" :period="environmentPeriod" @update:period="environmentPeriod = $event" />
+          <TacticalCompositeContent v-else-if="slug === 'tactical-composite-trend-model'" :data="data" :period="tacticalPeriod" @update:period="tacticalPeriod = $event" />
+          <MarketBreadthContent v-else-if="slug === 'market-breadth'" :rows="breadthRows" />
+          <BondsContent v-else-if="slug === 'bonds'" :indicators="bondIndicators" />
+          <EnergyContent v-else-if="slug === 'energy'" :indicators="energyIndicators" />
+          <GoldContent v-else-if="slug === 'gold'" :indicators="goldIndicators" />
+          <MacroContent v-else-if="slug === 'macro'" :indicators="macroIndicators" />
           <IntradayMonitorContent v-else-if="slug === 'intraday-monitor'" />
           <SeasonalityCalendarContent v-else-if="slug === 'seasonality-calendar'" />
           <GlobalBreadthContent v-else-if="slug === 'global-breadth-overview'" />

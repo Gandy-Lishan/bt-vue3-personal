@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { fetchRankCharts } from './rank-charts.api'
 
 type Metric = 'optix' | 'flow' | 'breadth'
 type Category = 'commodities' | 'countries' | 'bonds' | 'currencies' | 'stocks' | 'sectors'
-type Row = { name: string; value: number; index: number }
-const pairs = (text: string): Row[] => text.split('|').map((part,index) => { const cut = part.lastIndexOf(':'); return {name:part.slice(0,cut),value:Number(part.slice(cut+1)),index} })
-const datasets: Record<Category,{title:string;demo?:boolean;metrics:Metric[];rows:Partial<Record<Metric,Row[]>>}> = {
-  commodities:{title:'Commodities',metrics:['optix'],rows:{optix:pairs('Natural Gas:24|Hogs:27|Lumber:31|Cocoa:34|Orange Juice:36|Corn:37|Wheat:37|Platinum:44|Silver:47|Cattle:47|Coffee:52|Gold:55|Soybeans:58|Crude Oil:58|Cotton:59|Sugar:63|Heating Oil:69|Copper:69|Unleaded Gas:70')}},
-  countries:{title:'Countries',metrics:['optix','flow'],rows:{optix:pairs('Brazil:2|Argentina:6|Chile:14|Philippines:15|Emerging Markets:22|Peru:26|Turkey:32|Singapore:32|Spain:35|Netherlands:35|South Korea:36|China:37|Russia:37|Taiwan:38|Saudi Arabia:38|Colombia:38|Austria:38|Japan:39|Pakistan:39|Indonesia:41|India:43|Greece:43|Poland:43|South Africa:44|United Arab Emirates:44|Malaysia:45|Sweden:47|Egypt:49|Portugal:49|France:49|Finland:49|Belgium:50|United States:50|Italy:50|Nigeria:51|Vietnam:52|Mexico:53|New Zealand:57|Germany:58|United Kingdom:58|Hong Kong:59|Australia:61|Canada:61|Ireland:63|Thailand:63|Switzerland:64|Denmark:72|Norway:72|Qatar:75|Israel:82'),flow:pairs('Australia:0|Brazil:0|Canada:0|China:0|Emerging Markets:0|France:0|Germany:0|India:0|Italy:0|Japan:0|Russia:0|Spain:0|United Kingdom:0|Mexico:8|United States:50')}},
-  bonds:{title:'Bonds',metrics:['optix'],rows:{optix:pairs('10-Year Optix:9|Eurodollar Optix:18|30-Year Optix:42|JNK Optix:58|HYG Optix:62|RSP Optix:70|BIL Optix:76|LQD Optix:78|BND Optix:83|TLT Optix:84|5-Year Optix:88|2-Year Optix:93')}},
-  currencies:{title:'Currencies',metrics:['optix'],rows:{optix:pairs('Euro:29|Dollar Optimism Index:31|British Pound:36|Japanese Yen:43|Canadian Dollar:44|Swiss Franc:48|US Dollar:60')}},
-  stocks:{title:'Stocks',metrics:['optix'],rows:{optix:pairs('Amc Networks-A:0|Fmc Corp:0|Jetblue Airways:1|Teco Energy Inc:1|Dow Chemical Co:98|Ryder System Inc:98|Range Resources:99|Lockheed Martin:99')}},
-  sectors:{title:'Sectors',demo:true,metrics:['optix','flow','breadth'],rows:{optix:pairs('Communication Services:25|Consumer Discretionary:45|Consumer Staples:67|Energy:78|Financials:62|Health Care:84|Industrials:58|Information Technology:38|Materials:54|Real Estate:71|Utilities:81'),flow:pairs('Communication Services:-145|Consumer Discretionary:-80|Consumer Staples:120|Energy:285|Financials:170|Health Care:-210|Industrials:65|Information Technology:-340|Materials:35|Real Estate:-55|Utilities:95'),breadth:pairs('Communication Services:36|Consumer Discretionary:44|Consumer Staples:65|Energy:81|Financials:58|Health Care:74|Industrials:62|Information Technology:48|Materials:51|Real Estate:68|Utilities:77')}},
+type Row = { name: string; value: number | null; index: number }
+const datasets: Record<Category,{title:string;metrics:Metric[]}> = {
+  commodities:{title:'Commodities',metrics:['optix']},
+  countries:{title:'Countries',metrics:['optix']},
+  bonds:{title:'Bonds',metrics:['optix','flow']},
+  currencies:{title:'Currencies',metrics:['optix']},
+  stocks:{title:'Stocks',metrics:['optix']},
+  sectors:{title:'Sectors',metrics:['optix','flow','breadth']},
 }
 const metricLabels: Record<Metric,string> = {optix:'Optimism Index',flow:'Money Flow',breadth:'Oversold / Overbought Breadth'}
 const category = ref<Category>('commodities')
@@ -20,36 +20,53 @@ const sort = ref('asc')
 const search = ref('')
 const view = ref<'chart'|'table'>('chart')
 watch(category, () => { metric.value = 'optix'; search.value = '' })
-const source = computed(() => datasets[category.value].rows[metric.value] ?? [])
+const liveRows = ref<Row[]>([])
+const loading = ref(false)
+const error = ref('')
+watch([category, metric], async (_, __, onCleanup) => {
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  loading.value = true
+  error.value = ''
+  liveRows.value = []
+  try {
+    const result = await fetchRankCharts(category.value, metric.value, controller.signal)
+    liveRows.value = result.items.map((item, index) => ({ name: String(item.name ?? item.symbol ?? ''), value: item.value != null && Number.isFinite(Number(item.value)) ? Number(item.value) : null, index })).filter(item => item.name)
+  } catch (reason) {
+    if (!controller.signal.aborted) error.value = reason instanceof Error ? reason.message : 'Unable to load rankings'
+  } finally { if (!controller.signal.aborted) loading.value = false }
+}, { immediate: true })
+const source = computed(() => liveRows.value)
+const compareValues = (a: Row, b: Row, direction: 1 | -1) => a.value == null ? b.value == null ? a.index - b.index : 1 : b.value == null ? -1 : direction * (a.value - b.value) || a.index - b.index
 const rows = computed(() => {
   const result = source.value.filter(row => row.name.toLowerCase().includes(search.value.trim().toLowerCase())).slice()
-  if(sort.value === 'asc') result.sort((a,b) => a.value-b.value || a.index-b.index)
-  if(sort.value === 'desc') result.sort((a,b) => b.value-a.value || a.index-b.index)
+  if(sort.value === 'asc') result.sort((a,b) => compareValues(a,b,1))
+  if(sort.value === 'desc') result.sort((a,b) => compareValues(a,b,-1))
   if(sort.value === 'name') result.sort((a,b) => a.name.localeCompare(b.name))
   return result
 })
-const low = computed(() => rows.value.length ? Math.min(...rows.value.map(row => row.value)) : null)
-const high = computed(() => rows.value.length ? Math.max(...rows.value.map(row => row.value)) : null)
+const low = computed(() => { const values = rows.value.flatMap(row => row.value == null ? [] : [row.value]); return values.length ? Math.min(...values) : null })
+const high = computed(() => { const values = rows.value.flatMap(row => row.value == null ? [] : [row.value]); return values.length ? Math.max(...values) : null })
 const extremeNames = (value: number | null) => value === null ? 'No matching records' : (() => { const names = rows.value.filter(row => row.value === value).map(row => row.name); return names.slice(0,2).join(' · ') + (names.length > 2 ? ` · +${names.length-2} more` : '') })()
-const domain = computed(() => { const max = Math.max(1,...source.value.map(row => Math.abs(row.value))); const magnitude = 10 ** Math.floor(Math.log10(max)); return metric.value === 'flow' ? Math.ceil(max/magnitude)*magnitude : 100 })
-const ticks = computed(() => metric.value === 'flow' ? [-domain.value,-domain.value/2,0,domain.value/2,domain.value] : [0,25,50,75,100])
+const domain = computed(() => { const max = Math.max(1,...source.value.map(row => Math.abs(row.value ?? 0))); const magnitude = 10 ** Math.floor(Math.log10(max)); return metric.value === 'flow' || metric.value === 'breadth' ? Math.ceil(max/magnitude)*magnitude : 100 })
+const ticks = computed(() => metric.value === 'flow' || metric.value === 'breadth' ? [-domain.value,-domain.value/2,0,domain.value/2,domain.value] : [0,25,50,75,100])
 const chunks = computed(() => rows.value.length > 26 ? [rows.value.slice(0,Math.ceil(rows.value.length/2)),rows.value.slice(Math.ceil(rows.value.length/2))] : [rows.value])
-function barStyle(value:number) { const delta = value - (metric.value === 'flow' ? 0 : 50); const size = metric.value === 'flow' ? Math.abs(delta)/domain.value*50 : Math.abs(delta); return {left:`${delta < 0 ? 50-size : 50}%`,width:`${size}%`} }
-const reference = computed(() => metric.value === 'flow' ? 0 : 50)
+function barStyle(value:number | null) { if (value == null) return {left:'50%',width:'0%'}; const centered = metric.value !== 'optix'; const delta = value - (centered ? 0 : 50); const size = centered ? Math.abs(delta)/domain.value*50 : Math.abs(delta); return {left:`${delta < 0 ? 50-size : 50}%`,width:`${size}%`} }
+const reference = computed(() => metric.value === 'optix' ? 50 : 0)
 </script>
 
 <template>
   <section class="rank-workspace">
-    <div class="rank-category-tabs" role="tablist" aria-label="Asset groups"><button v-for="(item,key) in datasets" :key="key" class="rank-category" :class="{active:category === key}" role="tab" :aria-selected="category === key" @click="category = key">{{ item.title }}<span>{{ item.rows.optix?.length }}</span></button></div>
-    <div class="rank-summary"><div class="rank-stat"><span>Visible items</span><strong>{{ rows.length }}<small> / {{ source.length }}</small></strong><p>{{ datasets[category].title }} · {{ metricLabels[metric] }}</p></div><div class="rank-stat"><span>Lowest reading</span><strong>{{ low ?? '—' }}</strong><p>{{ extremeNames(low) }}</p></div><div class="rank-stat"><span>Highest reading</span><strong>{{ high ?? '—' }}</strong><p>{{ extremeNames(high) }}</p></div></div>
-    <div class="rank-layout"><article class="rank-panel"><header class="rank-head"><div><h2>{{ datasets[category].title }} · {{ metricLabels[metric] }}</h2><p>Compare the selected list against the {{ reference }} reference.</p></div><span class="rank-snapshot">{{ datasets[category].demo ? 'Demo data' : 'Snapshot data' }}</span></header>
+    <div class="rank-category-tabs" role="tablist" aria-label="Asset groups"><button v-for="(item,key) in datasets" :key="key" class="rank-category" :class="{active:category === key}" role="tab" :aria-selected="category === key" @click="category = key">{{ item.title }}</button></div>
+    <p v-if="loading">Loading rankings…</p><p v-if="error" role="alert">{{ error }}</p><div class="rank-summary"><div class="rank-stat"><span>Visible items</span><strong>{{ rows.length }}<small> / {{ source.length }}</small></strong><p>{{ datasets[category].title }} · {{ metricLabels[metric] }}</p></div><div class="rank-stat"><span>Lowest reading</span><strong>{{ low ?? '—' }}</strong><p>{{ extremeNames(low) }}</p></div><div class="rank-stat"><span>Highest reading</span><strong>{{ high ?? '—' }}</strong><p>{{ extremeNames(high) }}</p></div></div>
+    <div class="rank-layout"><article class="rank-panel"><header class="rank-head"><div><h2>{{ datasets[category].title }} · {{ metricLabels[metric] }}</h2><p>Compare the selected list against the {{ reference }} reference.</p></div><span class="rank-snapshot">Latest API data</span></header>
       <div class="rank-toolbar"><label for="rank-metric">Metric</label><select id="rank-metric" v-model="metric" aria-label="Ranking metric"><option v-for="option in datasets[category].metrics" :key="option" :value="option">{{ metricLabels[option] }}</option></select><select v-model="sort" aria-label="Sort ranking"><option value="asc">Value: low to high</option><option value="desc">Value: high to low</option><option value="name">Name: A–Z</option><option value="default">Default order</option></select><input v-model="search" type="search" placeholder="Find a name…" aria-label="Find a name in ranking"><div class="rank-view-toggle"><button :class="{active:view === 'chart'}" :aria-pressed="view === 'chart'" @click="view = 'chart'">Chart</button><button :class="{active:view === 'table'}" :aria-pressed="view === 'table'" @click="view = 'table'">Table</button></div></div>
       <div v-if="!rows.length" class="rank-empty">No matching records. Try another name or clear the search field.</div>
-      <div v-else-if="view === 'table'" class="rank-results"><table class="rank-table"><thead><tr><th>Name</th><th>{{ metricLabels[metric] }}</th></tr></thead><tbody><tr v-for="row in rows" :key="row.index"><td>{{ row.name }}</td><td>{{ row.value }}</td></tr></tbody></table></div>
-      <div v-else class="rank-results"><div class="rank-list-layout" :class="{two:chunks.length > 1}"><div v-for="(chunk,index) in chunks" :key="index"><div class="rank-axis"><span>Name</span><div class="rank-axis-values"><span v-for="(tick,tickIndex) in ticks" :key="tickIndex" :style="{left:`${tickIndex*25}%`}">{{ tick }}</span></div><span>Reading</span></div><div v-for="row in chunk" :key="row.index" class="rank-row" :title="`${row.name}: ${row.value}`"><div class="rank-name">{{ row.name }}</div><div class="rank-track"><span class="rank-bar" :class="row.value < reference ? 'low' : row.value === reference ? 'mid' : 'high'" :style="barStyle(row.value)"></span></div><div class="rank-value">{{ row.value }}</div></div></div></div></div>
+      <div v-else-if="view === 'table'" class="rank-results"><table class="rank-table"><thead><tr><th>Name</th><th>{{ metricLabels[metric] }}</th></tr></thead><tbody><tr v-for="row in rows" :key="row.index"><td>{{ row.name }}</td><td>{{ row.value ?? '—' }}</td></tr></tbody></table></div>
+      <div v-else class="rank-results"><div class="rank-list-layout" :class="{two:chunks.length > 1}"><div v-for="(chunk,index) in chunks" :key="index"><div class="rank-axis"><span>Name</span><div class="rank-axis-values"><span v-for="(tick,tickIndex) in ticks" :key="tickIndex" :style="{left:`${tickIndex*25}%`}">{{ tick }}</span></div><span>Reading</span></div><div v-for="row in chunk" :key="row.index" class="rank-row" :title="`${row.name}: ${row.value ?? '—'}`"><div class="rank-name">{{ row.name }}</div><div class="rank-track"><span class="rank-bar" :class="row.value == null ? 'mid' : row.value < reference ? 'low' : row.value === reference ? 'mid' : 'high'" :style="barStyle(row.value)"></span></div><div class="rank-value">{{ row.value ?? '—' }}</div></div></div></div></div>
       <div class="rank-footer"><div v-if="view === 'chart'" class="rank-legend"><span><i></i>Below {{ reference }}</span><span><i class="high"></i>Above {{ reference }}</span></div><span v-else>Reference: {{ reference }}</span><span>{{ rows.length }} displayed records</span></div></article>
-      <aside class="rank-panel rank-aside"><header class="rank-head"><h2>How to read the ranking</h2></header><div class="rank-aside-body"><div class="rank-reference"><strong>{{ reference }}</strong><span>{{ metric === 'flow' ? 'Money Flow baseline' : 'Comparison reference' }}<br>{{ metric === 'flow' ? 'Negative ↔ positive' : 'Lower ↔ higher readings' }}</span></div><p v-if="view === 'chart'">{{ metric === 'flow' ? 'Bars extend left for negative values and right for positive values. The number at the end of each row is the flow reading.' : 'Bars show the distance from the 50 reference. Read the number at the end of each row for the exact value.' }}</p><p v-else>{{ metric === 'flow' ? 'The numeric column shows each asset’s flow reading. Negative values are below zero; positive values are above zero.' : 'The numeric column shows each asset’s reading. Compare values below or above the 50 reference.' }}</p><div v-if="view === 'chart'" class="rank-legend"><span><i></i>Below {{ reference }}</span><span><i class="high"></i>Above {{ reference }}</span></div><div class="rank-note">{{ datasets[category].demo ? (metric === 'flow' ? 'Sector flow readings use illustrative index units; zero is the comparison baseline.' : 'Sector readings are illustrative values on a 0–100 scale; 50 is the comparison midpoint.') : (metric === 'flow' ? 'Money Flow uses the reported readings; zero is the comparison baseline.' : 'Optix uses a 0–100 index scale; 50 is the comparison midpoint.') }}</div></div></aside></div>
-    <div class="rank-page-note">Snapshot readings · This design preview does not use a live market feed.</div>
+      <aside class="rank-panel rank-aside"><header class="rank-head"><h2>How to read the ranking</h2></header><div class="rank-aside-body"><div class="rank-reference"><strong>{{ reference }}</strong><span>{{ metric === 'flow' ? 'Money Flow baseline' : 'Comparison reference' }}<br>{{ metric === 'flow' ? 'Negative ↔ positive' : 'Lower ↔ higher readings' }}</span></div><p v-if="view === 'chart'">{{ metric === 'flow' ? 'Bars extend left for negative values and right for positive values. The number at the end of each row is the flow reading.' : 'Bars show the distance from the 50 reference. Read the number at the end of each row for the exact value.' }}</p><p v-else>{{ metric === 'flow' ? 'The numeric column shows each asset’s flow reading. Negative values are below zero; positive values are above zero.' : 'The numeric column shows each asset’s reading. Compare values below or above the 50 reference.' }}</p><div v-if="view === 'chart'" class="rank-legend"><span><i></i>Below {{ reference }}</span><span><i class="high"></i>Above {{ reference }}</span></div><div class="rank-note">Optix values come from the latest rankings API response.</div></div></aside></div>
+    <div class="rank-page-note">Latest rankings for the selected asset group and metric.</div>
   </section>
 </template>
 

@@ -40,8 +40,8 @@ export function paneLabels(text: string, extra: Highcharts.YAxisLabelsOptions = 
   return { x: 6, align: 'left', style: { color: text, fontSize: '10px' }, ...extra }
 }
 
-export function endLabel(format: string, color: string, textColor = '#fff'): Highcharts.DataLabelsOptions {
-  return { enabled: true, crop: false, overflow: 'allow', format, align: 'left', x: 7, y: 4, padding: 4, borderRadius: 3, backgroundColor: color, style: { color: textColor, fontSize: '9px', fontWeight: '600', textOutline: 'none' } }
+export function endLabel(format: string, color: string, textColor = '#fff', offset: { x?: number; y?: number } = {}): Highcharts.DataLabelsOptions {
+  return { enabled: true, crop: false, overflow: 'allow', format, align: 'left', x: offset.x ?? 7, y: offset.y ?? 4, padding: 4, borderRadius: 3, backgroundColor: color, style: { color: textColor, fontSize: '9px', fontWeight: '600', textOutline: 'none' } }
 }
 
 export function endMarker(color: string, surface: string) {

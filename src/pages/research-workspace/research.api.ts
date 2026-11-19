@@ -88,26 +88,26 @@ export const fetchRiskOnOff = async (_signal?: AbortSignal): Promise<ResearchPag
   }
 }
 const environmentComponents = [
-  ['SPY Breadth (% > 200 Day Avg)', 'Participation'],
-  ['McClellan Summation', 'Participation'],
-  ['NYSE Net High-Low %', 'Participation'],
-  ['S&P 500 Stocks In Correction', 'Participation'],
-  ['McClellan Summation > McClellan Summation (5 Days Ago)', 'Trend conditions'],
-  ['S&P 500 200-Day Average > 200-Day Average (5 Days Ago)', 'Trend conditions'],
-  ['S&P 500 Index Above 200-Day Moving Average', 'Trend conditions'],
-  ['S&P 500 10-Day High Breakout Trend', 'Trend conditions'],
+  ['SPY Breadth (% > 200 Day Avg)', 'Participation', 'breadth_sector_spy_200'],
+  ['McClellan Summation', 'Participation', 'mcclellan_summation'],
+  ['NYSE Net High-Low %', 'Participation', 'nyse_net_high_low'],
+  ['S&P 500 Stocks In Correction', 'Participation', 'sp500_stocks_in_correction'],
+  ['McClellan Summation > McClellan Summation (5 Days Ago)', 'Trend conditions', 'mcclellan_summation_vs_5_days_ago'],
+  ['S&P 500 200-Day Average > 200-Day Average (5 Days Ago)', 'Trend conditions', 'sp500_200_day_avg_vs_5_days_ago'],
+  ['S&P 500 Index Above 200-Day Moving Average', 'Trend conditions', 'sp500_above_200_day_ma'],
+  ['S&P 500 10-Day High Breakout Trend', 'Trend conditions', 'sp500_10_day_high_breakout'],
 ] as const
 
 export const fetchMarketEnvironment = async (_signal?: AbortSignal): Promise<ResearchPageData> => {
   const counts = Array.from({ length: 126 }, (_, index) => Math.max(1, Math.min(8, Math.round(4.7 + 2.1 * Math.sin(index * .087 - 1.2) + .7 * Math.sin(index * .6)))))
   counts.splice(-7, 7, 3, 4, 4, 5, 6, 6, 6)
   const signals = buildStates(counts, 8, 4.1)
-  const series = environmentComponents.map(([name, category], index) => {
+  const series = environmentComponents.map(([name, category, indicatorId], index) => {
     const points = signals[index]
     const healthy = points.at(-1) === 1
     let sessions = 1
     for (let cursor = points.length - 2; cursor >= 0 && points[cursor] === points.at(-1); cursor--) sessions++
-    return { name, category, value: healthy ? '1' : '0', change: `${sessions} ${sessions === 1 ? 'session' : 'sessions'}`, status: healthy ? 'Healthy' : 'Unhealthy', points }
+    return { name, category, indicatorId, value: healthy ? '1' : '0', change: `${sessions} ${sessions === 1 ? 'session' : 'sessions'}`, status: healthy ? 'Healthy' : 'Unhealthy', points }
   })
   const score = counts.at(-1) ?? 0
   const participation = series.slice(0, 4).filter((item) => item.status === 'Healthy').length

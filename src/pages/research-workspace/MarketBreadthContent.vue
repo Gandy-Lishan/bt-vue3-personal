@@ -2,7 +2,9 @@
 import { computed, ref } from 'vue'
 import { ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
 import { useTheme } from '@/shared/theme/theme'
-import fixture from './marketBreadth.fixture.json'
+import type { MarketBreadthRow } from './market-breadth.api'
+
+const props = defineProps<{ rows: MarketBreadthRow[] }>()
 
 const columns = ['New highs (%)','New lows (%)','12W highs (%)','12W lows (%)','4W highs (%)','4W lows (%)','Above 10D MA (%)','Above 50D MA (%)','Above 200D MA (%)','Above BB (%)','Below BB (%)','RSI < 30 (%)','RSI > 70 (%)','A/D','Cumulative A/D','10D A/D ratio','McClellan Osc.','McClellan Sum.','Panic Composite']
 const details = ['Share of constituents at new highs (%)','Share of constituents at new lows (%)','Share of constituents at 12-week highs (%)','Share of constituents at 12-week lows (%)','Share of constituents at 4-week highs (%)','Share of constituents at 4-week lows (%)','Share of constituents above their 10-day moving average (%)','Share of constituents above their 50-day moving average (%)','Share of constituents above their 200-day moving average (%)','Share of constituents above the upper Bollinger Band (%)','Share of constituents below the lower Bollinger Band (%)','Share of constituents with RSI below 30 (%)','Share of constituents with RSI above 70 (%)','Advancing minus declining constituents','Cumulative advance–decline line reading','10-day advance–decline ratio','McClellan Oscillator reading','McClellan Summation Index reading','Panic Composite reading']
@@ -17,7 +19,6 @@ const darkPalette: Record<string, Tint> = {
 }
 const { isDarkTheme } = useTheme()
 const palette = computed<Record<string, Tint>>(() => (isDarkTheme.value ? darkPalette : lightPalette))
-const rows: { symbol: string; group: string; values: (number | null)[]; colors: Record<string, string> }[] = fixture.map((row) => ({ ...row, colors: Object.fromEntries(Object.entries(row.colors).filter((entry): entry is [string, string] => typeof entry[1] === 'string')) }))
 const query = ref('')
 const scope = ref<'all' | 'D' | 'F'>('all')
 const sort = ref(-1)
@@ -27,11 +28,11 @@ const selected = ref(['SPY', 'QQQ', 'IWM'])
 const status = ref('Use the checkboxes below to change this comparison.')
 const filtered = computed(() => {
   const term = query.value.trim().toLowerCase()
-  const result = rows.filter((row) => (scope.value === 'all' || row.group === scope.value) && row.symbol.toLowerCase().includes(term))
+  const result = props.rows.filter((row) => (scope.value === 'all' || row.group === scope.value) && row.symbol.toLowerCase().includes(term))
   if (sort.value >= 0) result.sort((left, right) => { const a = left.values[sort.value], b = right.values[sort.value]; return a === null ? 1 : b === null ? -1 : (a - b) * (ascending.value ? 1 : -1) })
   return result
 })
-const comparison = computed(() => selected.value.map((symbol) => rows.find((row) => row.symbol === symbol)).filter((row): row is typeof rows[number] => !!row))
+const comparison = computed(() => selected.value.map((symbol) => props.rows.find((row) => row.symbol === symbol)).filter((row): row is MarketBreadthRow => !!row))
 function toggleSort(index: number) { ascending.value = sort.value === index ? !ascending.value : false; sort.value = index }
 function toggleSelected(symbol: string, checked: boolean, input?: HTMLInputElement) {
   if (checked && selected.value.length >= 4) { if (input) input.checked = false; status.value = 'Select up to four markets. Remove one to add another.'; return }
@@ -39,7 +40,7 @@ function toggleSelected(symbol: string, checked: boolean, input?: HTMLInputEleme
   status.value = 'Blue bars compare the selected reading on the same scale.'
 }
 function reset() { query.value = ''; scope.value = 'all'; sort.value = -1; ascending.value = false; metric.value = 8; selected.value = ['SPY', 'QQQ', 'IWM']; status.value = 'Use the checkboxes below to change this comparison.' }
-const tint = (row: typeof rows[number], index: number) => palette.value[row.colors[String(index)]]
+const tint = (row: MarketBreadthRow, index: number) => palette.value[row.colors[String(index)]]
 </script>
 
 <template>

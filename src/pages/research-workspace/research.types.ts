@@ -13,6 +13,8 @@ export interface ResearchSeries {
   change: string
   status: string
   points: number[]
+  dates?: string[]
+  indicatorId?: string
 }
 
 export interface ResearchTable {

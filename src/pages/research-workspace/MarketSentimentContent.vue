@@ -1,31 +1,37 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
+import { fetchMarketSentiment } from './market-sentiment.api'
 
 type Market = { id: number; market: string; close: number; value: number; date: string }
-const source: Array<[string, number, number, string?]> = [
-  ['Bonds',43,3],['British Pound',36,4],['CRB Index',48,4],['Canadian Dollar',44,4],
-  ['Cattle',47,4],['Cocoa',34,4],['Coffee',52,4],['Copper',69,5],['Corn',37,4],
-  ['Cotton',59,4],['Crude Oil',58,4],['Euro',29,3],['Gold',55,4],['Heating Oil',69,4],
-  ['Hogs',27,3],['S&P 500',47,4],['Japanese Yen',43,4],['Lumber',31,4,'2023-05-15'],
-  ['Natural Gas',24,2],['Orange Juice',36,4],['Platinum',44,4],['Silver',47,4],
-  ['Soybeans',59,4],['Sugar',63,4],['Swiss Franc',48,4],['US Dollar',60,5],['Wheat',37,4],
-]
-const rows: Market[] = source.map(([market, close, value, date], id) => ({ id, market, close, value, date: date ?? '2026-10-26' }))
+const rows = ref<Market[]>([])
+const error = ref('')
+const distribution = ref({ pessimism: 0, neutral: 0, optimism: 0 })
+const controller = new AbortController()
+onMounted(async () => {
+  try {
+    const result = await fetchMarketSentiment(controller.signal)
+    rows.value = result.markets.map((item, id) => ({ id, market: item.name, close: Number(item.optix), value: Number(item.position), date: item.date })).filter(item => item.market && Number.isFinite(item.close) && Number.isInteger(item.value) && item.value >= 1 && item.value <= 7)
+    distribution.value = result.distribution
+  } catch (reason) { if (!controller.signal.aborted) error.value = reason instanceof Error ? reason.message : 'Unable to load market overview' }
+})
+onBeforeUnmount(() => controller.abort())
 const colors = ['#24916b','#65b987','#b6dfbc','#e5ebf3','#f0c1bd','#e58682','#c85059']
 // The scale colors are theme-aware: the actual values live in CSS (see .ms-page vars).
 const scaleColor = (index: number) => `var(--ms-scale-${index + 1})`
 const sentiment = (value: number) => value < 4 ? 'Pessimism' : value > 4 ? 'Optimism' : 'Neutral'
-const counts = colors.map((_, index) => rows.filter(row => row.value === index + 1).length)
+const counts = computed(() => colors.map((_, index) => rows.value.filter(row => row.value === index + 1).length))
+const maxCount = computed(() => Math.max(1, ...counts.value))
+const latestDate = computed(() => rows.value.map(row => row.date).sort().at(-1) ?? '')
 const query = ref('')
 const scope = ref('all')
 const order = ref('source')
 const sortKey = ref<'market' | 'date' | 'close' | 'value' | 'sentiment' | null>(null)
 const sortDirection = ref<'asc' | 'desc'>('asc')
-const selectedId = ref(18)
-const selected = computed(() => rows[selectedId.value]!)
+const selectedId = ref(0)
+const selected = computed(() => rows.value[selectedId.value] ?? rows.value[0])
 const visible = computed(() => {
-  const result = rows.filter(row => row.market.toLowerCase().includes(query.value.trim().toLowerCase()) && (scope.value === 'all' || sentiment(row.value).toLowerCase() === scope.value))
+  const result = rows.value.filter(row => row.market.toLowerCase().includes(query.value.trim().toLowerCase()) && (scope.value === 'all' || sentiment(row.value).toLowerCase() === scope.value))
   if (sortKey.value) result.sort((a,b) => {
     const key = sortKey.value!
     const comparison = key === 'market' ? a.market.localeCompare(b.market) : key === 'date' ? a.date.localeCompare(b.date) : key === 'close' ? a.close-b.close : a.value-b.value
@@ -43,35 +49,39 @@ function sortBy(key: 'market' | 'date' | 'close' | 'value' | 'sentiment') {
   order.value = 'source'
 }
 function setOrder(value: string) { order.value = value; sortKey.value = null }
-function reset() { query.value = ''; scope.value = 'all'; order.value = 'source'; sortKey.value = null; sortDirection.value = 'asc'; selectedId.value = 18 }
+function reset() { query.value = ''; scope.value = 'all'; order.value = 'source'; sortKey.value = null; sortDirection.value = 'asc'; selectedId.value = 0 }
 </script>
 
 <template>
   <div class="ms-page">
+    <p v-if="error" role="alert" class="mb-4 text-[var(--app-negative)]">{{ error }}</p>
+    <p v-if="!rows.length && !error" role="status">Loading market overview…</p>
+    <template v-if="rows.length">
     <div class="ms-stats">
-      <div v-for="stat in [{label:'Markets covered',value:27,note:'Optix market overview',color:'#126df2'},{label:'Pessimism',value:4,note:'Positions 1–3',color:'#47a679'},{label:'Neutral',value:21,note:'Position 4',color:'#9aabc0'},{label:'Optimism',value:2,note:'Positions 5–7',color:'#da7e7b'}]" :key="stat.label" class="ms-stat" :style="{'--accent':stat.color}"><span>{{ stat.label }}</span><strong>{{ stat.value }}</strong><small>{{ stat.note }}</small></div>
+      <div v-for="stat in [{label:'Markets covered',value:rows.length,note:'Optix market overview',color:'#126df2'},{label:'Pessimism',value:distribution.pessimism,note:'Positions 1–3',color:'#47a679'},{label:'Neutral',value:distribution.neutral,note:'Position 4',color:'#9aabc0'},{label:'Optimism',value:distribution.optimism,note:'Positions 5–7',color:'#da7e7b'}]" :key="stat.label" class="ms-stat" :style="{'--accent':stat.color}"><span>{{ stat.label }}</span><strong>{{ stat.value }}</strong><small>{{ stat.note }}</small></div>
     </div>
     <div class="ms-overview">
       <section class="ms-panel ms-dist-panel">
-        <div class="ms-dist-head"><div><h3>Markets by sentiment position</h3><p>Counts cover all 27 markets, regardless of table filters.</p></div><span class="ms-chip">27 markets</span></div>
-        <div class="ms-distribution"><div v-for="(count,index) in counts" :key="index" class="ms-dist-col"><strong>{{ count }}</strong><div class="ms-dist-track"><i :style="{height:`${count / 21 * 100}%`,background:index === 3 ? 'var(--ms-neutral)' : scaleColor(index)}"></i></div><span>{{ index + 1 }}</span></div></div>
+        <div class="ms-dist-head"><div><h3>Markets by sentiment position</h3><p>Counts cover all available markets, regardless of table filters.</p></div><span class="ms-chip">{{ rows.length }} markets</span></div>
+        <div class="ms-distribution"><div v-for="(count,index) in counts" :key="index" class="ms-dist-col"><strong>{{ count }}</strong><div class="ms-dist-track"><i :style="{height:`${count / maxCount * 100}%`,background:index === 3 ? 'var(--ms-neutral)' : scaleColor(index)}"></i></div><span>{{ index + 1 }}</span></div></div>
         <div class="ms-scale-labels"><span>Pessimism</span><span>Neutral</span><span>Optimism</span></div>
       </section>
-      <section class="ms-panel ms-spotlight">
+      <section v-if="selected" class="ms-panel ms-spotlight">
         <div class="ms-spot-title"><div><span class="ms-eyebrow">SELECTED MARKET</span><h3>{{ selected.market }}</h3></div><span class="ms-chip" :class="sentiment(selected.value).toLowerCase()">{{ sentiment(selected.value) }}</span></div>
-        <div class="ms-spot-numbers"><div><span>Current Optix</span><strong>{{ selected.close }}</strong></div><div><span>Position</span><strong>{{ selected.value }}<small>/ 7</small></strong></div><div class="ms-spot-date"><span>Data date</span><b>{{ selected.date }}</b><em v-if="selected.market === 'Lumber'">Earlier update</em></div></div>
+        <div class="ms-spot-numbers"><div><span>Current Optix</span><strong>{{ selected.close }}</strong></div><div><span>Position</span><strong>{{ selected.value }}<small>/ 7</small></strong></div><div class="ms-spot-date"><span>Data date</span><b>{{ selected.date }}</b><em v-if="selected.date < latestDate">Earlier update</em></div></div>
         <div class="ms-gauge large" :aria-label="`Sentiment position ${selected.value} of 7`"><i v-for="index in 7" :key="index" :style="{background:scaleColor(index - 1)}"></i><b :style="{left:`calc(${(selected.value-.5)/7*100}% - 6px)`}"></b></div>
         <div class="ms-scale-labels"><span>Pessimism</span><span>Neutral</span><span>Optimism</span></div>
       </section>
     </div>
     <section class="ms-panel ms-readings">
-      <div class="ms-panel-head"><div><h2>Optix readings by market</h2><p>Select a market to inspect its Optix reading and sentiment position above.</p></div><span class="ms-chip">{{ visible.length }} of 27 markets</span></div>
+      <div class="ms-panel-head"><div><h2>Optix readings by market</h2><p>Select a market to inspect its Optix reading and sentiment position above.</p></div><span class="ms-chip">{{ visible.length }} of {{ rows.length }} markets</span></div>
       <div class="ms-toolbar"><input v-model="query" type="search" placeholder="Search markets, commodities or currencies…" aria-label="Search markets"><select :value="order" aria-label="Sort markets" @change="setOrder(($event.target as HTMLSelectElement).value)"><option value="source">Default order</option><option value="name">Market A–Z</option><option value="value-asc">Position · low to high</option><option value="value-desc">Position · high to low</option><option value="date">Date · oldest first</option></select><button class="ms-reset" @click="reset">Reset</button></div>
-      <div class="ms-filters"><button v-for="filter in [{key:'all',label:'All markets',count:27},{key:'pessimism',label:'Pessimism',count:4},{key:'neutral',label:'Neutral',count:21},{key:'optimism',label:'Optimism',count:2}]" :key="filter.key" :class="{active:scope === filter.key}" @click="scope = filter.key">{{ filter.label }} <span>{{ filter.count }}</span></button></div>
-      <div class="ms-table-wrap"><table class="ms-table"><thead><tr><th v-for="column in [{key:'market',label:'Market'},{key:'date',label:'Data date'},{key:'close',label:'Current Optix'},{key:'value',label:'Position (1–7)'}]" :key="column.key"><button type="button" class="ms-sort-button" @click="sortBy(column.key as 'market' | 'date' | 'close' | 'value')">{{ column.label }}<ArrowUp v-if="sortKey === column.key && sortDirection === 'asc'" :size="13"/><ArrowDown v-else-if="sortKey === column.key" :size="13"/><ArrowUpDown v-else :size="13"/></button></th><th><div class="ms-scale-labels"><span>Pessimism</span><span>Neutral</span><span>Optimism</span></div></th><th><button type="button" class="ms-sort-button" @click="sortBy('sentiment')">Sentiment<ArrowUp v-if="sortKey === 'sentiment' && sortDirection === 'asc'" :size="13"/><ArrowDown v-else-if="sortKey === 'sentiment'" :size="13"/><ArrowUpDown v-else :size="13"/></button></th></tr></thead><tbody><tr v-for="row in visible" :key="row.id" :class="{'ms-selected':row.id === selectedId}"><th scope="row"><button @click="selectedId = row.id">{{ row.market }}</button></th><td :class="{'ms-earlier-date':row.market === 'Lumber'}">{{ row.date }}<i v-if="row.market === 'Lumber'" title="Earlier update date">●</i></td><td class="ms-number">{{ row.close }}</td><td class="ms-number strong">{{ row.value }}</td><td><div class="ms-gauge" :aria-label="`Sentiment position ${row.value} of 7`"><i v-for="index in 7" :key="index" :style="{background:scaleColor(index - 1)}"></i><b :style="{left:`calc(${(row.value-.5)/7*100}% - 4px)`}"></b></div></td><td><span class="ms-position" :class="sentiment(row.value).toLowerCase()">{{ sentiment(row.value) }}</span></td></tr><tr v-if="!visible.length"><td colspan="6" class="ms-empty">No markets match this view.</td></tr></tbody></table></div>
+      <div class="ms-filters"><button v-for="filter in [{key:'all',label:'All markets',count:rows.length},{key:'pessimism',label:'Pessimism',count:distribution.pessimism},{key:'neutral',label:'Neutral',count:distribution.neutral},{key:'optimism',label:'Optimism',count:distribution.optimism}]" :key="filter.key" :class="{active:scope === filter.key}" @click="scope = filter.key">{{ filter.label }} <span>{{ filter.count }}</span></button></div>
+      <div class="ms-table-wrap"><table class="ms-table"><thead><tr><th v-for="column in [{key:'market',label:'Market'},{key:'date',label:'Data date'},{key:'close',label:'Current Optix'},{key:'value',label:'Position (1–7)'}]" :key="column.key"><button type="button" class="ms-sort-button" @click="sortBy(column.key as 'market' | 'date' | 'close' | 'value')">{{ column.label }}<ArrowUp v-if="sortKey === column.key && sortDirection === 'asc'" :size="13"/><ArrowDown v-else-if="sortKey === column.key" :size="13"/><ArrowUpDown v-else :size="13"/></button></th><th><div class="ms-scale-labels"><span>Pessimism</span><span>Neutral</span><span>Optimism</span></div></th><th><button type="button" class="ms-sort-button" @click="sortBy('sentiment')">Sentiment<ArrowUp v-if="sortKey === 'sentiment' && sortDirection === 'asc'" :size="13"/><ArrowDown v-else-if="sortKey === 'sentiment'" :size="13"/><ArrowUpDown v-else :size="13"/></button></th></tr></thead><tbody><tr v-for="row in visible" :key="row.id" :class="{'ms-selected':row.id === selectedId}"><th scope="row"><button @click="selectedId = row.id">{{ row.market }}</button></th><td :class="{'ms-earlier-date':row.date < latestDate}">{{ row.date }}<i v-if="row.date < latestDate" title="Earlier update date">●</i></td><td class="ms-number">{{ row.close }}</td><td class="ms-number strong">{{ row.value }}</td><td><div class="ms-gauge" :aria-label="`Sentiment position ${row.value} of 7`"><i v-for="index in 7" :key="index" :style="{background:scaleColor(index - 1)}"></i><b :style="{left:`calc(${(row.value-.5)/7*100}% - 4px)`}"></b></div></td><td><span class="ms-position" :class="sentiment(row.value).toLowerCase()">{{ sentiment(row.value) }}</span></td></tr><tr v-if="!visible.length"><td colspan="6" class="ms-empty">No markets match this view.</td></tr></tbody></table></div>
       <div class="ms-footer"><span>Position 1 = extreme pessimism · 4 = neutral · 7 = extreme optimism.</span><span>Current Optix and sentiment position are separate readings.</span></div>
     </section>
-    <div class="ms-date-note"><b>Data dates.</b> 26 markets show 2026-10-26; Lumber was last updated on 2023-05-15. Check the date when comparing markets. The summary and distribution include all 27 rows.</div>
+    <div class="ms-date-note">Data dates are supplied by the market overview API. Check each row when comparing markets.</div>
+    </template>
   </div>
 </template>
 

@@ -1,6 +1,6 @@
 import { businessDates, staticSeries } from './research.api'
 
-export type IntradayItem = { id: string; name: string; group: 'index' | 'overview' | 'sp1500'; min: number; max: number; decimals: number; unit: string; description: string; zeroBaseline: boolean; anchor: number; values: number[]; change: number; updated: number }
+export type IntradayItem = { id: string; name: string; group: 'index' | 'overview' | 'sp1500'; min: number; max: number; pessExtreme?: number; optExtreme?: number; decimals: number; unit: string; description: string; zeroBaseline: boolean; anchor: number; values: number[]; change: number; updated: number }
 type Spec = readonly [string, number, number, number, number, number, string, string, boolean?]
 const legacy: Spec[] = [
   ['S&P 500',7522,7667,7350,7850,0,'pts','Index level'],['Nasdaq 100',28540,29412,28000,30000,0,'pts','Index level'],
