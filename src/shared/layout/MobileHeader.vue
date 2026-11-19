@@ -13,8 +13,11 @@ import {
 } from '@lucide/vue'
 import { useTheme } from '@/shared/theme/theme'
 import HeaderSearchAutocomplete from './HeaderSearchAutocomplete.vue'
+import { isWeeklyEmailOnly } from '@/shared/auth/permission'
+import { useNotificationCount } from '@/shared/notifications/useNotificationCount'
 
 const route = useRoute()
+const weeklyEmailOnly = isWeeklyEmailOnly()
 const { isDarkTheme, themeToggleLabel, toggleThemeMode } = useTheme()
 const isDrawerOpen = ref(false)
 const isSearchOpen = ref(false)
@@ -45,8 +48,7 @@ function toggleGroup(group: string) {
   expandedGroups.value[group] = !expandedGroups.value[group]
 }
 
-// Notification count (can be fetched from store)
-const notificationCount = 8
+const notificationCount = useNotificationCount()
 </script>
 
 <template>
@@ -63,7 +65,7 @@ const notificationCount = 8
           <X v-else :size="22" />
         </button>
 
-        <RouterLink to="/" class="inline-flex items-center justify-center" @click.stop>
+        <RouterLink :to="weeklyEmailOnly ? '/MR/tradingedge' : '/'" class="inline-flex items-center justify-center" @click.stop>
           <img :src="logoUrl" alt="Logo" class="h-8 w-auto object-contain" />
         </RouterLink>
       </div>
@@ -71,7 +73,7 @@ const notificationCount = 8
       <!-- Right: Action buttons -->
       <div class="flex items-center gap-1">
         <!-- Search button -->
-        <button
+        <button v-if="!weeklyEmailOnly"
           @click="toggleSearch"
           class="inline-flex items-center justify-center p-2 rounded-md text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
           aria-label="Search"
@@ -80,7 +82,7 @@ const notificationCount = 8
         </button>
 
         <!-- Notifications -->
-        <a
+        <a v-if="!weeklyEmailOnly"
           href="/notifications"
           class="relative inline-flex items-center justify-center p-2 rounded-md text-[var(--chrome-text)] hover:bg-[var(--chrome-hover)] transition"
           aria-label="Notifications"
@@ -186,7 +188,10 @@ const notificationCount = 8
             </div>
 
             <!-- Navigation list -->
-            <nav class="py-2">
+            <nav v-if="weeklyEmailOnly" class="py-2">
+              <RouterLink to="/MR/tradingedge" class="flex items-center px-4 py-3 text-sm text-[var(--chrome-text)]" @click="toggleDrawer">TradingEdge Report</RouterLink>
+            </nav>
+            <nav v-else class="py-2">
               <!-- Main features -->
               <div class="px-3 py-2 text-xs font-semibold text-[var(--chrome-text-muted)] uppercase tracking-wide">
                 Main Features

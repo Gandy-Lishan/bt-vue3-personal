@@ -7,6 +7,7 @@ import {
   ChevronDown,
   CircleHelp,
   Home,
+  Info,
   KeyRound,
   LogOut,
   MessageCircle,
@@ -16,9 +17,10 @@ import {
   Sun,
   User,
 } from '@lucide/vue'
-import { hasAuthenticatedCookie, canAccessNavigationItem, getCurrentAccessLevels, getCurrentUsername } from '@/shared/auth/permission'
+import { hasAuthenticatedCookie, canAccessNavigationItem, getCurrentAccessLevels, getCurrentUsername, isWeeklyEmailOnly } from '@/shared/auth/permission'
 import { useTheme } from '@/shared/theme/theme'
 import HeaderSearchAutocomplete from './HeaderSearchAutocomplete.vue'
+import { useNotificationCount } from '@/shared/notifications/useNotificationCount'
 
 interface NavItem {
   label: string
@@ -31,14 +33,26 @@ interface NavItem {
 
 const route = useRoute()
 const { isDarkTheme, themeToggleLabel, toggleThemeMode } = useTheme()
+const notificationCount = useNotificationCount()
 
 // Reactive auth state — refreshes on route change so nav updates after login/logout
-const isAuthenticated = ref(hasAuthenticatedCookie())
 const accessLevelsSnapshot = ref(getCurrentAccessLevels())
 const currentUsername = ref(getCurrentUsername())
+const guestMode = computed(() => currentUsername.value === 'guest@sentimentrader.com')
+const guestDialog = ref<HTMLDialogElement | null>(null)
+const guestDialogKind = ref<'guide' | 'member'>('guide')
+
+function openGuestDialog(kind: 'guide' | 'member') {
+  if (kind === 'member') {
+    const event = new CustomEvent('guest-member-access', { detail: { handled: false } })
+    window.dispatchEvent(event)
+    if (event.detail.handled) return
+  }
+  guestDialogKind.value = kind
+  guestDialog.value?.showModal()
+}
 
 function refreshAuthState() {
-  isAuthenticated.value = hasAuthenticatedCookie()
   accessLevelsSnapshot.value = getCurrentAccessLevels()
   currentUsername.value = getCurrentUsername()
 }
@@ -169,7 +183,7 @@ const navItems: NavItem[] = [
 
 function permittedNavItem(item: NavItem): NavItem | null {
   const levels = accessLevelsSnapshot.value
-  const authenticated = isAuthenticated.value
+  const authenticated = hasAuthenticatedCookie()
   const subMenu = item.subMenu?.filter((subItem) =>
     canAccessNavigationItem(subItem.path, subItem.permissions ?? item.permissions, subItem.external, levels, authenticated),
   )
@@ -179,7 +193,9 @@ function permittedNavItem(item: NavItem): NavItem | null {
   return subMenu ? { ...item, subMenu } : item
 }
 
-const visibleNavItems = computed(() => navItems.map(permittedNavItem).filter((item): item is NavItem => item !== null))
+const visibleNavItems = computed(() => isWeeklyEmailOnly(accessLevelsSnapshot.value)
+  ? [{ label: 'TradingEdge Report', keyPath: 'weekly-email', path: '/MR/tradingedge' }]
+  : navItems.map(permittedNavItem).filter((item): item is NavItem => item !== null))
 
 function isActive(item: NavItem) {
   if (item.path === '/') return route.path === '/'
@@ -207,26 +223,28 @@ function alignDropdown(item: NavItem, event: MouseEvent) {
 
 <template>
   <header class="no-print relative z-20 border-b border-[var(--chrome-border)] bg-[var(--chrome-bg)] text-sm font-normal text-[var(--chrome-text)] shadow-[0_10px_30px_rgba(5,16,31,0.18)]">
-    <div class="flex h-[66px] items-center gap-6 px-[var(--page-gutter)]">
-      <RouterLink class="flex min-w-[200px] items-center" to="/">
+    <div class="flex h-[66px] items-center gap-6 px-[var(--page-gutter)]" :class="{ 'justify-start': isWeeklyEmailOnly(accessLevelsSnapshot) }">
+      <RouterLink class="flex min-w-[200px] items-center" :to="isWeeklyEmailOnly(accessLevelsSnapshot) ? '/MR/tradingedge' : '/'">
         <img :src="logoUrl" alt="SentimenTrader logo" width="175" height="35" class="h-[35px] w-[175px] object-contain" />
       </RouterLink>
 
-      <div class="mx-auto w-full max-w-[720px]">
+      <div v-if="!isWeeklyEmailOnly(accessLevelsSnapshot)" class="mx-auto w-full max-w-[720px]">
         <HeaderSearchAutocomplete />
       </div>
 
-      <div class="flex shrink-0 items-center gap-2">
-        <RouterLink
-          v-if="!isAuthenticated"
-          to="/pricing"
-          class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)]"
-        >
-          Pricing
-        </RouterLink>
-        <a class="relative inline-flex items-center justify-center rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]" href="/notifications" aria-label="Notifications">
+      <div v-if="guestMode" class="ml-auto flex shrink-0 items-center gap-2.5 whitespace-nowrap">
+        <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--chrome-border)] bg-[var(--chrome-hover)] px-2.5 text-xs font-medium text-[var(--chrome-text)] transition hover:opacity-80" aria-label="Guest guide" @click="openGuestDialog('guide')">
+          Guest
+          <Info :size="19" :stroke-width="1.6" />
+        </button>
+        <button type="button" class="inline-flex h-9 items-center rounded-md border border-[var(--chrome-border)] px-3 text-sm text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)]" @click="openGuestDialog('member')">Member access</button>
+        <a href="https://sentimentrader.com/pricing" target="_blank" rel="noopener noreferrer" class="inline-flex h-9 items-center rounded-md bg-[var(--chrome-accent)] px-3 text-sm font-medium text-white transition hover:opacity-90">Explore membership</a>
+      </div>
+
+      <div v-else class="flex shrink-0 items-center gap-2" :class="{ 'ml-auto': isWeeklyEmailOnly(accessLevelsSnapshot) }">
+        <a v-if="!isWeeklyEmailOnly(accessLevelsSnapshot)" class="relative inline-flex items-center justify-center rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]" href="/notifications" aria-label="Notifications">
           <Bell :size="18" />
-          <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff4b63] px-1 text-[0.625rem] font-normal text-white">8</span>
+          <span v-if="notificationCount > 0" class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff4b63] px-1 text-[0.625rem] font-normal text-white">{{ notificationCount > 9 ? '9+' : notificationCount }}</span>
         </a>
         <button
           class="inline-flex items-center justify-center rounded-md p-2 text-[var(--chrome-text)] transition hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-text)]"
@@ -247,7 +265,7 @@ function alignDropdown(item: NavItem, event: MouseEvent) {
             Tutorial & Webinar Videos
             <ChevronDown :size="14" />
           </button>
-          <div class="invisible absolute right-0 top-full z-30 mt-1 min-w-[250px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
+          <div class="invisible absolute right-0 top-full z-30 min-w-[250px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
             <a v-for="item in tutorialItems" :key="item.keyPath" :href="item.path" target="_blank" class="flex items-center gap-2 px-3 py-2 text-sm font-normal text-[var(--chrome-text)] hover:bg-[var(--chrome-menu-hover)]">
               <Play :size="15" />
               {{ item.label }}
@@ -260,7 +278,7 @@ function alignDropdown(item: NavItem, event: MouseEvent) {
             Help
             <ChevronDown :size="14" />
           </button>
-          <div class="invisible absolute right-0 top-full z-30 mt-1 min-w-[260px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
+          <div class="invisible absolute right-0 top-full z-30 min-w-[260px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
             <component
               :is="item.external ? 'a' : 'RouterLink'"
               v-for="item in helpItems"
@@ -286,7 +304,7 @@ function alignDropdown(item: NavItem, event: MouseEvent) {
             My Account
             <ChevronDown :size="14" />
           </button>
-          <div class="invisible absolute right-0 top-full z-30 mt-1 min-w-[220px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
+          <div class="invisible absolute right-0 top-full z-30 min-w-[220px] rounded-md border border-[var(--chrome-menu-border)] bg-[var(--chrome-menu-bg)] py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
             <div class="border-b border-[var(--chrome-border-muted)] px-3 pb-2 mb-1">
               <p class="truncate text-sm font-medium text-[var(--chrome-text)]">{{ currentUsername }}</p>
             </div>
@@ -345,4 +363,35 @@ function alignDropdown(item: NavItem, event: MouseEvent) {
       </div>
     </nav>
   </header>
+  <Teleport to="body">
+    <dialog ref="guestDialog" class="fixed left-1/2 top-1/2 m-0 w-[min(700px,94vw)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-0 text-[var(--app-text)] shadow-2xl backdrop:bg-[#07182a]/60" @click="($event) => { if ($event.target === guestDialog) guestDialog?.close() }">
+      <div class="flex items-start justify-between gap-4 border-b border-[var(--app-border)] px-6 py-4">
+        <div>
+          <span class="text-[10px] font-semibold tracking-[0.16em] text-[var(--app-primary)]">{{ guestDialogKind === 'guide' ? 'GUEST GUIDE' : 'MEMBER ACCESS' }}</span>
+          <h2 class="mt-1 text-lg font-semibold">{{ guestDialogKind === 'guide' ? 'What you can explore' : 'Member access' }}</h2>
+        </div>
+        <button type="button" class="rounded px-2 text-2xl text-[var(--app-text-muted)] hover:bg-[var(--app-surface-soft)]" aria-label="Close dialog" @click="guestDialog?.close()">×</button>
+      </div>
+      <div v-if="guestDialogKind === 'guide'" class="space-y-4 px-6 py-6 text-sm">
+        <p class="text-base font-semibold">Get to know the tools before becoming a member.</p>
+        <p>Explore the pages, search, change views, and inspect available historical samples.</p>
+        <div class="rounded-md bg-[var(--app-surface-soft)] p-4"><strong>Guest access</strong><p class="mt-1">Historical sample charts and tables are available for preview.</p></div>
+        <div class="rounded-md bg-[var(--app-surface-soft)] p-4"><strong>Requires membership</strong><p class="mt-1">Current readings, recent data, and member signals require a subscription.</p></div>
+        <p class="text-xs text-[var(--app-text-muted)]">Sample readings illustrate the guest experience and are not current market data.</p>
+        <button type="button" class="rounded-md bg-[var(--app-primary)] px-4 py-2 font-semibold text-white" @click="guestDialog?.close()">Continue exploring</button>
+      </div>
+      <div v-else class="space-y-5 px-6 py-6 text-sm">
+        <div class="text-center"><h3 class="text-xl font-semibold">Continue with member access</h3><p class="mt-2 text-[var(--app-text-secondary)]">Sign in with a subscription to see the latest data.</p></div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="rounded-md border border-[var(--app-border)] p-4"><strong>AVAILABLE NOW</strong><p class="mt-2">Keep exploring historical samples and feature descriptions.</p></div>
+          <div class="rounded-md border border-[var(--app-border)] p-4"><strong>MEMBER ACCESS</strong><p class="mt-2">See current readings, recent data, and member signals.</p></div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="https://sentimentrader.com/pricing" target="_blank" rel="noopener noreferrer" class="rounded-md bg-[var(--app-primary)] px-4 py-2 font-semibold text-white">Explore membership</a>
+          <button type="button" class="rounded-md border border-[var(--app-border)] px-4 py-2" @click="guestDialog?.close()">Continue preview</button>
+        </div>
+        <p class="text-[var(--app-text-secondary)]">Already a member? <RouterLink :to="{ path: '/login', query: { redirect: route.fullPath } }" class="font-semibold text-[var(--app-primary)] underline" @click="guestDialog?.close()">Sign in</RouterLink></p>
+      </div>
+    </dialog>
+  </Teleport>
 </template>
