@@ -3,6 +3,8 @@ export interface CustomHeatmapData {
   heatmap: [string, string, number, number][][]
 }
 
+import { toolsEndpoint } from '@/shared/api/tools.api'
+
 export interface CustomHeatmapOption {
   url: string
   chart_name: string
@@ -10,9 +12,7 @@ export interface CustomHeatmapOption {
 }
 
 export async function fetchCustomHeatmapOptions(signal?: AbortSignal): Promise<CustomHeatmapOption[]> {
-  const endpoint = import.meta.env.DEV
-    ? '/prod-st-data/heatmap_user_select_options?include_selected=1'
-    : 'https://bt2api.sentimentrader.com/st_data/heatmap_user_select_options?include_selected=1'
+  const endpoint = toolsEndpoint('heatmap_user_select_options?include_selected=1')
   const response = await fetch(endpoint, { credentials: 'include', signal })
   if (!response.ok) throw new Error(`Heatmap options request failed: ${response.status}`)
   const payload = await response.json()
@@ -21,9 +21,7 @@ export async function fetchCustomHeatmapOptions(signal?: AbortSignal): Promise<C
 }
 
 export async function fetchCustomHeatmap(signal?: AbortSignal): Promise<CustomHeatmapData> {
-  const endpoint = import.meta.env.DEV
-    ? '/prod-st-data/heatmap_user_select'
-    : 'https://bt2api.sentimentrader.com/st_data/heatmap_user_select'
+  const endpoint = toolsEndpoint('heatmap_user_select')
   const response = await fetch(endpoint, { credentials: 'include', signal })
   if (!response.ok) throw new Error(`Heatmap request failed: ${response.status}`)
   const payload = await response.json()
@@ -35,9 +33,7 @@ export async function fetchCustomHeatmap(signal?: AbortSignal): Promise<CustomHe
 }
 
 export async function updateCustomHeatmap(url: string, method: 'POST' | 'DELETE'): Promise<void> {
-  const endpoint = import.meta.env.DEV
-    ? '/prod-st-data/heatmap_user_select'
-    : 'https://bt2api.sentimentrader.com/st_data/heatmap_user_select'
+  const endpoint = toolsEndpoint('heatmap_user_select')
   const response = await fetch(endpoint, {
     method, credentials: 'include',
     headers: { 'Content-Type': 'application/json' },

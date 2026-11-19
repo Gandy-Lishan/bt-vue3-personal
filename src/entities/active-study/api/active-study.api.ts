@@ -1,5 +1,6 @@
 import { normalizeActiveStudies } from '../model/active-study.adapter'
 import type { ActiveStudiesResponse } from '../model/active-study.types'
+import { toolsEndpoint } from '@/shared/api/tools.api'
 
 export class ActiveStudiesRequestError extends Error {
   readonly status: number
@@ -12,7 +13,7 @@ export class ActiveStudiesRequestError extends Error {
 }
 
 export async function fetchActiveStudies(signal?: AbortSignal): Promise<ActiveStudiesResponse> {
-  const response = await fetch('/dev/st_data/active_studies', {
+  const response = await fetch(toolsEndpoint('active_studies'), {
     credentials: 'include',
     signal,
     headers: { Accept: 'application/json, text/plain' },

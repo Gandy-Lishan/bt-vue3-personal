@@ -93,7 +93,7 @@ describe('report library API', () => {
     const response = await fetchReportLibrary({ archiveYear: 2026, page: 1 })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/dev/st_data/archived_reports?year=2026&page=1',
+      '/tools-st-data/tools/archived_reports?year=2026&page=1',
       expect.objectContaining({ credentials: 'include' }),
     )
     expect(response.items[0]).toEqual(expect.objectContaining({ category: 'Daily Report' }))
@@ -130,7 +130,7 @@ describe('report library API', () => {
     await fetchReportLibrary({ archiveYear: 2019, page: 2 })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/dev/st_data/old_archived_reports?year=2019&page=2',
+      '/tools-st-data/tools/old_archived_reports?year=2019&page=2',
       expect.objectContaining({ credentials: 'include' }),
     )
   })

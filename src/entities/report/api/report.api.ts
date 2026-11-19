@@ -1,6 +1,7 @@
 import type { ReportDetail, ReportForecast, ReportLibraryItem } from '../model/report.types'
 import { getCurrentAccessLevels } from '@/shared/auth/permission'
 import { canAccessReport, isReportPublic } from '../model/report.access'
+import { toolsEndpoint } from '@/shared/api/tools.api'
 
 type RawReport = Record<string, unknown>
 
@@ -180,7 +181,7 @@ async function fetchStDataReportLibrary(query: ReportLibraryQuery, signal?: Abor
     searchParams.set('year', String(query.archiveYear))
     searchParams.set('page', String(query.page ?? 1))
     const endpoint = query.archiveYear <= 2019 ? 'old_archived_reports' : 'archived_reports'
-    return normalizeResponse(await fetchPayload(`/dev/st_data/${endpoint}?${searchParams.toString()}`, signal))
+    return normalizeResponse(await fetchPayload(toolsEndpoint(`${endpoint}?${searchParams.toString()}`), signal))
   }
   if (query.page && query.page > 1) searchParams.set('page', String(query.page))
   if (query.userLevel) searchParams.set('user_level', query.userLevel)
